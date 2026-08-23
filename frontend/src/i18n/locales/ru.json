@@ -1,0 +1,58 @@
+{
+  "nav": { "overview": "Overview", "trade": "Trade", "markets": "Markets", "strategies": "Strategies", "admin": "Admin", "profile": "Профиль" },
+  "topbar": { "live": "Live", "connecting": "Подключение…", "offline": "Offline", "feedStale": "фид устарел" },
+  "auth": {
+    "login": {
+      "title": "Вход в аккаунт", "email": "Email", "password": "Пароль", "submit": "Войти", "submitting": "Вход…",
+      "noAccount": "Нет аккаунта?", "register": "Зарегистрироваться", "tagline": "Платформа для торговли"
+    },
+    "register": {
+      "title": "Регистрация", "createAccount": "Создать аккаунт", "name": "Имя (опционально)", "email": "Email",
+      "password": "Пароль", "confirmPassword": "Повторите пароль", "passwordHint": "Не короче 10 символов, буквы и цифры.",
+      "submit": "Создать аккаунт", "submitting": "Создание…", "haveAccount": "Уже есть аккаунт?", "login": "Войти",
+      "policyAgree": "Регистрируясь, вы соглашаетесь с", "policyLink": "политикой обработки данных"
+    }
+  },
+  "overview": {
+    "welcome": "С возвращением,", "subtitle": "Реальные котировки, реальные ордера.",
+    "startTrading": "Start Trading", "deposit": "Deposit", "myProfile": "Мой профиль",
+    "equity": "Equity", "freeMargin": "Free Margin", "unrealisedPnl": "Unrealised PnL", "openPositions": "Open Positions",
+    "topGainers": "Top Gainers", "topLosers": "Top Losers", "mostVolatile": "Most Volatile",
+    "technicalSignals": "Technical Signals", "signalsHint": "SMA/EMA/RSI/MACD по реальным свечам (1H) — механическая сводка, не инвестсовет"
+  },
+  "terminal": {
+    "positions": "Позиции", "openOrders": "Открытые ордера", "tradeHistory": "История сделок", "alerts": "Алерты",
+    "noOpenPositions": "Нет открытых позиций",
+    "buyLong": "Buy / Long", "sellShort": "Sell / Short",
+    "amount": "Сумма", "leverage": "Плечо", "price": "Цена", "available": "Доступно",
+    "totalCost": "Итого", "insufficientFunds": "Недостаточно свободного баланса",
+    "tpsl": "Take Profit / Stop Loss", "takeProfit": "Take Profit", "stopLoss": "Stop Loss",
+    "estNotional": "Est. Notional", "estMargin": "Est. Margin", "estFee": "Est. Fee", "estLiqPrice": "Est. Liq. Price",
+    "base": "Base", "total": "Total", "margin": "Margin"
+  },
+  "profileTabs": { "wallet": "Кошелёк", "balance": "Баланс", "portfolio": "Портфель", "settings": "Настройки" },
+  "markets": { "searchPlaceholder": "Поиск…" },
+  "strategies": { "title": "Стратегии" },
+  "home": {
+    "navTools": "Инструменты", "navPortfolio": "Портфель", "logIn": "Войти", "signUp": "Создать аккаунт",
+    "searchPlaceholder": "Поиск рынков…", "notifications": "Уведомления", "noNotifications": "Нет новых уведомлений",
+    "marketCap": "Капитализация рынка", "volume24h": "Объём за 24ч", "btcDominance": "Доминация BTC", "fearGreed": "Индекс страха и жадности",
+    "tabAll": "Все", "tabFavorites": "Избранное", "tabNew": "Новые", "tabGainers": "Растущие", "tabLosers": "Падающие",
+    "noFavorites": "Пока нет избранного — нажмите на звёздочку, чтобы добавить",
+    "noQuoteInstruments": "Инструментов с котировкой в {{quote}} пока нет на платформе",
+    "trending": "В тренде", "news": "Новости рынка",
+    "newsNotConnected": "Новостной фид ещё не подключён — компонент готов к подключению API",
+    "trade": "Торговать",
+    "colPair": "Пара", "colPrice": "Цена", "colChange": "Изм. 24ч", "colHigh": "Макс 24ч", "colLow": "Мин 24ч", "colVolume": "Объём 24ч",
+    "heroLine": "Смотрите рынок. Находите актив. Торгуйте.",
+    "heroPre": "Торгуйте на", "heroAccent": "реальном рынке", "heroPost": ".",
+    "heroSub": "Живые цены с Binance и реальное исполнение ордеров — ничего смоделированного.",
+    "heroSpotlight": "Сейчас в фокусе",
+    "promoTitle": "Автоматизируйте торговлю",
+    "promoBody": "Grid и Martingale боты — реальные ордера по вашей логике, прямо в браузере.",
+    "promoCta": "Открыть стратегии"
+  },
+  "common": {
+    "save": "Save", "cancel": "Cancel", "close": "Закрыть", "loading": "Загрузка…", "logout": "Выйти"
+  }
+}

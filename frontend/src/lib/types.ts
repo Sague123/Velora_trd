@@ -1,0 +1,230 @@
+export type Role = "USER" | "ADMIN";
+export type UserStatus = "ACTIVE" | "SUSPENDED";
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  role: Role;
+  status?: UserStatus;
+  balance?: string;
+  createdAt?: string;
+  dateOfBirth?: string | null;
+  avatar?: string | null;
+  accountNumber?: string | null;
+}
+
+export type Category = "SPOT" | "PERP" | "COMMODITY" | "FX" | "CFD";
+export type PriceSource = "BINANCE" | "COINGECKO" | "ECB" | "SYNTHETIC" | "NONE";
+
+export interface Instrument {
+  symbol: string;
+  name: string;
+  category: Category;
+  maxLeverage: number;
+  priceDecimals: number;
+  fundingRate: number;
+  price: string | null;
+  change24h: number;
+  high24h: string | null;
+  low24h: string | null;
+  volume24h: string | null;
+  source: PriceSource;
+  updatedAt: string | null;
+}
+
+export interface InstrumentsResponse {
+  feed: { healthy: boolean; lastFetch: string | null };
+  instruments: Instrument[];
+}
+
+export interface Candle {
+  t: number;
+  o: string;
+  h: string;
+  l: string;
+  c: string;
+}
+
+export interface CandlesResponse {
+  symbol: string;
+  tf: Timeframe;
+  real: boolean;
+  candles: Candle[];
+}
+
+export type Timeframe = "1m" | "5m" | "15m" | "1H" | "4H" | "1D" | "1W";
+
+export type OrderSide = "BUY" | "SELL";
+export type OrderType = "MARKET" | "LIMIT" | "STOP";
+export type OrderStatus = "NEW" | "FILLED" | "CANCELLED";
+
+export interface Order {
+  id: string;
+  symbol: string;
+  side: OrderSide;
+  type: OrderType;
+  qty: string;
+  price: string;
+  filledPrice: string | null;
+  leverage: number;
+  margin: string;
+  fee: string;
+  takeProfit: string | null;
+  stopLoss: string | null;
+  status: OrderStatus;
+  createdAt: string;
+  filledAt: string | null;
+}
+
+export interface Position {
+  id: string;
+  symbol: string;
+  side: OrderSide;
+  qty: string;
+  entryPrice: string;
+  markPrice: string;
+  leverage: number;
+  margin: string;
+  liquidationPrice: string | null;
+  takeProfit: string | null;
+  stopLoss: string | null;
+  notional: string;
+  unrealisedPnl: string;
+  roePct: number;
+  openedAt: string;
+}
+
+export type CloseReason = "MANUAL" | "TAKE_PROFIT" | "STOP_LOSS" | "LIQUIDATION" | "ADMIN";
+
+export interface Trade {
+  id: string;
+  symbol: string;
+  side: OrderSide;
+  qty: string;
+  entryPrice: string;
+  exitPrice: string;
+  pnl: string;
+  fee: string;
+  closeReason: CloseReason;
+  closedAt: string;
+}
+
+export interface Account {
+  cash: string;
+  usedMargin: string;
+  lockedMargin: string;
+  unrealisedPnl: string;
+  realisedPnl: string;
+  equity: string;
+  marginUsagePct: number;
+  openPositions: number;
+  openOrders: number;
+  totalTrades: number;
+  winRatePct: number | null;
+}
+
+export type LedgerType =
+  | "DEPOSIT" | "WITHDRAWAL" | "TRANSFER_OUT" | "TRANSFER_IN"
+  | "MARGIN_HOLD" | "MARGIN_RELEASE" | "FEE" | "PNL" | "ADMIN_ADJUSTMENT";
+
+export interface LedgerEntry {
+  id: string;
+  type: LedgerType;
+  amount: string;
+  balanceAfter: string;
+  note: string | null;
+  actorUserId: string | null;
+  createdAt: string;
+}
+
+export type AlertDirection = "ABOVE" | "BELOW";
+
+export interface Alert {
+  id: string;
+  symbol: string;
+  direction: AlertDirection;
+  price: string;
+  firedAt: string | null;
+  createdAt: string;
+}
+
+export interface WsPriceTick {
+  symbol: string;
+  price: string;
+  change24h: number;
+  high24h: string | null;
+  low24h: string | null;
+  source: PriceSource;
+}
+
+/* --------------------------------- admin --------------------------------- */
+
+export interface AdminStats {
+  users: number;
+  activeUsers: number;
+  openPositions: number;
+  openOrders: number;
+  closedTrades: number;
+  totalCash: string;
+  totalRealisedPnl: string;
+  totalFees: string;
+}
+
+export interface AdminUserRow {
+  id: string;
+  email: string;
+  name: string;
+  role: Role;
+  status: UserStatus;
+  balance: string;
+  openPositions: number;
+  trades: number;
+  createdAt: string;
+  lastLoginAt: string | null;
+}
+
+export interface AdminUsersResponse {
+  total: number;
+  page: number;
+  pageSize: number;
+  users: AdminUserRow[];
+}
+
+export interface AdminUserDetail {
+  user: {
+    id: string; email: string; name: string; role: Role; status: UserStatus;
+    createdAt: string; lastLoginAt: string | null;
+  };
+  account: {
+    cash: string; usedMargin: string; unrealisedPnl: string; realisedPnl: string;
+    equity: string; marginUsagePct: number;
+  };
+  positions: Position[];
+  orders: Order[];
+  trades: Trade[];
+  ledger: LedgerEntry[];
+}
+
+export interface AuditEntry {
+  id: string;
+  action: string;
+  actor: string | null;
+  target: string | null;
+  meta: any;
+  ip: string | null;
+  createdAt: string;
+}
+
+export interface AuditResponse {
+  total: number;
+  entries: AuditEntry[];
+}
+
+/* -------------------------------- errors --------------------------------- */
+
+export interface ApiErrorBody {
+  error: string;
+  message: string;
+  details?: unknown;
+}

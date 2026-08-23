@@ -1,0 +1,58 @@
+{
+  "nav": { "overview": "Overview", "trade": "Trade", "markets": "Markets", "strategies": "Strategies", "admin": "Admin", "profile": "Profil" },
+  "topbar": { "live": "Live", "connecting": "Připojování…", "offline": "Offline", "feedStale": "data zastaralá" },
+  "auth": {
+    "login": {
+      "title": "Přihlásit se", "email": "E-mail", "password": "Heslo", "submit": "Přihlásit se", "submitting": "Přihlašování…",
+      "noAccount": "Nemáte účet?", "register": "Zaregistrovat se", "tagline": "Obchodní platforma"
+    },
+    "register": {
+      "title": "Registrace", "createAccount": "Vytvořit účet", "name": "Jméno (volitelné)", "email": "E-mail",
+      "password": "Heslo", "confirmPassword": "Potvrďte heslo", "passwordHint": "Alespoň 10 znaků, písmena a čísla.",
+      "submit": "Vytvořit účet", "submitting": "Vytváření…", "haveAccount": "Už máte účet?", "login": "Přihlásit se",
+      "policyAgree": "Registrací souhlasíte se", "policyLink": "zásadami zpracování údajů"
+    }
+  },
+  "overview": {
+    "welcome": "Vítejte zpět,", "subtitle": "Reálné kotace, reálné pokyny.",
+    "startTrading": "Start Trading", "deposit": "Deposit", "myProfile": "Můj profil",
+    "equity": "Equity", "freeMargin": "Volná marže", "unrealisedPnl": "Nerealizovaný zisk/ztráta", "openPositions": "Otevřené pozice",
+    "topGainers": "Nejvíce roste", "topLosers": "Nejvíce klesá", "mostVolatile": "Nejvolatilnější",
+    "technicalSignals": "Technické signály", "signalsHint": "SMA/EMA/RSI/MACD ze skutečných svíček (1H) — mechanický souhrn, ne investiční poradenství"
+  },
+  "terminal": {
+    "positions": "Pozice", "openOrders": "Otevřené pokyny", "tradeHistory": "Historie obchodů", "alerts": "Upozornění",
+    "noOpenPositions": "Žádné otevřené pozice",
+    "buyLong": "Buy / Long", "sellShort": "Sell / Short",
+    "amount": "Částka", "leverage": "Páka", "price": "Cena", "available": "Dostupné",
+    "totalCost": "Celkové náklady", "insufficientFunds": "Nedostatečný dostupný zůstatek",
+    "tpsl": "Take Profit / Stop Loss", "takeProfit": "Take Profit", "stopLoss": "Stop Loss",
+    "estNotional": "Est. Notional", "estMargin": "Est. Margin", "estFee": "Est. Fee", "estLiqPrice": "Est. Liq. Price",
+    "base": "Base", "total": "Total", "margin": "Margin"
+  },
+  "profileTabs": { "wallet": "Peněženka", "balance": "Zůstatek", "portfolio": "Portfolio", "settings": "Nastavení" },
+  "markets": { "searchPlaceholder": "Hledat nástroj…" },
+  "strategies": { "title": "Strategie" },
+  "home": {
+    "navTools": "Obchodní nástroje", "navPortfolio": "Portfolio", "logIn": "Přihlásit se", "signUp": "Vytvořit účet",
+    "searchPlaceholder": "Hledat trhy…", "notifications": "Oznámení", "noNotifications": "Žádná nová oznámení",
+    "marketCap": "Tržní kapitalizace", "volume24h": "Objem za 24h", "btcDominance": "Dominance BTC", "fearGreed": "Index strachu a chamtivosti",
+    "tabAll": "Vše", "tabFavorites": "Oblíbené", "tabNew": "Nové", "tabGainers": "Nejvíce roste", "tabLosers": "Nejvíce klesá",
+    "noFavorites": "Zatím žádné oblíbené — přidejte kliknutím na hvězdičku",
+    "noQuoteInstruments": "Zatím nejsou uvedeny žádné nástroje kótované v {{quote}}",
+    "trending": "V trendu", "news": "Zprávy z trhu",
+    "newsNotConnected": "Zpravodajský kanál zatím není připojen — komponenta je připravena na API",
+    "trade": "Obchodovat",
+    "colPair": "Pár", "colPrice": "Cena", "colChange": "Změna 24h", "colHigh": "Max 24h", "colLow": "Min 24h", "colVolume": "Objem 24h",
+    "heroLine": "Sledujte trh. Najděte aktivum. Obchodujte.",
+    "heroPre": "Obchodujte na", "heroAccent": "reálném trhu", "heroPost": ".",
+    "heroSub": "Živé ceny z Binance a reálné provedení pokynů — nic simulovaného.",
+    "heroSpotlight": "Právě v hledáčku",
+    "promoTitle": "Automatizujte své obchodování",
+    "promoBody": "Grid a Martingale boti — reálné pokyny podle vaší logiky, přímo v prohlížeči.",
+    "promoCta": "Prozkoumat strategie"
+  },
+  "common": {
+    "save": "Uložit", "cancel": "Zrušit", "close": "Zavřít", "loading": "Načítání…", "logout": "Odhlásit se"
+  }
+}

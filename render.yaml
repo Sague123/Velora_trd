@@ -1,0 +1,55 @@
+# Render Blueprint — deploys Velora as two services + a database.
+# In the Render dashboard: New → Blueprint → point at this repo → Apply.
+# See DEPLOY.md at the repo root for the two manual steps this can't do for
+# you (CORS_ORIGIN and VITE_API_URL — each needs the other service's actual
+# assigned URL, which only exists after the first deploy).
+
+databases:
+  # Render's own free Postgres. Free instances are deleted 30 days after
+  # creation — fine to start on, but before that deadline either upgrade
+  # this database's plan in the dashboard, or repoint the web service's
+  # DATABASE_URL at an external always-free Postgres (Neon/Supabase) instead.
+  - name: velora-db
+    plan: free
+    databaseName: velora
+
+services:
+  - name: velora-api
+    type: web
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: velora-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      # Set after the frontend's first deploy — its exact URL isn't known
+      # until then. See DEPLOY.md.
+      - key: CORS_ORIGIN
+        sync: false
+
+  - name: velora-frontend
+    type: web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - source: /(.*)
+        destination: /index.html
+        type: rewrite
+    envVars:
+      # Set to velora-api's assigned URL (e.g. https://velora-api.onrender.com)
+      # after its first deploy. See DEPLOY.md.
+      - key: VITE_API_URL
+        sync: false

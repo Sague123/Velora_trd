@@ -1,0 +1,76 @@
+/** @type {import('tailwindcss').Config} */
+function rgbVar(name) {
+  return `rgb(var(${name}) / <alpha-value>)`;
+}
+
+export default {
+  content: ["./index.html", "./src/**/*.{ts,tsx}"],
+  darkMode: ["selector", '[data-theme="dark"]'],
+  theme: {
+    extend: {
+      colors: {
+        bg: {
+          0: rgbVar("--c-bg-0"),
+          1: rgbVar("--c-bg-1"),
+          2: rgbVar("--c-bg-2"),
+          3: rgbVar("--c-bg-3"),
+          4: rgbVar("--c-bg-4"),
+        },
+        line: {
+          DEFAULT: rgbVar("--c-line"),
+          soft: rgbVar("--c-line-soft"),
+        },
+        txt: {
+          0: rgbVar("--c-txt-0"),
+          1: rgbVar("--c-txt-1"),
+          2: rgbVar("--c-txt-2"),
+          3: rgbVar("--c-txt-3"),
+        },
+        accent: {
+          DEFAULT: rgbVar("--c-accent"),
+          dim: rgbVar("--c-accent-dim"),
+          soft: rgbVar("--c-accent-soft"),
+        },
+        buy: {
+          DEFAULT: rgbVar("--c-buy"),
+          dim: rgbVar("--c-buy-dim"),
+          soft: rgbVar("--c-buy-soft"),
+        },
+        sell: {
+          DEFAULT: rgbVar("--c-sell"),
+          dim: rgbVar("--c-sell-dim"),
+          soft: rgbVar("--c-sell-soft"),
+        },
+        warn: rgbVar("--c-warn"),
+      },
+      fontFamily: {
+        sans: [
+          "Inter",
+          "-apple-system",
+          "Segoe UI",
+          "Roboto",
+          "Helvetica",
+          "Arial",
+          "sans-serif",
+        ],
+        mono: [
+          "'JetBrains Mono'",
+          "'SFMono-Regular'",
+          "Consolas",
+          "'Liberation Mono'",
+          "Menlo",
+          "monospace",
+        ],
+      },
+      fontSize: {
+        "2xs": ["10.5px", { lineHeight: "14px" }],
+      },
+      boxShadow: {
+        // reads the theme-aware token from globals.css instead of a fixed
+        // dark-only value, so it actually looks right in light mode too
+        panel: "var(--shadow-panel)",
+      },
+    },
+  },
+  plugins: [],
+};

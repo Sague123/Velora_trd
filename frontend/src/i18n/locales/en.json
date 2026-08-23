@@ -1,0 +1,58 @@
+{
+  "nav": { "overview": "Overview", "trade": "Trade", "markets": "Markets", "strategies": "Strategies", "admin": "Admin", "profile": "Profile" },
+  "topbar": { "live": "Live", "connecting": "Connecting…", "offline": "Offline", "feedStale": "feed stale" },
+  "auth": {
+    "login": {
+      "title": "Sign in", "email": "Email", "password": "Password", "submit": "Sign in", "submitting": "Signing in…",
+      "noAccount": "Don't have an account?", "register": "Sign up", "tagline": "Trading platform"
+    },
+    "register": {
+      "title": "Sign up", "createAccount": "Create account", "name": "Name (optional)", "email": "Email",
+      "password": "Password", "confirmPassword": "Confirm password", "passwordHint": "At least 10 characters, letters and digits.",
+      "submit": "Create account", "submitting": "Creating…", "haveAccount": "Already have an account?", "login": "Sign in",
+      "policyAgree": "By signing up you agree to the", "policyLink": "data processing policy"
+    }
+  },
+  "overview": {
+    "welcome": "Welcome back,", "subtitle": "Real quotes, real orders.",
+    "startTrading": "Start Trading", "deposit": "Deposit", "myProfile": "My Profile",
+    "equity": "Equity", "freeMargin": "Free Margin", "unrealisedPnl": "Unrealised PnL", "openPositions": "Open Positions",
+    "topGainers": "Top Gainers", "topLosers": "Top Losers", "mostVolatile": "Most Volatile",
+    "technicalSignals": "Technical Signals", "signalsHint": "SMA/EMA/RSI/MACD from real candles (1H) — a mechanical summary, not investment advice"
+  },
+  "terminal": {
+    "positions": "Positions", "openOrders": "Open Orders", "tradeHistory": "Trade History", "alerts": "Alerts",
+    "noOpenPositions": "No open positions",
+    "buyLong": "Buy / Long", "sellShort": "Sell / Short",
+    "amount": "Amount", "leverage": "Leverage", "price": "Price", "available": "Available",
+    "totalCost": "Total Cost", "insufficientFunds": "Insufficient available balance",
+    "tpsl": "Take Profit / Stop Loss", "takeProfit": "Take Profit", "stopLoss": "Stop Loss",
+    "estNotional": "Est. Notional", "estMargin": "Est. Margin", "estFee": "Est. Fee", "estLiqPrice": "Est. Liq. Price",
+    "base": "Base", "total": "Total", "margin": "Margin"
+  },
+  "profileTabs": { "wallet": "Wallet", "balance": "Balance", "portfolio": "Portfolio", "settings": "Settings" },
+  "markets": { "searchPlaceholder": "Search instrument…" },
+  "strategies": { "title": "Strategies" },
+  "home": {
+    "navTools": "Trading Tools", "navPortfolio": "Portfolio", "logIn": "Log in", "signUp": "Create account",
+    "searchPlaceholder": "Search markets…", "notifications": "Notifications", "noNotifications": "No new notifications",
+    "marketCap": "Market Cap", "volume24h": "24h Volume", "btcDominance": "BTC Dominance", "fearGreed": "Fear & Greed",
+    "tabAll": "All", "tabFavorites": "Favorites", "tabNew": "New", "tabGainers": "Gainers", "tabLosers": "Losers",
+    "noFavorites": "No favorites yet — click the star to add one",
+    "noQuoteInstruments": "No instruments quoted in {{quote}} are listed yet",
+    "trending": "Trending", "news": "Market News",
+    "newsNotConnected": "News feed not yet connected — component is ready for an API",
+    "trade": "Trade",
+    "colPair": "Pair", "colPrice": "Price", "colChange": "24h Change", "colHigh": "24h High", "colLow": "24h Low", "colVolume": "24h Volume",
+    "heroLine": "See the market. Find your asset. Trade.",
+    "heroPre": "Trade on the", "heroAccent": "real market", "heroPost": ".",
+    "heroSub": "Live Binance-sourced prices and real order execution — nothing simulated.",
+    "heroSpotlight": "In focus right now",
+    "promoTitle": "Automate your trading",
+    "promoBody": "Grid and Martingale bots — real orders on your logic, right in the browser.",
+    "promoCta": "Explore Strategies"
+  },
+  "common": {
+    "save": "Save", "cancel": "Cancel", "close": "Close", "loading": "Loading…", "logout": "Log out"
+  }
+}

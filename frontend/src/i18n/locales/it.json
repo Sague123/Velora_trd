@@ -1,0 +1,58 @@
+{
+  "nav": { "overview": "Overview", "trade": "Trade", "markets": "Markets", "strategies": "Strategies", "admin": "Admin", "profile": "Profilo" },
+  "topbar": { "live": "Live", "connecting": "Connessione…", "offline": "Offline", "feedStale": "dati non aggiornati" },
+  "auth": {
+    "login": {
+      "title": "Accedi", "email": "Email", "password": "Password", "submit": "Accedi", "submitting": "Accesso…",
+      "noAccount": "Non hai un account?", "register": "Registrati", "tagline": "Piattaforma di trading"
+    },
+    "register": {
+      "title": "Registrazione", "createAccount": "Crea account", "name": "Nome (opzionale)", "email": "Email",
+      "password": "Password", "confirmPassword": "Conferma password", "passwordHint": "Almeno 10 caratteri, lettere e numeri.",
+      "submit": "Crea account", "submitting": "Creazione…", "haveAccount": "Hai già un account?", "login": "Accedi",
+      "policyAgree": "Registrandoti accetti la", "policyLink": "politica sul trattamento dei dati"
+    }
+  },
+  "overview": {
+    "welcome": "Bentornato,", "subtitle": "Quotazioni reali, ordini reali.",
+    "startTrading": "Start Trading", "deposit": "Deposit", "myProfile": "Il mio profilo",
+    "equity": "Equity", "freeMargin": "Margine libero", "unrealisedPnl": "P&L non realizzato", "openPositions": "Posizioni aperte",
+    "topGainers": "Maggiori rialzi", "topLosers": "Maggiori ribassi", "mostVolatile": "Più volatili",
+    "technicalSignals": "Segnali tecnici", "signalsHint": "SMA/EMA/RSI/MACD da candele reali (1H) — un riepilogo meccanico, non una consulenza di investimento"
+  },
+  "terminal": {
+    "positions": "Posizioni", "openOrders": "Ordini aperti", "tradeHistory": "Storico operazioni", "alerts": "Avvisi",
+    "noOpenPositions": "Nessuna posizione aperta",
+    "buyLong": "Buy / Long", "sellShort": "Sell / Short",
+    "amount": "Importo", "leverage": "Leva", "price": "Prezzo", "available": "Disponibile",
+    "totalCost": "Costo totale", "insufficientFunds": "Saldo disponibile insufficiente",
+    "tpsl": "Take Profit / Stop Loss", "takeProfit": "Take Profit", "stopLoss": "Stop Loss",
+    "estNotional": "Est. Notional", "estMargin": "Est. Margin", "estFee": "Est. Fee", "estLiqPrice": "Est. Liq. Price",
+    "base": "Base", "total": "Total", "margin": "Margin"
+  },
+  "profileTabs": { "wallet": "Portafoglio", "balance": "Saldo", "portfolio": "Portfolio", "settings": "Impostazioni" },
+  "markets": { "searchPlaceholder": "Cerca strumento…" },
+  "strategies": { "title": "Strategie" },
+  "home": {
+    "navTools": "Strumenti di trading", "navPortfolio": "Portfolio", "logIn": "Accedi", "signUp": "Crea account",
+    "searchPlaceholder": "Cerca mercati…", "notifications": "Notifiche", "noNotifications": "Nessuna nuova notifica",
+    "marketCap": "Capitalizzazione di mercato", "volume24h": "Volume 24h", "btcDominance": "Dominanza BTC", "fearGreed": "Indice Fear & Greed",
+    "tabAll": "Tutti", "tabFavorites": "Preferiti", "tabNew": "Nuovi", "tabGainers": "In rialzo", "tabLosers": "In ribasso",
+    "noFavorites": "Nessun preferito — clicca sulla stella per aggiungerne uno",
+    "noQuoteInstruments": "Nessuno strumento quotato in {{quote}} è ancora presente",
+    "trending": "Di tendenza", "news": "Notizie di mercato",
+    "newsNotConnected": "Feed di notizie non ancora collegato — componente pronto per un'API",
+    "trade": "Fai trading",
+    "colPair": "Coppia", "colPrice": "Prezzo", "colChange": "Variazione 24h", "colHigh": "Massimo 24h", "colLow": "Minimo 24h", "colVolume": "Volume 24h",
+    "heroLine": "Guarda il mercato. Trova l'asset. Fai trading.",
+    "heroPre": "Fai trading sul", "heroAccent": "mercato reale", "heroPost": ".",
+    "heroSub": "Prezzi live da Binance ed esecuzione reale degli ordini — niente di simulato.",
+    "heroSpotlight": "Ora sotto i riflettori",
+    "promoTitle": "Automatizza il tuo trading",
+    "promoBody": "Bot Grid e Martingale — ordini reali secondo la tua logica, direttamente nel browser.",
+    "promoCta": "Esplora le strategie"
+  },
+  "common": {
+    "save": "Salva", "cancel": "Annulla", "close": "Chiudi", "loading": "Caricamento…", "logout": "Esci"
+  }
+}
