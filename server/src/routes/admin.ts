@@ -31,14 +31,14 @@ const q = {
            (SELECT COUNT(*) FROM positions p WHERE p.user_id = u.id AND p.status='OPEN') AS open_positions,
            (SELECT COUNT(*) FROM trades t WHERE t.user_id = u.id) AS trade_count
     FROM users u LEFT JOIN accounts a ON a.user_id = u.id
-    WHERE (@status = 'ALL' OR u.status = @status)
-      AND (@search IS NULL OR u.email LIKE @like OR u.name LIKE @like)
+    WHERE (@status::text = 'ALL' OR u.status = @status)
+      AND (@search::text IS NULL OR u.email LIKE @like OR u.name LIKE @like)
     ORDER BY u.created_at DESC LIMIT @limit OFFSET @offset
   `),
   countUsers: db.prepare(`
     SELECT COUNT(*) AS n FROM users u
-    WHERE (@status = 'ALL' OR u.status = @status)
-      AND (@search IS NULL OR u.email LIKE @like OR u.name LIKE @like)
+    WHERE (@status::text = 'ALL' OR u.status = @status)
+      AND (@search::text IS NULL OR u.email LIKE @like OR u.name LIKE @like)
   `),
   user: db.prepare("SELECT * FROM users WHERE id = ?"),
   account: db.prepare("SELECT cash_scaled FROM accounts WHERE user_id = ?"),
@@ -53,13 +53,13 @@ const q = {
     FROM audit_logs a
     LEFT JOIN users actor ON actor.id = a.actor_id
     LEFT JOIN users target ON target.id = a.target_user_id
-    WHERE (@action IS NULL OR a.action = @action)
-      AND (@target IS NULL OR a.target_user_id = @target)
+    WHERE (@action::text IS NULL OR a.action = @action)
+      AND (@target::text IS NULL OR a.target_user_id = @target)
     ORDER BY a.created_at DESC LIMIT @limit OFFSET @offset
   `),
   auditCount: db.prepare(`
     SELECT COUNT(*) AS n FROM audit_logs a
-    WHERE (@action IS NULL OR a.action = @action) AND (@target IS NULL OR a.target_user_id = @target)
+    WHERE (@action::text IS NULL OR a.action = @action) AND (@target::text IS NULL OR a.target_user_id = @target)
   `),
   updInstrument: db.prepare("UPDATE instruments SET active = ?, max_leverage = ? WHERE symbol = ?"),
   instrument: db.prepare("SELECT * FROM instruments WHERE symbol = ?"),

@@ -22,15 +22,21 @@ import { config } from "./config.js";
  */
 pg.types.setTypeParser(20 /* int8 */, (v: string) => BigInt(v));
 
+// Hosted Postgres (Render/Neon/Supabase) requires TLS but usually presents a
+// cert chain `pg` won't validate out of the box; a local dev database on
+// bare localhost has no TLS at all and would just fail the handshake if we
+// forced it on. Providers signal "requires TLS" inconsistently — some put
+// sslmode=require in the URL, most (Supabase included) just expect the
+// client to know — so the reliable heuristic is host-based: anything that
+// isn't literally localhost is assumed to need TLS.
+const dbHost = (() => {
+  try { return new URL(config.databaseUrl).hostname; } catch { return ""; }
+})();
+const isLocalDb = dbHost === "localhost" || dbHost === "127.0.0.1" || dbHost === "::1";
+
 const pool = new pg.Pool({
   connectionString: config.databaseUrl,
-  // Hosted Postgres (Render/Neon/Supabase) requires TLS but usually presents
-  // a cert chain `pg` won't validate out of the box; a local dev database on
-  // localhost has no TLS at all. `sslmode=require` in the URL, or being in
-  // production, is the signal to enable it without verifying the CA.
-  ssl: config.databaseUrl.includes("sslmode=require") || config.databaseUrl.includes("sslmode=verify")
-    ? { rejectUnauthorized: false }
-    : undefined,
+  ssl: isLocalDb ? undefined : { rejectUnauthorized: false },
 });
 pool.on("error", (err) => {
   // A dropped idle connection must not crash the whole process.
