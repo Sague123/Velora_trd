@@ -24,7 +24,7 @@ export function LanguageSwitcher() {
         onClick={() => setOpen((v) => !v)}
         aria-label="Language"
         title="Language"
-        className="btn-fx flex items-center gap-1 rounded border border-line px-1.5 py-1 text-txt-2 hover:border-accent hover:text-accent"
+        className="btn-fx tap-sm flex items-center gap-1 rounded border border-line px-1.5 py-1 text-txt-2 hover:border-accent hover:text-accent"
       >
         <IconGlobe size={14} />
         <span className="hidden text-2xs sm:inline">{current.flag}</span>
@@ -36,7 +36,7 @@ export function LanguageSwitcher() {
               key={l.code}
               onClick={() => { setLanguage(l.code); setOpen(false); }}
               className={classNames(
-                "flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-bg-3",
+                "flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs hover:bg-bg-3",
                 l.code === current.code ? "text-accent" : "text-txt-1"
               )}
             >

@@ -9,8 +9,8 @@ export function useInstruments() {
   return useQuery({
     queryKey: ["instruments"],
     queryFn: () => apiGet<InstrumentsResponse>("/api/instruments"),
-    refetchInterval: 30_000,
-    staleTime: 15_000,
+    refetchInterval: 10_000,
+    staleTime: 5_000,
   });
 }
 
@@ -19,8 +19,8 @@ export function useCandles(symbol: string | null, tf: Timeframe) {
     queryKey: ["candles", symbol, tf],
     queryFn: () => apiGet<CandlesResponse>(`/api/instruments/${symbol}/candles?tf=${tf}`),
     enabled: !!symbol,
-    refetchInterval: 30_000,
-    staleTime: 20_000,
+    refetchInterval: 10_000,
+    staleTime: 6_000,
   });
 }
 
@@ -50,8 +50,8 @@ export function useChartBars(symbol: string | null, category: Category | undefin
       return lastPage[0].time * 1000 - 1; // page further back from the oldest bar we have
     },
     enabled: binanceEligible,
-    refetchInterval: 45_000,
-    staleTime: 30_000,
+    refetchInterval: 12_000,
+    staleTime: 8_000,
   });
 
   const veloraQuery = useCandles(binanceEligible ? null : symbol, tf);

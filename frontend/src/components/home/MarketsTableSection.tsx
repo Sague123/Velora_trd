@@ -139,7 +139,12 @@ export function MarketsTableSection({ query }: { query: string }) {
         ))}
       </div>
 
-      <div className="max-h-[68vh] overflow-auto">
+      {/* Only cap the height (and scroll internally) once there's a real
+          desktop viewport to do it in. On a phone a nested scroll box inside
+          the page is a trap: the table swallows the swipe and the page itself
+          won't move, so it just lets the whole list extend and the document
+          scroll normally. */}
+      <div className="overflow-x-auto lg:max-h-[68vh] lg:overflow-y-auto">
         {instruments.length === 0 && <LoadingRow />}
         {instruments.length > 0 && rows.length === 0 && tab === "FAVORITES" && <EmptyRow label={t("home.noFavorites")} />}
         {instruments.length > 0 && rows.length === 0 && isQuoteTab && <EmptyRow label={t("home.noQuoteInstruments", { quote: tab })} />}

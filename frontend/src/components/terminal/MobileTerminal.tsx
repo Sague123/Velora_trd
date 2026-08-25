@@ -31,7 +31,7 @@ export function MobileTerminal() {
         <div className="fixed inset-0 z-50 flex flex-col bg-bg-0">
           <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-2">
             <span className="text-xs font-semibold text-txt-0">Выбрать инструмент</span>
-            <button onClick={() => setPickerOpen(false)} className="btn-fx flex items-center gap-1 rounded border border-line px-2 py-1 text-2xs text-txt-2">
+            <button onClick={() => setPickerOpen(false)} className="btn-fx tap-sm flex items-center gap-1 rounded border border-line px-2.5 text-2xs text-txt-2">
               <IconClose size={12} /> Закрыть
             </button>
           </div>
@@ -42,7 +42,7 @@ export function MobileTerminal() {
       )}
 
       <div className="flex shrink-0 items-center gap-2 border-b border-line px-2 py-1.5">
-        <button onClick={() => setPickerOpen(true)} className="btn-fx flex items-center gap-1 rounded border border-line px-2 py-1 text-xs font-semibold text-txt-0">
+        <button onClick={() => setPickerOpen(true)} className="btn-fx tap-sm flex items-center gap-1 rounded border border-line px-2.5 text-xs font-semibold text-txt-0">
           {symbol} <span className="text-2xs text-txt-3">▾</span>
         </button>
         {inst && (
@@ -54,10 +54,10 @@ export function MobileTerminal() {
           </>
         )}
         <div className="ml-auto flex gap-0.5 rounded border border-line p-0.5">
-          <button onClick={() => setTopView("chart")} className={classNames("flex items-center gap-1 rounded px-2 py-1 text-2xs font-medium", topView === "chart" ? "bg-accent-soft text-accent" : "text-txt-2")}>
+          <button onClick={() => setTopView("chart")} className={classNames("tap-sm flex items-center gap-1 rounded px-2.5 text-2xs font-medium", topView === "chart" ? "bg-accent-soft text-accent" : "text-txt-2")}>
             <IconCandles size={13} /> Chart
           </button>
-          <button onClick={() => setTopView("book")} className={classNames("flex items-center gap-1 rounded px-2 py-1 text-2xs font-medium", topView === "book" ? "bg-accent-soft text-accent" : "text-txt-2")}>
+          <button onClick={() => setTopView("book")} className={classNames("tap-sm flex items-center gap-1 rounded px-2.5 text-2xs font-medium", topView === "book" ? "bg-accent-soft text-accent" : "text-txt-2")}>
             <IconBook size={13} /> Book
           </button>
         </div>
@@ -71,13 +71,13 @@ export function MobileTerminal() {
         <div className="flex shrink-0 gap-0.5 border-b border-line-soft bg-bg-2/30 p-1">
           <button
             onClick={() => setBottomView("trade")}
-            className={classNames("btn-fx flex flex-1 items-center justify-center gap-1 rounded py-1 text-2xs font-medium transition-colors", bottomView === "trade" ? "bg-accent text-white" : "text-txt-2")}
+            className={classNames("btn-fx tap-sm flex flex-1 items-center justify-center gap-1 rounded text-2xs font-medium transition-colors", bottomView === "trade" ? "bg-accent text-white" : "text-txt-2")}
           >
             <IconTrade size={13} /> Trade
           </button>
           <button
             onClick={() => setBottomView("orders")}
-            className={classNames("btn-fx flex flex-1 items-center justify-center gap-1 rounded py-1 text-2xs font-medium transition-colors", bottomView === "orders" ? "bg-accent text-white" : "text-txt-2")}
+            className={classNames("btn-fx tap-sm flex flex-1 items-center justify-center gap-1 rounded text-2xs font-medium transition-colors", bottomView === "orders" ? "bg-accent text-white" : "text-txt-2")}
           >
             <IconClipboard size={13} /> Orders &amp; History
           </button>

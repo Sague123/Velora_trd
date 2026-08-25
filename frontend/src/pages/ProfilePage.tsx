@@ -9,6 +9,7 @@ import { useChangePassword, useUpdateProfile } from "../hooks/useProfile";
 import { BalanceChart } from "../components/profile/BalanceChart";
 import { BalanceStats } from "../components/profile/BalanceStats";
 import { WalletActions } from "../components/profile/WalletActions";
+import { TradeHistoryTab } from "../components/profile/TradeHistoryTab";
 import { AvatarUpload } from "../components/profile/AvatarUpload";
 import { PositionsTable } from "../components/terminal/PositionsTable";
 import { OrdersTable } from "../components/terminal/OrdersTable";
@@ -21,7 +22,7 @@ import { ApiError } from "../lib/api";
 import { IconMoon, IconSun } from "../components/icons/Icon";
 import type { OrderStatus, Timeframe } from "../lib/types";
 
-type Tab = "wallet" | "balance" | "portfolio" | "settings";
+type Tab = "wallet" | "balance" | "portfolio" | "history" | "settings";
 
 function InfoForm() {
   const user = useAuthStore((s) => s.user);
@@ -316,6 +317,7 @@ export function ProfilePage() {
             ["wallet", t("profileTabs.wallet")],
             ["balance", t("profileTabs.balance")],
             ["portfolio", t("profileTabs.portfolio")],
+            ["history", t("profileTabs.history")],
             ["settings", t("profileTabs.settings")],
           ] as [Tab, string][]
         ).map(([id, label]) => (
@@ -335,6 +337,8 @@ export function ProfilePage() {
       )}
 
       {tab === "portfolio" && <PortfolioTab />}
+
+      {tab === "history" && <TradeHistoryTab />}
 
       {tab === "settings" && <SettingsTab />}
     </div>

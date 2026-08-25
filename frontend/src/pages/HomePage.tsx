@@ -6,6 +6,7 @@ import { MarketsTableSection } from "../components/home/MarketsTableSection";
 import { TrendingStrip } from "../components/home/TrendingStrip";
 import { MarketNewsSection } from "../components/home/MarketNewsSection";
 import { ProductHighlightCard } from "../components/home/ProductHighlightCard";
+import { SiteFooter } from "../components/layout/SiteFooter";
 
 /**
  * The public exchange Home — market state and Velora's positioning at a
@@ -35,6 +36,8 @@ export function HomePage() {
           </div>
         </div>
       </main>
+
+      <SiteFooter />
     </div>
   );
 }

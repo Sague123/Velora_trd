@@ -26,7 +26,7 @@ import { Spinner } from "./components/common/States";
 function AppLayout() {
   const location = useLocation();
   return (
-    <div className="flex h-screen flex-col bg-bg-0 text-txt-0">
+    <div className="app-shell flex flex-col bg-bg-0 text-txt-0">
       <TopBar />
       <ActiveBotsBanner />
       <div className="min-h-0 flex-1">

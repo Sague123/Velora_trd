@@ -160,12 +160,26 @@ export class ChartEngine {
   private posDragPreviewPrice: number | null = null;
   private entryCloseHotspot: { x: number; y: number; w: number; h: number } | null = null;
 
+  /* --- touch: every live pointer, so two fingers can pinch-zoom --- */
+  private activePointers = new Map<number, { x: number; y: number }>();
+  private pinchStartDist = 0;
+  private pinchStartSpan = 0;
+  private pinchAnchorIdx = 0;
+  private get isPinching() { return this.activePointers.size >= 2; }
+
   constructor(container: HTMLElement) {
     const canvas = document.createElement("canvas");
     canvas.style.display = "block";
     canvas.style.width = "100%";
     canvas.style.height = "100%";
     canvas.style.cursor = "crosshair";
+    // Without this the browser claims every touch gesture on the canvas for
+    // page scrolling/zooming and fires pointercancel at us mid-drag, which is
+    // why the chart was completely uncontrollable on a phone: panning just
+    // scrolled the page and pinching zoomed the whole document. Taking over
+    // touch-action hands us the raw gestures so pan and pinch-zoom below can
+    // work — the chart implements both itself.
+    canvas.style.touchAction = "none";
     container.appendChild(canvas);
     this.canvas = canvas;
     const ctx = canvas.getContext("2d");
@@ -179,6 +193,7 @@ export class ChartEngine {
     canvas.addEventListener("pointerdown", this.onPointerDown);
     canvas.addEventListener("pointermove", this.onPointerMove);
     canvas.addEventListener("pointerup", this.onPointerUp);
+    canvas.addEventListener("pointercancel", this.onPointerUp);
     canvas.addEventListener("pointerleave", this.onPointerLeave);
     canvas.addEventListener("wheel", this.onWheel, { passive: false });
     canvas.addEventListener("dblclick", this.onDoubleClick);
@@ -190,6 +205,7 @@ export class ChartEngine {
     this.canvas.removeEventListener("pointerdown", this.onPointerDown);
     this.canvas.removeEventListener("pointermove", this.onPointerMove);
     this.canvas.removeEventListener("pointerup", this.onPointerUp);
+    this.canvas.removeEventListener("pointercancel", this.onPointerUp);
     this.canvas.removeEventListener("pointerleave", this.onPointerLeave);
     this.canvas.removeEventListener("wheel", this.onWheel);
     this.canvas.removeEventListener("dblclick", this.onDoubleClick);
@@ -474,9 +490,40 @@ export class ChartEngine {
     return null;
   }
 
+  /** Pixel distance between the two active touch points. */
+  private pointerSpread(): number {
+    const [a, b] = [...this.activePointers.values()];
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  }
+
+  /** Begins (or re-bases) a pinch gesture from the current finger positions. */
+  private beginPinch() {
+    const pts = [...this.activePointers.values()];
+    if (pts.length < 2) return;
+    const rect = this.canvas.getBoundingClientRect();
+    // Anchor on the bar under the midpoint so the chart zooms around what the
+    // user has their fingers on, exactly like the wheel handler does.
+    const midX = (pts[0].x + pts[1].x) / 2 - rect.left;
+    this.pinchStartDist = this.pointerSpread();
+    this.pinchStartSpan = this.viewEnd - this.viewStart;
+    this.pinchAnchorIdx = this.xToIndex(midX);
+    // A pinch is not a pan — drop any single-finger drag that was in progress
+    // so the second finger landing doesn't yank the view sideways.
+    this.dragging = false;
+    this.priceDragging = false;
+    this.draggingPosLine = null;
+    this.posDragPreviewPrice = null;
+  }
+
   private onPointerDown = (e: PointerEvent) => {
     const rect = this.canvas.getBoundingClientRect();
     const x = e.clientX - rect.left, y = e.clientY - rect.top;
+
+    this.activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (this.isPinching) {
+      this.beginPinch();
+      return;
+    }
 
     // dragging the price-axis gutter stretches/compresses the Y scale,
     // independent of the horizontal pan/zoom — a standard terminal control
@@ -537,6 +584,28 @@ export class ChartEngine {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
+    if (this.activePointers.has(e.pointerId)) {
+      this.activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+
+    // Two fingers = pinch-zoom the time axis, anchored on the midpoint.
+    if (this.isPinching) {
+      if (this.pinchStartDist > 0) {
+        const ratio = this.pointerSpread() / this.pinchStartDist;
+        // fingers apart (ratio > 1) => fewer bars on screen => zoom in
+        const newSpan = Math.max(8, this.pinchStartSpan / Math.max(0.05, ratio));
+        const frac = this.pinchStartSpan > 0
+          ? (this.pinchAnchorIdx - this.viewStart) / (this.viewEnd - this.viewStart)
+          : 0.5;
+        this.viewStart = this.pinchAnchorIdx - frac * newSpan;
+        this.viewEnd = this.viewStart + newSpan;
+        this.clampView();
+        this.scheduleRender();
+        this.onRangeChange?.(this.viewStart <= 1);
+      }
+      return;
+    }
+
     if (this.priceDragging) {
       const dy = e.clientY - this.priceDragLastY;
       this.priceDragLastY = e.clientY;
@@ -589,7 +658,19 @@ export class ChartEngine {
     this.emitCrosshairBar(x);
   };
 
-  private onPointerUp = () => {
+  private onPointerUp = (e?: PointerEvent) => {
+    if (e) this.activePointers.delete(e.pointerId);
+    // Lifting one finger out of a pinch: re-base the gesture on whatever is
+    // still down rather than snapping, so the chart doesn't jump.
+    if (this.activePointers.size >= 2) { this.beginPinch(); return; }
+    if (this.activePointers.size === 1) {
+      const [p] = [...this.activePointers.values()];
+      this.dragLastX = p.x;
+      this.dragLastY = p.y;
+      this.pinchStartDist = 0;
+      return;
+    }
+    this.pinchStartDist = 0;
     this.dragging = false;
     this.priceDragging = false;
     if (this.draggingPosLine) {

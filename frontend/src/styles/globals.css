@@ -64,7 +64,11 @@
 
 * { box-sizing: border-box; }
 
-html, body, #root { height: 100%; }
+html, body { height: 100%; }
+/* min-height, not height: the fixed-viewport terminal shell sets its own
+ * height explicitly, while the public marketing pages need to be free to grow
+ * past one screen and scroll the document normally. */
+#root { min-height: 100%; }
 
 body {
   margin: 0;
@@ -73,8 +77,50 @@ body {
   font-family: Inter, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   font-size: 12.5px;
   -webkit-font-smoothing: antialiased;
-  overflow: hidden;
+  /* NOT overflow:hidden. That was set for the terminal's fixed layout, but it
+   * clipped the whole document, so the public Home page simply could not be
+   * scrolled on a phone — you could never reach anything below the fold. The
+   * app shell (.app-shell) now scopes that clipping to itself instead. */
   transition: background-color 180ms ease, color 180ms ease;
+}
+
+/* The authenticated app shell: exactly one viewport tall, with its own panes
+ * scrolling inside. `dvh` is what makes this correct on mobile — plain `vh`
+ * measures the viewport as if the browser's collapsing address bar were always
+ * hidden, so the layout ran taller than the screen: the header drifted off the
+ * top and the bottom row of controls sat under the browser chrome, unreachable.
+ * `dvh` tracks the *actual* visible height as that bar shows and hides. */
+.app-shell {
+  height: 100vh;         /* fallback for browsers without dvh */
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/* Native rubber-band overscroll is the "you've hit the end" cue on the public
+ * pages, so leave it enabled at the document level rather than suppressing it.
+ * Inside the app shell each pane keeps its own momentum scrolling. */
+html, body { overscroll-behavior-y: auto; }
+@media (pointer: coarse) {
+  .app-shell [class*="overflow-y-auto"],
+  .app-shell [class*="overflow-auto"] {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+}
+
+/* Comfortable touch targets. Pointer-coarse only, so the dense desktop
+ * terminal keeps its compact sizing. 44px is the Apple HIG minimum and it is
+ * also what makes the top-bar controls line up at a consistent size instead of
+ * each shrinking to fit its own label. */
+@media (pointer: coarse) {
+  .tap {
+    min-height: 44px;
+    min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .tap-sm { min-height: 38px; min-width: 38px; }
 }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }

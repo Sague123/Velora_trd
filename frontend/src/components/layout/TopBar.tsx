@@ -50,33 +50,37 @@ export function TopBar() {
   // scrollable nav strip right under it.
   if (isMobile) {
     return (
-      <header className="flex shrink-0 flex-col border-b border-line bg-bg-1 text-[13px]">
-        <div className="flex h-10 items-center gap-2 px-2">
-          <Link to="/" className="flex items-center" aria-label="Velora — Home">
+      // sticky + z-20: the bar stays pinned to the top of the shell instead of
+      // being able to drift out of reach behind the mobile browser chrome.
+      <header className="sticky top-0 z-20 flex shrink-0 flex-col border-b border-line bg-bg-1 text-[13px]">
+        <div className="flex h-12 items-center gap-2 px-2">
+          <Link to="/" className="tap-sm flex items-center" aria-label="Velora — Home">
             <Logo />
           </Link>
           <span className={classNames("h-1.5 w-1.5 shrink-0 rounded-full", live ? "bg-buy" : wsStatus === "connecting" ? "bg-warn animate-pulse" : "bg-sell")} />
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-1">
             <LanguageSwitcher />
             <ThemeToggle />
-            <NavLink to="/profile" title={t("nav.profile")} className="btn-fx flex items-center rounded border-l border-line py-1 pl-2">
+            <NavLink to="/profile" title={t("nav.profile")} className="btn-fx tap-sm ml-1 flex items-center rounded border-l border-line pl-2">
               <Avatar user={user} />
             </NavLink>
           </div>
         </div>
-        <nav className="flex items-center gap-0.5 overflow-x-auto border-t border-line-soft px-1 py-1">
+        <nav className="flex items-stretch gap-1 overflow-x-auto border-t border-line-soft px-2 py-1.5">
           {NAV.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
                 classNames(
-                  "flex shrink-0 items-center gap-1 rounded px-2.5 py-1 text-2xs font-medium transition-colors",
+                  // flex-1 + basis-0 gives every tab the same width instead of
+                  // each one sizing to its own label length.
+                  "tap-sm flex flex-1 basis-0 shrink-0 items-center justify-center gap-1 rounded px-2 text-2xs font-medium transition-colors",
                   isActive ? "bg-accent-soft text-accent" : "text-txt-2 hover:bg-bg-3 hover:text-txt-0"
                 )
               }
             >
-              <item.Icon size={13} />
+              <item.Icon size={14} />
               {t(item.key)}
             </NavLink>
           ))}
@@ -85,12 +89,12 @@ export function TopBar() {
               to="/admin"
               className={({ isActive }) =>
                 classNames(
-                  "flex shrink-0 items-center gap-1 rounded px-2.5 py-1 text-2xs font-medium transition-colors",
+                  "tap-sm flex flex-1 basis-0 shrink-0 items-center justify-center gap-1 rounded px-2 text-2xs font-medium transition-colors",
                   isActive ? "bg-warn/10 text-warn" : "text-warn/80 hover:bg-bg-3"
                 )
               }
             >
-              <IconGear size={13} /> {t("nav.admin")}
+              <IconGear size={14} /> {t("nav.admin")}
             </NavLink>
           )}
         </nav>

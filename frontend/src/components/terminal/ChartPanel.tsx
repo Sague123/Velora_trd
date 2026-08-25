@@ -9,6 +9,7 @@ import { useThemeStore } from "../../store/theme";
 import { useAuthStore } from "../../store/auth";
 import { usePositions, useUpdatePosition, useClosePosition } from "../../hooks/useTrading";
 import { useLiveDepth, bestBidAsk } from "../../hooks/useLiveDepth";
+import { useBinanceSymbolFeed } from "../../hooks/useBinanceSymbolFeed";
 import { classNames, fmtCompact, fmtPct, fmtPrice, fmtQty, fmtSigned, fmtUsd, n } from "../../lib/format";
 import { ema, macd as macdCalc, rsi as rsiCalc, sma } from "../../lib/indicators";
 import { computeSignal, ratingLabel, type SignalResult } from "../../lib/signal";
@@ -50,6 +51,9 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
   const setTimeframe = useTerminalStore((s) => s.setTimeframe);
   const inst = useLiveInstrument(symbol);
   const { data, isLoading, isError, refetch, isFetching, loadMore, hasMore, isLoadingMore } = useChartBars(symbol, inst?.category, timeframe);
+  // Real-time, trade-by-trade price for this one symbol — without it the live
+  // candle could only redraw once a second (the catalog ticker's cadence).
+  useBinanceSymbolFeed(symbol, inst?.category);
   const tick = usePriceStore((s) => s.ticks[symbol]);
   const theme = useThemeStore((s) => s.theme);
   const { book: depthBook } = useLiveDepth(symbol, inst?.category);

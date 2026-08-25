@@ -15,10 +15,20 @@ const password = z.string().min(10, "Пароль должен быть не к�
   .regex(/[0-9]/, "Пароль должен содержать цифры");
 
 const REFRESH_COOKIE = "velora_rt";
+// In production the SPA and the API are deployed as two separate services on
+// different hosts (velora-frontend-*.onrender.com vs velora-api-*.onrender.com).
+// onrender.com is on the Public Suffix List, so those count as different
+// *sites*, which makes every API call cross-site: a SameSite=Lax cookie is
+// then neither stored from the login response nor sent on the later
+// /api/auth/refresh call, so every reload logged the user straight back out.
+// SameSite=None fixes that, and the spec requires Secure alongside it (both
+// services are HTTPS). Locally we stay on Lax, because SameSite=None without
+// Secure is rejected outright over plain http://localhost.
+const isCrossSite = config.env === "production";
 const cookieOpts = {
   httpOnly: true,               // not readable from JS — blunts XSS token theft
-  sameSite: "lax" as const,
-  secure: config.env === "production",
+  sameSite: (isCrossSite ? "none" : "lax") as "none" | "lax",
+  secure: isCrossSite,
   path: "/api/auth",
 };
 

@@ -18,6 +18,11 @@ interface PriceState {
    * server-pushed tick, just sourced client-side for sub-second updates
    * instead of waiting on the backend's own refresh cycle. */
   applyTick: (tick: WsPriceTick) => void;
+  /** Trade-by-trade price for the one symbol the user is actually looking at.
+   * A trade carries no 24h statistics, so this deliberately updates only the
+   * price and keeps whatever high/low/change the 1s ticker last supplied —
+   * otherwise the header stats would blank out between ticker frames. */
+  applyPriceOnly: (symbol: string, price: string) => void;
 }
 
 let socket: WebSocket | null = null;
@@ -40,6 +45,26 @@ export const usePriceStore = create<PriceState>((set, get) => ({
   status: "connecting",
 
   applyTick: (tick) => set((s) => ({ ticks: mergeTick(s.ticks, tick, Date.now()) })),
+
+  applyPriceOnly: (symbol, price) =>
+    set((s) => {
+      const prev = s.ticks[symbol];
+      // Nothing to merge into yet — wait for the ticker feed to establish the
+      // baseline rather than inventing an entry with zeroed-out statistics.
+      if (!prev || prev.price === price) return s;
+      return {
+        ticks: {
+          ...s.ticks,
+          [symbol]: {
+            ...prev,
+            price,
+            prevPrice: prev.price,
+            dir: Number(price) > Number(prev.price) ? "up" : "down",
+            updatedAt: Date.now(),
+          },
+        },
+      };
+    }),
 
   connect: () => {
     if (started) return;

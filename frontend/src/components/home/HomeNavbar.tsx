@@ -103,12 +103,12 @@ export function HomeNavbar({ query, onQueryChange }: { query: string; onQueryCha
             </Link>
           ) : (
             <>
-              <Link to="/login" className="btn-fx ml-1 rounded px-2.5 py-1.5 text-[12.5px] font-medium text-txt-2 hover:text-txt-0">
+              <Link to="/login" className="btn-fx tap-sm ml-1 rounded px-2.5 py-1.5 text-[12.5px] font-medium text-txt-2 hover:text-txt-0">
                 {t("home.logIn")}
               </Link>
               <Link
                 to="/register"
-                className="btn-fx rounded bg-accent px-3.5 py-1.5 text-[12.5px] font-semibold text-white shadow-panel transition-colors hover:bg-accent-dim"
+                className="btn-fx tap-sm rounded bg-accent px-3.5 py-1.5 text-[12.5px] font-semibold text-white shadow-panel transition-colors hover:bg-accent-dim"
               >
                 {t("home.signUp")}
               </Link>
@@ -117,12 +117,12 @@ export function HomeNavbar({ query, onQueryChange }: { query: string; onQueryCha
         </div>
       </div>
 
-      <nav className="flex items-center gap-0.5 overflow-x-auto border-t border-line-soft px-2 py-1 md:hidden">
+      <nav className="flex items-stretch gap-1 overflow-x-auto border-t border-line-soft px-2 py-1.5 md:hidden">
         {NAV.map((item) => (
           <button
             key={item.label}
             onClick={() => navigate(item.to)}
-            className="btn-fx shrink-0 rounded px-2.5 py-1 text-2xs font-medium text-txt-2 transition-colors hover:bg-bg-2 hover:text-txt-0"
+            className="btn-fx tap-sm flex flex-1 basis-0 shrink-0 items-center justify-center rounded px-2 text-2xs font-medium text-txt-2 transition-colors hover:bg-bg-2 hover:text-txt-0"
           >
             {item.label}
           </button>

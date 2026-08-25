@@ -40,7 +40,7 @@ export function BottomPanel() {
             key={id}
             onClick={() => setTab(id)}
             className={classNames(
-              "btn-fx border-b-2 px-3 py-1.5 text-2xs font-medium transition-colors",
+              "btn-fx tap-sm border-b-2 px-3 py-1.5 text-2xs font-medium transition-colors",
               tab === id ? "border-accent text-txt-0" : "border-transparent text-txt-2 hover:text-txt-0"
             )}
           >
