@@ -16,7 +16,14 @@ export const config = {
   databaseUrl: secret("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/velora"),
   env: process.env.NODE_ENV ?? "development",
   port: Number(process.env.PORT ?? 4000),
-  corsOrigin: (process.env.CORS_ORIGIN ?? "http://localhost:5000,http://localhost:3000").split(","),
+  // Normalised on the way in: a pasted dashboard URL routinely carries a
+  // trailing slash or stray whitespace, and an Origin header never has
+  // either — so an otherwise-correct value would silently reject every
+  // request. Empty entries are dropped for the same reason.
+  corsOrigin: (process.env.CORS_ORIGIN ?? "http://localhost:5000,http://localhost:3000")
+    .split(",")
+    .map((o) => o.trim().replace(/\/+$/, ""))
+    .filter(Boolean),
   jwtSecret: secret("JWT_SECRET", "dev-only-access-secret"),
   jwtRefreshSecret: secret("JWT_REFRESH_SECRET", "dev-only-refresh-secret"),
   accessTtl: "15m",

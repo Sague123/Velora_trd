@@ -41,11 +41,21 @@ export async function buildApp() {
   const isPrivateLanOrigin = (origin: string) =>
     /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\]|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})(:\d+)?$/.test(origin);
 
+  // Logged once at boot: a CORS misconfiguration presents to the user as a
+  // blanket "no connection to the server", with nothing in the browser to
+  // say which origin was expected. Having the effective list in the deploy
+  // log turns that into a two-second diagnosis.
+  app.log.info({ allowedOrigins: config.corsOrigin, env: config.env }, "CORS allow-list");
+
   await app.register(cors, {
-    origin:
-      config.env === "production"
-        ? config.corsOrigin
-        : (origin, cb) => cb(null, !origin || config.corsOrigin.includes(origin) || isPrivateLanOrigin(origin)),
+    origin: (origin, cb) => {
+      // Same-origin/curl/server-to-server requests send no Origin header.
+      if (!origin) return cb(null, true);
+      const normalised = origin.replace(/\/+$/, "");
+      if (config.corsOrigin.includes(normalised)) return cb(null, true);
+      if (config.env !== "production" && isPrivateLanOrigin(origin)) return cb(null, true);
+      return cb(null, false);
+    },
     credentials: true,
   });
   await app.register(cookie);
