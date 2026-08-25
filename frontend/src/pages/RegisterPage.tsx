@@ -123,7 +123,7 @@ export function RegisterPage() {
           <button
             type="submit"
             disabled={busy || (confirmPassword.length > 0 && confirmPassword !== password)}
-            className="w-full rounded bg-accent py-2 text-xs font-semibold text-white transition-colors hover:bg-accent-dim disabled:opacity-50"
+            className="w-full rounded bg-accent-fill py-2 text-xs font-semibold text-white transition-colors hover:bg-accent-dim disabled:opacity-50"
           >
             {busy ? t("auth.register.submitting") : t("auth.register.submit")}
           </button>

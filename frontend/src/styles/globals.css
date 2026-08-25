@@ -18,13 +18,30 @@
   --c-bg-4: 26 32 41;
   --c-line: 30 37 48;
   --c-line-soft: 23 28 37;
-  --c-txt-0: 232 236 241;
-  --c-txt-1: 170 179 192;
-  --c-txt-2: 107 116 128;
-  --c-txt-3: 74 81 92;
+  /* Four-step text ramp, tuned so the dimmest step still clears WCAG AA
+   * (4.5:1) against bg-1. txt-3 previously sat at 74 81 92 — 2.43:1 — while
+   * carrying real information (every stat caption and table column header),
+   * so those labels were failing by a wide margin. Because raising txt-3 to
+   * the AA floor lands it close to the old txt-2, the whole ramp is
+   * re-spaced: hierarchy now comes from size and weight as much as
+   * lightness, which is the sturdier signal anyway. */
+  --c-txt-0: 232 236 241;   /* 16.4:1 */
+  --c-txt-1: 182 190 202;   /* 10.5:1 */
+  --c-txt-2: 148 157 169;   /*  6.9:1 */
+  /* Tuned against bg-3, the lightest surface it lands on (hover rows, chips),
+   * not just bg-1 — so it holds the floor everywhere, not only at rest. */
+  --c-txt-3: 121 129 140;   /*  4.9:1 on bg-1, 4.5:1 on bg-3 */
   --c-accent: 61 124 255;
   --c-accent-dim: 42 77 153;
-  --c-accent-soft: 24 38 66;
+  /* Darkened from 24 38 66: accent text sitting on this tint (active tabs,
+   * avatar initials) measured only 3.96:1. */
+  --c-accent-soft: 11 24 50;
+  /* A separate token for accent used as a *fill behind white text*, because
+   * one blue provably cannot do both jobs: white text needs the fill's
+   * luminance <= 0.183, while accent-as-text on bg-1 needs >= 0.195. The
+   * vivid accent gave white only 3.80:1; this is 10% darker (4.54:1) and
+   * still reads as the same brand blue. */
+  --c-accent-fill: 55 112 230;
   --c-buy: 23 200 133;
   --c-buy-dim: 15 127 87;
   --c-buy-soft: 12 35 27;
@@ -44,18 +61,30 @@
   --c-bg-4: 219 223 230;
   --c-line: 216 220 227;
   --c-line-soft: 229 232 237;
-  --c-txt-0: 18 21 26;
-  --c-txt-1: 71 80 94;
-  --c-txt-2: 90 98 112;
-  --c-txt-3: 122 130 143;
-  --c-accent: 37 99 235;
+  /* Same ramp, inverted for a white surface. txt-3 was 122 130 143 — 3.88:1
+   * on bg-1 — so the light theme failed AA on exactly the same labels the
+   * dark theme did; darkened to clear the floor. */
+  --c-txt-0: 18 21 26;      /* 16.9:1 */
+  --c-txt-1: 71 80 94;      /*  8.6:1 */
+  --c-txt-2: 90 98 112;     /*  6.2:1 */
+  --c-txt-3: 105 113 126;   /*  4.6:1 — dimmest permitted for real text */
+  /* Deepened for the light surface. On white these previously measured
+   * buy 3.79:1 and accent-on-accent-soft 4.13:1, and the tinted P&L badges
+   * (coloured text on its own -soft background) were worse still at ~3.3:1.
+   * These values clear 4.5:1 both on white and on the -soft tints, so a
+   * figure stays legible whether it sits bare in a table or inside a pill. */
+  --c-accent: 30 92 228;
   --c-accent-dim: 29 78 216;
   --c-accent-soft: 219 230 254;
-  --c-buy: 13 150 92;
-  --c-buy-dim: 11 122 76;
+  /* Light theme's accent is already dark enough for white text (4.5:1+), so
+   * the fill can simply track it — the token exists in both themes so
+   * components never have to branch. */
+  --c-accent-fill: 30 92 228;
+  --c-buy: 0 119 61;
+  --c-buy-dim: 0 96 49;
   --c-buy-soft: 216 245 231;
-  --c-sell: 220 53 69;
-  --c-sell-dim: 176 42 55;
+  --c-sell: 200 33 49;
+  --c-sell-dim: 163 26 39;
   --c-sell-soft: 251 223 226;
   --c-warn: 168 105 22;
   --shadow-btn: 0 1px 3px rgba(20, 24, 33, 0.12);
@@ -284,8 +313,12 @@ button:disabled { cursor: not-allowed; }
     radial-gradient(ellipse at bottom right, rgba(124, 58, 237, 0.06), transparent 55%);
 }
 
+/* The middle stop was #7c3aed, which sits at only 3.41:1 on the dark panel —
+ * scraping the 3:1 large-text floor at exactly the point of the headline the
+ * eye lands on. Lightened to a violet that clears it with real margin while
+ * keeping the blue→violet→green identity intact. */
 .gradient-text {
-  background: linear-gradient(135deg, #3d7cff, #7c3aed 60%, #17c885);
+  background: linear-gradient(135deg, #3d7cff, #a78bfa 60%, #17c885);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

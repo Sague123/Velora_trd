@@ -108,7 +108,7 @@ export function HomeNavbar({ query, onQueryChange }: { query: string; onQueryCha
               </Link>
               <Link
                 to="/register"
-                className="btn-fx tap-sm rounded bg-accent px-3.5 py-1.5 text-[12.5px] font-semibold text-white shadow-panel transition-colors hover:bg-accent-dim"
+                className="btn-fx tap-sm rounded bg-accent-fill px-3.5 py-1.5 text-[12.5px] font-semibold text-white shadow-panel transition-colors hover:bg-accent-dim"
               >
                 {t("home.signUp")}
               </Link>

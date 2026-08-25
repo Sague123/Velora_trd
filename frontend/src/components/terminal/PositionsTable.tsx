@@ -51,7 +51,7 @@ function TpSlEditor({ position, onDone }: { position: Position; onDone: () => vo
         />
       </label>
       <div className="flex gap-1.5">
-        <button onClick={save} disabled={update.isPending} className="flex-1 rounded bg-accent py-1 text-2xs font-medium text-white hover:bg-accent-dim disabled:opacity-50">
+        <button onClick={save} disabled={update.isPending} className="flex-1 rounded bg-accent-fill py-1 text-2xs font-medium text-white hover:bg-accent-dim disabled:opacity-50">
           Сохранить
         </button>
         <button onClick={onDone} className="flex-1 rounded border border-line py-1 text-2xs text-txt-2 hover:text-txt-0">

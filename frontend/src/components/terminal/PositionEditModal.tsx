@@ -112,7 +112,7 @@ export function PositionEditModal({ position, onClose }: { position: Position; o
             <button type="button" onClick={handleClose} disabled={close.isPending} className="btn-fx flex-1 rounded-lg border border-sell/40 py-2 text-xs font-medium text-sell hover:bg-sell-soft disabled:opacity-50">
               {close.isPending ? "…" : "Close Position"}
             </button>
-            <button type="submit" disabled={update.isPending} className="btn-fx flex-1 rounded-lg bg-accent py-2 text-xs font-semibold text-white hover:bg-accent-dim disabled:opacity-50">
+            <button type="submit" disabled={update.isPending} className="btn-fx flex-1 rounded-lg bg-accent-fill py-2 text-xs font-semibold text-white hover:bg-accent-dim disabled:opacity-50">
               {update.isPending ? "Сохранение…" : "Save"}
             </button>
           </div>

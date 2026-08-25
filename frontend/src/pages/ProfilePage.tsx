@@ -69,7 +69,7 @@ function InfoForm() {
             className="w-full cursor-not-allowed rounded border border-line bg-bg-2/50 px-2.5 py-1.5 text-xs text-txt-2" />
         </label>
       </div>
-      <button type="submit" disabled={updateProfile.isPending} className="btn-fx mt-3 rounded bg-accent px-4 py-1.5 text-xs font-semibold text-white hover:bg-accent-dim disabled:opacity-50">
+      <button type="submit" disabled={updateProfile.isPending} className="btn-fx mt-3 rounded bg-accent-fill px-4 py-1.5 text-xs font-semibold text-white hover:bg-accent-dim disabled:opacity-50">
         {updateProfile.isPending ? "Сохранение…" : "Save"}
       </button>
     </form>
@@ -121,7 +121,7 @@ function PasswordForm() {
         </label>
       </div>
       {error && <div className="mt-3 rounded border border-sell/40 bg-sell-soft px-2.5 py-1.5 text-2xs text-sell">{error}</div>}
-      <button type="submit" disabled={changePassword.isPending} className="btn-fx mt-3 rounded bg-accent px-4 py-1.5 text-xs font-semibold text-white hover:bg-accent-dim disabled:opacity-50">
+      <button type="submit" disabled={changePassword.isPending} className="btn-fx mt-3 rounded bg-accent-fill px-4 py-1.5 text-xs font-semibold text-white hover:bg-accent-dim disabled:opacity-50">
         {changePassword.isPending ? "Сохранение…" : "Update Password"}
       </button>
       <span className="ml-2 text-2xs text-txt-3">Смена пароля завершит все ваши сессии.</span>

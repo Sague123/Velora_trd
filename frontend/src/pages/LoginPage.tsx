@@ -75,7 +75,7 @@ export function LoginPage() {
           <button
             type="submit"
             disabled={busy}
-            className="w-full rounded bg-accent py-2 text-xs font-semibold text-white transition-colors hover:bg-accent-dim disabled:opacity-50"
+            className="w-full rounded bg-accent-fill py-2 text-xs font-semibold text-white transition-colors hover:bg-accent-dim disabled:opacity-50"
           >
             {busy ? t("auth.login.submitting") : t("auth.login.submit")}
           </button>

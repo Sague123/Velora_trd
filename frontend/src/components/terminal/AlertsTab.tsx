@@ -61,7 +61,7 @@ export function AlertsTab() {
         </div>
         <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder="Price"
           className="w-28 rounded border border-line bg-bg-2 px-2 py-1 text-2xs tabular outline-none focus:border-accent" />
-        <button type="submit" disabled={create.isPending} className="btn-fx rounded bg-accent px-3 py-1 text-2xs font-semibold text-white hover:bg-accent-dim disabled:opacity-50">
+        <button type="submit" disabled={create.isPending} className="btn-fx rounded bg-accent-fill px-3 py-1 text-2xs font-semibold text-white hover:bg-accent-dim disabled:opacity-50">
           {create.isPending ? "…" : "Create Alert"}
         </button>
         {data && <span className="ml-auto text-2xs text-txt-3">{active.length} активных</span>}

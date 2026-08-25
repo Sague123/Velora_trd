@@ -71,13 +71,13 @@ export function MobileTerminal() {
         <div className="flex shrink-0 gap-0.5 border-b border-line-soft bg-bg-2/30 p-1">
           <button
             onClick={() => setBottomView("trade")}
-            className={classNames("btn-fx tap-sm flex flex-1 items-center justify-center gap-1 rounded text-2xs font-medium transition-colors", bottomView === "trade" ? "bg-accent text-white" : "text-txt-2")}
+            className={classNames("btn-fx tap-sm flex flex-1 items-center justify-center gap-1 rounded text-2xs font-medium transition-colors", bottomView === "trade" ? "bg-accent-fill text-white" : "text-txt-2")}
           >
             <IconTrade size={13} /> Trade
           </button>
           <button
             onClick={() => setBottomView("orders")}
-            className={classNames("btn-fx tap-sm flex flex-1 items-center justify-center gap-1 rounded text-2xs font-medium transition-colors", bottomView === "orders" ? "bg-accent text-white" : "text-txt-2")}
+            className={classNames("btn-fx tap-sm flex flex-1 items-center justify-center gap-1 rounded text-2xs font-medium transition-colors", bottomView === "orders" ? "bg-accent-fill text-white" : "text-txt-2")}
           >
             <IconClipboard size={13} /> Orders &amp; History
           </button>

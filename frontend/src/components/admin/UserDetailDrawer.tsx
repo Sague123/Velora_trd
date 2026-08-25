@@ -160,7 +160,7 @@ export function UserDetailDrawer({ userId, onClose }: { userId: string; onClose:
                     placeholder="Примечание (опц.)"
                     className="mb-1.5 w-full rounded border border-line bg-bg-3 px-2 py-1 text-2xs outline-none focus:border-accent"
                   />
-                  <button type="submit" disabled={adjustBalance.isPending} className="w-full rounded bg-accent py-1 text-2xs font-medium text-white hover:bg-accent-dim disabled:opacity-50">
+                  <button type="submit" disabled={adjustBalance.isPending} className="w-full rounded bg-accent-fill py-1 text-2xs font-medium text-white hover:bg-accent-dim disabled:opacity-50">
                     Apply
                   </button>
                 </form>

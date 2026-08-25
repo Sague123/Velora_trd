@@ -30,6 +30,10 @@ export default {
           DEFAULT: rgbVar("--c-accent"),
           dim: rgbVar("--c-accent-dim"),
           soft: rgbVar("--c-accent-soft"),
+          // Use as the background under white text (bg-accent-fill); the
+          // plain accent is a text/border colour and is too light to carry
+          // white legibly. See globals.css for the arithmetic.
+          fill: rgbVar("--c-accent-fill"),
         },
         buy: {
           DEFAULT: rgbVar("--c-buy"),

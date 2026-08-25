@@ -81,7 +81,7 @@ function GridBotForm({ onCreate }: { onCreate: (bot: GridBot) => void }) {
                 key={tf}
                 type="button"
                 onClick={() => setTimeframe(tf)}
-                className={classNames("rounded px-1.5 py-0.5 text-2xs font-medium", timeframe === tf ? "bg-accent text-white" : "text-txt-2 hover:text-txt-0")}
+                className={classNames("rounded px-1.5 py-0.5 text-2xs font-medium", timeframe === tf ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}
               >
                 {tf}
               </button>
@@ -182,7 +182,7 @@ function MartingaleBotForm({ onCreate }: { onCreate: (bot: MartingaleBot) => voi
                 key={tf}
                 type="button"
                 onClick={() => setTimeframe(tf)}
-                className={classNames("rounded px-1.5 py-0.5 text-2xs font-medium", timeframe === tf ? "bg-accent text-white" : "text-txt-2 hover:text-txt-0")}
+                className={classNames("rounded px-1.5 py-0.5 text-2xs font-medium", timeframe === tf ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}
               >
                 {tf}
               </button>
@@ -319,7 +319,7 @@ export function StrategiesPage() {
 
       <div className="anim-rise-2 mb-3 rounded-lg border border-line bg-bg-1 p-3.5">
         <div className="mb-3 flex gap-1 rounded-lg border border-line bg-bg-2/40 p-0.5" style={{ width: "fit-content" }}>
-          <button onClick={() => setTab("grid")} className={classNames("btn-fx flex items-center gap-1.5 rounded-md px-4 py-1.5 text-xs font-semibold", tab === "grid" ? "bg-accent text-white" : "text-txt-2")}><IconGrid size={14} /> Grid Bot</button>
+          <button onClick={() => setTab("grid")} className={classNames("btn-fx flex items-center gap-1.5 rounded-md px-4 py-1.5 text-xs font-semibold", tab === "grid" ? "bg-accent-fill text-white" : "text-txt-2")}><IconGrid size={14} /> Grid Bot</button>
           <button onClick={() => setTab("martingale")} className={classNames("btn-fx flex items-center gap-1.5 rounded-md px-4 py-1.5 text-xs font-semibold", tab === "martingale" ? "bg-gradient-to-r from-warn to-sell text-white" : "text-txt-2")}><IconTrendDown size={14} /> Martingale Bot</button>
         </div>
         {tab === "grid" ? <GridBotForm onCreate={upsert} /> : <MartingaleBotForm onCreate={upsert} />}

@@ -330,7 +330,7 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
             <div className="flex gap-0.5 rounded border border-line p-0.5">
               {(["candles", "line", "area"] as ChartType[]).map((t) => (
                 <button key={t} onClick={() => setChartType(t)} title={t}
-                  className={classNames("btn-fx rounded px-1.5 py-0.5 text-2xs font-medium", chartType === t ? "bg-accent text-white" : "text-txt-2 hover:text-txt-0")}>
+                  className={classNames("btn-fx rounded px-1.5 py-0.5 text-2xs font-medium", chartType === t ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}>
                   {t === "candles" ? "▤" : t === "line" ? "╱" : "◢"}
                 </button>
               ))}
@@ -340,7 +340,7 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
           <div className="flex gap-0.5 rounded border border-line p-0.5">
             {(compact ? TIMEFRAMES.filter((tf) => tf !== "1m") : TIMEFRAMES).map((tf) => (
               <button key={tf} onClick={() => setTimeframe(tf)}
-                className={classNames("btn-fx rounded px-1.5 py-0.5 text-2xs font-medium", timeframe === tf ? "bg-accent text-white" : "text-txt-2 hover:text-txt-0")}>
+                className={classNames("btn-fx rounded px-1.5 py-0.5 text-2xs font-medium", timeframe === tf ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}>
                 {tf}
               </button>
             ))}
@@ -364,17 +364,17 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
           {!compact && (
             <div className="flex gap-0.5 rounded border border-line p-0.5">
               <Tooltip label="Cursor — перетаскивание и зум колесом; потяните за шкалу цен справа, чтобы растянуть её по вертикали">
-                <button onClick={() => setTool("cursor")} className={classNames("btn-fx rounded px-1.5 py-0.5 text-2xs", tool === "cursor" ? "bg-accent text-white" : "text-txt-2 hover:text-txt-0")}>
+                <button onClick={() => setTool("cursor")} className={classNames("btn-fx rounded px-1.5 py-0.5 text-2xs", tool === "cursor" ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}>
                   ✛
                 </button>
               </Tooltip>
               <Tooltip label="Trend line — клик, потом второй клик для завершения; ПКМ по линии удаляет">
-                <button onClick={() => setTool("trendline")} className={classNames("btn-fx rounded px-1.5 py-0.5 text-2xs", tool === "trendline" ? "bg-accent text-white" : "text-txt-2 hover:text-txt-0")}>
+                <button onClick={() => setTool("trendline")} className={classNames("btn-fx rounded px-1.5 py-0.5 text-2xs", tool === "trendline" ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}>
                   ╱
                 </button>
               </Tooltip>
               <Tooltip label="Horizontal line — клик по цене; ПКМ по линии удаляет">
-                <button onClick={() => setTool("hline")} className={classNames("btn-fx rounded px-1.5 py-0.5 text-2xs", tool === "hline" ? "bg-accent text-white" : "text-txt-2 hover:text-txt-0")}>
+                <button onClick={() => setTool("hline")} className={classNames("btn-fx rounded px-1.5 py-0.5 text-2xs", tool === "hline" ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}>
                   —
                 </button>
               </Tooltip>

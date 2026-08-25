@@ -130,8 +130,10 @@ export function MarketsTableSection({ query }: { query: string }) {
             key={tb.id}
             onClick={() => setTab(tb.id)}
             className={classNames(
-              "shrink-0 rounded-full px-2.5 py-1 text-2xs font-medium transition-colors",
-              tab === tb.id ? "bg-accent text-white" : "text-txt-2 hover:bg-bg-2 hover:text-txt-0"
+              // py-1.5/px-3: these filters are the primary control on a public
+              // page, where the terminal's 22px density reads as cramped.
+              "shrink-0 rounded-full px-3 py-1.5 text-2xs font-medium transition-colors",
+              tab === tb.id ? "bg-accent-fill text-white" : "text-txt-2 hover:bg-bg-2 hover:text-txt-0"
             )}
           >
             {tb.label}
