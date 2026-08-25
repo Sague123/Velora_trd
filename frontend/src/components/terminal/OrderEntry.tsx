@@ -140,7 +140,11 @@ export function OrderEntry({ compact = false }: { compact?: boolean } = {}) {
   }
 
   return (
-    <div className={classNames("flex h-full flex-col overflow-y-auto bg-bg-1", compact && "text-2xs")}>
+    // The root no longer scrolls; only the field area between the side
+    // selector and the pinned submit bar does. That keeps the Buy/Sell button
+    // on screen at all times — on a phone it used to sit below the fold, so
+    // placing an order meant scrolling the form first.
+    <div className={classNames("flex h-full flex-col overflow-hidden bg-bg-1", compact && "text-2xs")}>
       <div className={classNames("flex shrink-0 gap-0.5 border-b border-line", compact ? "p-0.5" : "p-1")}>
         {TYPES.map((t) => (
           <button
@@ -180,7 +184,7 @@ export function OrderEntry({ compact = false }: { compact?: boolean } = {}) {
         </button>
       </div>
 
-      <div className={classNames("flex-1 px-2.5 pb-2.5", compact ? "space-y-2" : "space-y-3")}>
+      <div className={classNames("min-h-0 flex-1 overflow-y-auto px-2.5 pb-2.5", compact ? "space-y-2" : "space-y-3")}>
         {type !== "MARKET" && (
           <label className="block">
             <span className="mb-1 flex justify-between text-2xs text-txt-2">
@@ -228,13 +232,43 @@ export function OrderEntry({ compact = false }: { compact?: boolean } = {}) {
               </Tooltip>
             </div>
           </span>
-          <input
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            inputMode="decimal"
-            placeholder={amountMode === "BASE" ? "0.00" : "$ 0.00"}
-            className="w-full rounded border border-line bg-bg-2 px-2 py-1.5 text-xs tabular outline-none focus:border-accent"
-          />
+          {/* Amount and the TP/SL switch share one row: two short controls
+              side by side instead of two full-width stacked blocks, which is
+              the single biggest vertical saving in this form. */}
+          <div className="flex items-stretch gap-2">
+            <input
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              inputMode="decimal"
+              placeholder={amountMode === "BASE" ? "0.00" : "$ 0.00"}
+              className="min-w-0 flex-1 rounded border border-line bg-bg-2 px-2 py-1.5 text-xs tabular outline-none focus:border-accent"
+            />
+            <button
+              type="button"
+              onClick={() => setUseTpSl((v) => !v)}
+              aria-pressed={useTpSl}
+              title="Take Profit / Stop Loss"
+              className={classNames(
+                "btn-fx flex shrink-0 items-center gap-1.5 rounded border px-2 transition-colors",
+                useTpSl ? "border-accent/50 bg-accent-soft" : "border-line bg-bg-2"
+              )}
+            >
+              <span className={classNames("text-2xs font-semibold", useTpSl ? "text-accent" : "text-txt-2")}>TP/SL</span>
+              <span
+                className={classNames(
+                  "relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors duration-200",
+                  useTpSl ? "bg-gradient-to-r from-buy to-sell" : "bg-bg-4"
+                )}
+              >
+                <span
+                  className={classNames(
+                    "inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform duration-200",
+                    useTpSl ? "translate-x-[14px]" : "translate-x-0.5"
+                  )}
+                />
+              </span>
+            </button>
+          </div>
           <div className="mt-1 text-2xs text-txt-3">
             {amountMode === "BASE" && qty > 0 && `≈ ${fmtUsd(estNotional(qty, effectivePrice))} total · ${fmtUsd(estMargin(estNotional(qty, effectivePrice), leverage))} margin`}
             {amountMode === "QUOTE" && qty > 0 && `≈ ${fmtQty(qty)} ${baseAsset} · ${fmtUsd(estMargin(estNotional(qty, effectivePrice), leverage))} margin`}
@@ -263,30 +297,10 @@ export function OrderEntry({ compact = false }: { compact?: boolean } = {}) {
           </div>
         </label>
 
-        <div className="rounded-lg border border-line-soft bg-bg-2/40 p-2.5 transition-colors">
-          <button
-            type="button"
-            onClick={() => setUseTpSl((v) => !v)}
-            className="btn-fx flex w-full items-center justify-between"
-            aria-pressed={useTpSl}
-          >
-            <span className="text-2xs font-semibold text-txt-1">{t("terminal.tpsl")}</span>
-            <span
-              className={classNames(
-                "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200",
-                useTpSl ? "bg-gradient-to-r from-buy to-sell" : "bg-bg-4"
-              )}
-            >
-              <span
-                className={classNames(
-                  "inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200",
-                  useTpSl ? "translate-x-[18px]" : "translate-x-1"
-                )}
-              />
-            </span>
-          </button>
-
-          <div className={classNames("grid transition-[grid-template-rows] duration-300 ease-out", useTpSl ? "mt-2.5 grid-rows-[1fr]" : "grid-rows-[0fr]")}>
+        {/* The toggle now lives beside the Amount field; this is just the
+            panel it reveals, so it collapses to nothing when switched off. */}
+        <div className={classNames("transition-colors", useTpSl && "rounded-lg border border-line-soft bg-bg-2/40 p-2.5")}>
+          <div className={classNames("grid transition-[grid-template-rows] duration-300 ease-out", useTpSl ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
             <div className="overflow-hidden">
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -380,6 +394,11 @@ export function OrderEntry({ compact = false }: { compact?: boolean } = {}) {
           </div>
         )}
 
+      </div>
+
+      {/* Pinned below the scroll area, so the order can always be submitted
+          without scrolling the form first. */}
+      <div className="shrink-0 space-y-2 border-t border-line bg-bg-1 px-2.5 py-2">
         {insufficientFunds && (
           <div className="rounded border border-sell/40 bg-sell-soft px-2 py-1.5 text-2xs text-sell">{t("terminal.insufficientFunds")}</div>
         )}
@@ -389,7 +408,7 @@ export function OrderEntry({ compact = false }: { compact?: boolean } = {}) {
           disabled={!canSubmit}
           className={classNames(
             "btn-fx w-full rounded-xl text-sm font-bold shadow-btn transition-colors disabled:cursor-not-allowed disabled:opacity-40",
-            compact ? "py-3" : "py-3.5",
+            compact ? "py-2.5" : "py-3.5",
             side === "BUY" ? "bg-buy text-black hover:bg-buy/90" : "bg-sell text-white hover:bg-sell/90"
           )}
         >

@@ -11,6 +11,7 @@ import { classNames, fmt, fmtPrice, fmtUsd } from "../lib/format";
 import { toast } from "../store/toast";
 import { IconFlask, IconGrid, IconTarget, IconTrendDown, IconTrendUp } from "../components/icons/Icon";
 import type { Timeframe } from "../lib/types";
+import { SiteFooter } from "../components/layout/SiteFooter";
 
 function newId() {
   return `bot_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -329,6 +330,8 @@ export function StrategiesPage() {
         {list.length === 0 && <div className="rounded-lg border border-dashed border-line bg-bg-1 px-3 py-8 text-center text-2xs text-txt-3">Нет созданных ботов — настройте один выше.</div>}
         {list.map((bot) => <BotCard key={bot.id} bot={bot} onOpen={() => setOpenBotId(bot.id)} />)}
       </div>
+
+      <SiteFooter compact />
     </div>
   );
 }

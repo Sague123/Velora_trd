@@ -11,6 +11,7 @@ import { QuickDepositModal } from "../components/profile/QuickDepositModal";
 import { LoadingRow, ErrorRow } from "../components/common/States";
 import { classNames, fmtPct, fmtSigned, fmtUsd } from "../lib/format";
 import { IconArrowRight, IconBolt, IconTrendDown, IconTrendUp, IconWalletPlus } from "../components/icons/Icon";
+import { SiteFooter } from "../components/layout/SiteFooter";
 
 // A fixed shortlist of the most liquid instruments — computing a technical
 // signal needs a full candle fetch per symbol, so this stays deliberately
@@ -141,6 +142,8 @@ export function OverviewPage() {
           </div>
         </div>
       )}
+
+      <SiteFooter compact />
     </div>
   );
 }

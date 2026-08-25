@@ -21,6 +21,7 @@ import { toast } from "../store/toast";
 import { ApiError } from "../lib/api";
 import { IconMoon, IconSun } from "../components/icons/Icon";
 import type { OrderStatus, Timeframe } from "../lib/types";
+import { SiteFooter } from "../components/layout/SiteFooter";
 
 type Tab = "wallet" | "balance" | "portfolio" | "history" | "settings";
 
@@ -341,6 +342,8 @@ export function ProfilePage() {
       {tab === "history" && <TradeHistoryTab />}
 
       {tab === "settings" && <SettingsTab />}
+
+      <SiteFooter compact />
     </div>
   );
 }

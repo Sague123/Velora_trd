@@ -1,19 +1,30 @@
 import { Link } from "react-router-dom";
+import { classNames } from "../../lib/format";
 import { Logo } from "./Logo";
 
 /**
- * Closing band for the public pages. Beyond the branding, it does a practical
- * job on mobile: it gives the scroll a clear, deliberate end so the last real
- * content block is never left flush against the browser chrome looking cut off.
+ * Closing band for any scrollable page. Beyond the branding, it does a
+ * practical job: it gives the scroll a clear, deliberate end, so the last
+ * real content block is never left flush against the browser chrome looking
+ * like it was cut off mid-page.
+ *
+ * `compact` trims the padding for use inside the authenticated app, where
+ * vertical space is worth more than on the marketing pages.
  */
-export function SiteFooter() {
-  const year = new Date().getFullYear();
+export function SiteFooter({ compact = false }: { compact?: boolean } = {}) {
   return (
-    <footer className="mt-6 border-t border-line bg-bg-1">
-      <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-3 px-4 py-6 sm:flex-row sm:items-center sm:justify-between">
+    <footer className={classNames("border-t border-line bg-bg-1", compact ? "mt-3" : "mt-6")}>
+      <div
+        className={classNames(
+          "mx-auto flex w-full max-w-[1600px] flex-col gap-3 px-4 sm:flex-row sm:items-center sm:justify-between",
+          compact ? "py-3" : "py-6"
+        )}
+      >
         <div className="flex items-center gap-2">
-          <Logo size={18} />
-          <span className="text-sm font-semibold tracking-tight text-txt-0">Velora</span>
+          <Logo size={compact ? 16 : 18} />
+          <span className={classNames("font-semibold tracking-tight text-txt-0", compact ? "text-xs" : "text-sm")}>
+            Velora
+          </span>
           <span className="text-2xs text-txt-3">— лучшая криптоплатформа</span>
         </div>
 
@@ -23,14 +34,6 @@ export function SiteFooter() {
           <Link to="/strategies" className="hover:text-accent">Strategies</Link>
           <Link to="/legal/privacy" className="hover:text-accent">Политика данных</Link>
         </nav>
-      </div>
-
-      <div className="border-t border-line-soft px-4 py-3">
-        <p className="mx-auto max-w-[1600px] text-2xs leading-relaxed text-txt-3">
-          © {year} Velora. Котировки поставляются Binance и отображаются как есть; торговля ведётся
-          виртуальными средствами. Материалы платформы носят информационный характер и не являются
-          инвестиционной рекомендацией.
-        </p>
       </div>
     </footer>
   );

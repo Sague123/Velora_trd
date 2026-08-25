@@ -8,6 +8,7 @@ import { classNames, fmtCompact, fmtPct, fmtPrice } from "../lib/format";
 import { LoadingRow, ErrorRow, EmptyRow } from "../components/common/States";
 import { IconCoin } from "../components/icons/Icon";
 import type { Category } from "../lib/types";
+import { SiteFooter } from "../components/layout/SiteFooter";
 
 const CATEGORIES: Array<{ id: Category | "ALL"; label: string; Icon?: typeof IconCoin }> = [
   { id: "ALL", label: "All" },
@@ -67,7 +68,11 @@ export function MarketsPage() {
   );
 
   return (
-    <div className="flex h-full flex-col overflow-hidden p-3">
+    // Scrolls as a page rather than pinning a fixed-height table with its own
+    // inner scrollbar — that way the list has a real end, and the footer below
+    // marks it. This element is also what the table's sticky header anchors
+    // to, so nothing between it and the <thead> may create its own scroll box.
+    <div className="h-full overflow-auto p-3">
       <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2">
         <h1 className="mr-2 text-sm font-semibold text-txt-0">{t("nav.markets")}</h1>
         <input
@@ -106,7 +111,12 @@ export function MarketsPage() {
         </div>
       )}
 
-      <div className="min-h-0 flex-1 overflow-auto rounded border border-line bg-bg-1">
+      {/* Deliberately no overflow-* here: any scroll container between the
+          sticky <thead> and the page scroller would become the header's
+          anchor, and this box never scrolls vertically, so the header would
+          just slide away. Horizontal overflow is handled by the page
+          container instead, which keeps the header pinned to the viewport. */}
+      <div className="rounded border border-line bg-bg-1">
         {isLoading && <LoadingRow label="Загрузка инструментов…" />}
         {isError && <ErrorRow label="Не удалось загрузить инструменты" onRetry={() => refetch()} />}
         {!isLoading && !isError && rows.length === 0 && <EmptyRow label="Ничего не найдено" />}
@@ -152,6 +162,8 @@ export function MarketsPage() {
           </table>
         )}
       </div>
+
+      <SiteFooter compact />
     </div>
   );
 }
