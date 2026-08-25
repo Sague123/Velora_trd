@@ -852,6 +852,45 @@ export class ChartEngine {
       ctx.fillText(p.toFixed(this.priceDecimals), plotW + 6, y + 3);
     }
 
+    // ---- current price marker ----
+    // A filled tag in the gutter at the latest close, plus a faint line across
+    // the plot. Without it the axis is just evenly-spaced round numbers and
+    // there's nothing showing where the market actually *is* relative to them.
+    const lastBar = this.bars[this.bars.length - 1];
+    if (lastBar) {
+      const lp = lastBar.close;
+      if (lp >= minP && lp <= maxP) {
+        const y = yForPrice(lp);
+        // green/red against the bar's own open, matching the candle colouring
+        const up = lastBar.close >= lastBar.open;
+        const color = up ? theme.buy : theme.sell;
+
+        ctx.strokeStyle = color;
+        ctx.globalAlpha = 0.45;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(0, y + 0.5);
+        ctx.lineTo(plotW, y + 0.5);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 1;
+
+        const label = lp.toFixed(this.priceDecimals);
+        const padX = 4;
+        const w = ctx.measureText(label).width + padX * 2;
+        const h = 14;
+        // Clamp so the tag stays fully on-canvas at the very top/bottom.
+        const boxY = Math.max(0, Math.min(priceH - h, y - h / 2));
+        ctx.fillStyle = color;
+        ctx.fillRect(plotW + 2, boxY, w, h);
+        ctx.fillStyle = up ? "#06231a" : "#ffffff";
+        ctx.textAlign = "left";
+        ctx.fillText(label, plotW + 2 + padX, boxY + h - 4);
+        ctx.fillStyle = theme.text;
+      }
+    }
+
     // ---- time axis: date once per day boundary (or always, for daily+ bars) ----
     const barIntervalSec = this.bars.length > 1 ? this.bars[1].time - this.bars[0].time : 3600;
     const timeStepBars = Math.max(1, Math.round(span / 6));

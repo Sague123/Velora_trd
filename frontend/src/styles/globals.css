@@ -142,13 +142,16 @@ html, body { overscroll-behavior-y: auto; }
  * also what makes the top-bar controls line up at a consistent size instead of
  * each shrinking to fit its own label. */
 @media (pointer: coarse) {
-  .tap {
-    min-height: 44px;
-    min-width: 44px;
+  /* Both variants must centre their own content. .tap-sm used to set only the
+   * minimums, so a button whose content was narrower than 38px (an icon-only
+   * control) kept its default flex-start alignment and the glyph sat visibly
+   * off to the left of its own box. */
+  .tap, .tap-sm {
     display: inline-flex;
     align-items: center;
     justify-content: center;
   }
+  .tap { min-height: 44px; min-width: 44px; }
   .tap-sm { min-height: 38px; min-width: 38px; }
 }
 

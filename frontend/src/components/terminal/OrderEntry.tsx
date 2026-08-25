@@ -5,8 +5,8 @@ import { useLiveInstrument } from "../../hooks/useLivePrices";
 import { useAccount, usePlaceOrder } from "../../hooks/useTrading";
 import { useAuthStore } from "../../store/auth";
 import { useSettingsStore } from "../../store/settings";
-import { classNames, fmt, fmtPrice, fmtQty, fmtSigned, fmtUsd, n } from "../../lib/format";
-import { estFee, estLiquidationPrice, estMargin, estNotional, estPnl, MAINTENANCE_MARGIN_RATIO } from "../../lib/tradeMath";
+import { classNames, fmtPrice, fmtQty, fmtUsd, n } from "../../lib/format";
+import { estFee, estLiquidationPrice, estMargin, estNotional, MAINTENANCE_MARGIN_RATIO } from "../../lib/tradeMath";
 import { toast } from "../../store/toast";
 import { ApiError } from "../../lib/api";
 import { Tooltip } from "../common/Tooltip";
@@ -68,25 +68,16 @@ export function OrderEntry({ compact = false }: { compact?: boolean } = {}) {
     const notional = estNotional(qty, effectivePrice);
     const margin = estMargin(notional, leverage);
     const fee = estFee(notional);
-    const liquidation = qty > 0 && effectivePrice > 0 ? estLiquidationPrice(side, effectivePrice, leverage) : null;
-    return { notional, margin, fee, total: margin + fee, liquidation };
-  }, [qty, effectivePrice, leverage, side]);
-
-  const tpPreview = useMemo(() => {
-    const tpPrice = n(tp);
-    if (!useTpSl || !tpPrice || qty <= 0) return null;
-    const pnl = estPnl(side, qty, effectivePrice, tpPrice);
-    const roe = estimate.margin > 0 ? (pnl / estimate.margin) * 100 : 0;
-    return { pnl, roe };
-  }, [tp, useTpSl, qty, effectivePrice, side, estimate.margin]);
-
-  const slPreview = useMemo(() => {
-    const slPrice = n(sl);
-    if (!useTpSl || !slPrice || qty <= 0) return null;
-    const pnl = estPnl(side, qty, effectivePrice, slPrice);
-    const roe = estimate.margin > 0 ? (pnl / estimate.margin) * 100 : 0;
-    return { pnl, roe };
-  }, [sl, useTpSl, qty, effectivePrice, side, estimate.margin]);
+    // Side is no longer chosen up-front — Buy and Sell are both submit
+    // buttons now — so the liquidation estimate is shown for each direction
+    // rather than for one pre-selected side.
+    const priced = qty > 0 && effectivePrice > 0;
+    return {
+      notional, margin, fee, total: margin + fee,
+      liqLong: priced ? estLiquidationPrice("BUY", effectivePrice, leverage) : null,
+      liqShort: priced ? estLiquidationPrice("SELL", effectivePrice, leverage) : null,
+    };
+  }, [qty, effectivePrice, leverage]);
 
   const availableCash = n(account?.cash);
   const insufficientFunds = estimate.total > 0 && estimate.total > availableCash;
@@ -97,6 +88,10 @@ export function OrderEntry({ compact = false }: { compact?: boolean } = {}) {
   function handleSubmitClick(submitSide: OrderSide) {
     if (qtyInvalid) return toast.warning("Укажите сумму или количество");
     if (priceMissing) return toast.warning("Укажите цену для лимитного/стоп-ордера");
+    // There is no separate side selector any more, so the pressed button is
+    // what defines the direction — record it so the pending/armed state
+    // renders on the right button.
+    setSide(submitSide);
     if (confirmOnOrder && armed !== submitSide) {
       setArmed(submitSide);
       if (armTimer.current) clearTimeout(armTimer.current);
@@ -159,29 +154,6 @@ export function OrderEntry({ compact = false }: { compact?: boolean } = {}) {
             {t}
           </button>
         ))}
-      </div>
-
-      <div className={classNames("grid shrink-0 grid-cols-2 gap-1.5", compact ? "p-1.5" : "p-2")}>
-        <button
-          onClick={() => setSide("BUY")}
-          className={classNames(
-            "btn-fx rounded-lg text-xs font-semibold transition-colors",
-            compact ? "py-2" : "py-2.5",
-            side === "BUY" ? "bg-buy text-black" : "bg-buy-soft text-buy hover:bg-buy/20"
-          )}
-        >
-          {t("terminal.buyLong")}
-        </button>
-        <button
-          onClick={() => setSide("SELL")}
-          className={classNames(
-            "btn-fx rounded-lg text-xs font-semibold transition-colors",
-            compact ? "py-2" : "py-2.5",
-            side === "SELL" ? "bg-sell text-white" : "bg-sell-soft text-sell hover:bg-sell/20"
-          )}
-        >
-          {t("terminal.sellShort")}
-        </button>
       </div>
 
       <div className={classNames("min-h-0 flex-1 overflow-y-auto px-2.5 pb-2.5", compact ? "space-y-2" : "space-y-3")}>
@@ -313,14 +285,6 @@ export function OrderEntry({ compact = false }: { compact?: boolean } = {}) {
                     tabIndex={useTpSl ? 0 : -1}
                     className="w-full rounded border border-line bg-bg-3 px-1.5 py-1.5 text-2xs tabular outline-none focus:border-buy"
                   />
-                  {tpPreview && (
-                    <div className="mt-1 text-2xs">
-                      <span className="text-txt-3">est. </span>
-                      <span className={tpPreview.pnl >= 0 ? "text-buy" : "text-sell"}>
-                        {fmtSigned(tpPreview.pnl)} ({fmt(tpPreview.roe, 1)}%)
-                      </span>
-                    </div>
-                  )}
                 </div>
                 <div>
                   <span className="mb-1 block text-2xs font-medium text-sell">{t("terminal.stopLoss")}</span>
@@ -332,14 +296,6 @@ export function OrderEntry({ compact = false }: { compact?: boolean } = {}) {
                     tabIndex={useTpSl ? 0 : -1}
                     className="w-full rounded border border-line bg-bg-3 px-1.5 py-1.5 text-2xs tabular outline-none focus:border-sell"
                   />
-                  {slPreview && (
-                    <div className="mt-1 text-2xs">
-                      <span className="text-txt-3">est. </span>
-                      <span className={slPreview.pnl >= 0 ? "text-buy" : "text-sell"}>
-                        {fmtSigned(slPreview.pnl)} ({fmt(slPreview.roe, 1)}%)
-                      </span>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
@@ -352,10 +308,14 @@ export function OrderEntry({ compact = false }: { compact?: boolean } = {}) {
               <span className="text-txt-2">{t("terminal.total")} <span className={classNames("font-medium", insufficientFunds ? "text-sell" : "text-txt-0")}>{fmtUsd(estimate.total)}</span></span>
               <span className="text-txt-2">{t("terminal.available")} <span className="text-txt-1">{fmtUsd(account?.cash ?? 0)}</span></span>
             </div>
-            {estimate.liquidation !== null && (
+            {estimate.liqLong !== null && estimate.liqShort !== null && (
               <div className="mt-1 flex justify-between border-t border-line-soft pt-1 text-txt-2">
                 <span>{t("terminal.estLiqPrice")}</span>
-                <span className="text-warn">{fmtPrice(estimate.liquidation, inst?.priceDecimals ?? 2)}</span>
+                <span>
+                  <span className="text-buy">{fmtPrice(estimate.liqLong, inst?.priceDecimals ?? 2)}</span>
+                  <span className="mx-1 text-txt-3">/</span>
+                  <span className="text-sell">{fmtPrice(estimate.liqShort, inst?.priceDecimals ?? 2)}</span>
+                </span>
               </div>
             )}
           </div>
@@ -375,12 +335,16 @@ export function OrderEntry({ compact = false }: { compact?: boolean } = {}) {
               </Tooltip>
               <span className="text-txt-1">{fmtUsd(estimate.fee, 4)}</span>
             </div>
-            {estimate.liquidation !== null && (
+            {estimate.liqLong !== null && estimate.liqShort !== null && (
               <div className="flex justify-between text-txt-2">
-                <Tooltip label={`Maintenance margin ${(MAINTENANCE_MARGIN_RATIO * 100).toFixed(1)}% — приблизительно, финальная цена считается сервером`}>
+                <Tooltip label={`Maintenance margin ${(MAINTENANCE_MARGIN_RATIO * 100).toFixed(1)}% — приблизительно, финальная цена считается сервером. Слева для Long, справа для Short.`}>
                   <span className="cursor-help underline decoration-dotted">{t("terminal.estLiqPrice")}</span>
                 </Tooltip>
-                <span className="text-warn">{fmtPrice(estimate.liquidation, inst?.priceDecimals ?? 2)}</span>
+                <span>
+                  <span className="text-buy">{fmtPrice(estimate.liqLong, inst?.priceDecimals ?? 2)}</span>
+                  <span className="mx-1 text-txt-3">/</span>
+                  <span className="text-sell">{fmtPrice(estimate.liqShort, inst?.priceDecimals ?? 2)}</span>
+                </span>
               </div>
             )}
             <div className="flex justify-between border-t border-line-soft pt-1 font-medium text-txt-0">
@@ -403,21 +367,31 @@ export function OrderEntry({ compact = false }: { compact?: boolean } = {}) {
           <div className="rounded border border-sell/40 bg-sell-soft px-2 py-1.5 text-2xs text-sell">{t("terminal.insufficientFunds")}</div>
         )}
 
-        <button
-          onClick={() => handleSubmitClick(side)}
-          disabled={!canSubmit}
-          className={classNames(
-            "btn-fx w-full rounded-xl text-sm font-bold shadow-btn transition-colors disabled:cursor-not-allowed disabled:opacity-40",
-            compact ? "py-2.5" : "py-3.5",
-            side === "BUY" ? "bg-buy text-black hover:bg-buy/90" : "bg-sell text-white hover:bg-sell/90"
-          )}
-        >
-          {place.isPending
-            ? "Отправка…"
-            : armed === side
-              ? "Нажмите ещё раз для подтверждения"
-              : `${side === "BUY" ? "Buy" : "Sell"} ${inst?.symbol ?? ""}`}
-        </button>
+        {/* One pair of buttons that both *choose the direction and submit* —
+            previously the same choice was made twice (a selector mid-form and
+            a submit button here), which cost a row of space and added a step. */}
+        <div className="grid grid-cols-2 gap-2">
+          {(["BUY", "SELL"] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => handleSubmitClick(s)}
+              disabled={!canSubmit}
+              className={classNames(
+                "btn-fx rounded-xl font-bold shadow-btn transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                compact ? "py-2.5 text-xs" : "py-3.5 text-sm",
+                s === "BUY" ? "bg-buy text-black hover:bg-buy/90" : "bg-sell text-white hover:bg-sell/90"
+              )}
+            >
+              {place.isPending && side === s
+                ? "Отправка…"
+                : armed === s
+                  ? "Ещё раз"
+                  : s === "BUY"
+                    ? t("terminal.buyLong")
+                    : t("terminal.sellShort")}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );

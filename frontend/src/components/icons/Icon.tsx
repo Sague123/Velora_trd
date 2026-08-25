@@ -46,6 +46,8 @@ export const IconCrypto = (p: IconProps) => base({ ...p, children: <><path d="M1
 export const IconCopy = (p: IconProps) => base({ ...p, children: <><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" /></> });
 export const IconGlobe = (p: IconProps) => base({ ...p, children: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></> });
 export const IconSearch = (p: IconProps) => base({ ...p, children: <><circle cx="10.5" cy="10.5" r="6.5" /><path d="m20 20-4.35-4.35" /></> });
+export const IconChevron = ({ direction = "down", ...p }: IconProps & { direction?: "up" | "down" }) =>
+  base({ ...p, children: <path d={direction === "up" ? "m6 15 6-6 6 6" : "m6 9 6 6 6-6"} /> });
 export const IconBell = (p: IconProps) => base({ ...p, children: <><path d="M6 9a6 6 0 0 1 12 0c0 4 1.5 5.5 2 6.5H4c.5-1 2-2.5 2-6.5Z" /><path d="M10 19a2 2 0 0 0 4 0" /></> });
 export const IconStar = (p: IconProps) => base({ ...p, children: <path d="m12 3 2.7 5.9 6.3.7-4.7 4.4 1.2 6.4L12 17.5 6.5 20.4l1.2-6.4-4.7-4.4 6.3-.7L12 3Z" /> });
 export const IconNewspaper = (p: IconProps) => base({ ...p, children: <><rect x="3" y="5" width="14" height="14" rx="1.5" /><path d="M17 9h4v8a2 2 0 0 1-2 2H7" /><path d="M6.5 9h7M6.5 12h7M6.5 15h4" /></> });

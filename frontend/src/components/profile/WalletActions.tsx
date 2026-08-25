@@ -6,12 +6,11 @@ import { fmtDateTime, fmtUsd, fmtSigned, classNames } from "../../lib/format";
 import { WalletFlowModal, WalletMethod } from "./WalletFlowModal";
 import { demoWalletAddress } from "../../lib/demoWallet";
 import { toast } from "../../store/toast";
-import { IconCopy, IconCrypto, IconSwap, IconWalletMinus, IconWalletPlus } from "../icons/Icon";
+import { IconCopy, IconCrypto, IconWalletMinus, IconWalletPlus } from "../icons/Icon";
 
 const TILES: { method: WalletMethod; Icon: typeof IconWalletPlus; label: string; sub: string; gradient: string }[] = [
   { method: "deposit", Icon: IconWalletPlus, label: "Deposit", sub: "Пополнить баланс", gradient: "from-buy to-emerald-400" },
   { method: "withdraw", Icon: IconWalletMinus, label: "Withdraw", sub: "Вывести средства", gradient: "from-warn to-sell" },
-  { method: "transfer", Icon: IconSwap, label: "Transfer", sub: "Другому юзеру", gradient: "from-accent to-[#7c3aed]" },
 ];
 
 export function WalletActions() {
@@ -58,7 +57,7 @@ export function WalletActions() {
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         {TILES.map((t, idx) => (
           <button
             key={t.method}

@@ -8,7 +8,7 @@ import { AccountStrip } from "./AccountStrip";
 import { useTerminalStore } from "../../store/terminal";
 import { useLiveInstrument } from "../../hooks/useLivePrices";
 import { classNames, fmtPct, fmtPrice } from "../../lib/format";
-import { IconBook, IconCandles, IconClipboard, IconClose, IconTrade } from "../icons/Icon";
+import { IconBook, IconCandles, IconChevron, IconClipboard, IconClose, IconTrade } from "../icons/Icon";
 
 type TopView = "chart" | "book";
 type BottomView = "trade" | "orders";
@@ -24,6 +24,9 @@ export function MobileTerminal() {
   const [topView, setTopView] = useState<TopView>("chart");
   const [bottomView, setBottomView] = useState<BottomView>("trade");
   const [pickerOpen, setPickerOpen] = useState(false);
+  // Halves the chart pane so the order form gets the room instead — on a
+  // phone the default split leaves the amount/leverage fields cramped.
+  const [chartCollapsed, setChartCollapsed] = useState(false);
 
   return (
     <div className="flex h-full flex-col">
@@ -63,21 +66,32 @@ export function MobileTerminal() {
         </div>
       </div>
 
-      <div className="shrink-0 border-b border-line" style={{ height: "46%" }}>
+      <div
+        className="relative shrink-0 border-b border-line transition-[height] duration-200"
+        style={{ height: chartCollapsed ? "23%" : "46%" }}
+      >
         {topView === "chart" ? <ChartPanel compact /> : <RightPanelTabs />}
+        <button
+          onClick={() => setChartCollapsed((v) => !v)}
+          aria-label={chartCollapsed ? "Развернуть график" : "Свернуть график"}
+          title={chartCollapsed ? "Развернуть график" : "Свернуть график"}
+          className="btn-fx absolute bottom-1.5 right-1.5 z-20 flex h-7 w-7 items-center justify-center rounded-full border border-line bg-bg-1/90 text-txt-2 shadow-lg backdrop-blur hover:border-accent hover:text-accent"
+        >
+          <IconChevron size={14} direction={chartCollapsed ? "down" : "up"} />
+        </button>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="flex shrink-0 gap-0.5 border-b border-line-soft bg-bg-2/30 p-1">
+        <div className="flex shrink-0 gap-0.5 border-b border-line-soft bg-bg-2/30 px-1 py-0.5">
           <button
             onClick={() => setBottomView("trade")}
-            className={classNames("btn-fx tap-sm flex flex-1 items-center justify-center gap-1 rounded text-2xs font-medium transition-colors", bottomView === "trade" ? "bg-accent-fill text-white" : "text-txt-2")}
+            className={classNames("btn-fx flex h-8 flex-1 items-center justify-center gap-1 rounded text-2xs font-medium transition-colors", bottomView === "trade" ? "bg-accent-fill text-white" : "text-txt-2")}
           >
             <IconTrade size={13} /> Trade
           </button>
           <button
             onClick={() => setBottomView("orders")}
-            className={classNames("btn-fx tap-sm flex flex-1 items-center justify-center gap-1 rounded text-2xs font-medium transition-colors", bottomView === "orders" ? "bg-accent-fill text-white" : "text-txt-2")}
+            className={classNames("btn-fx flex h-8 flex-1 items-center justify-center gap-1 rounded text-2xs font-medium transition-colors", bottomView === "orders" ? "bg-accent-fill text-white" : "text-txt-2")}
           >
             <IconClipboard size={13} /> Orders &amp; History
           </button>

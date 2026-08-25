@@ -41,6 +41,20 @@ export async function buildApp() {
   const isPrivateLanOrigin = (origin: string) =>
     /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\]|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})(:\d+)?$/.test(origin);
 
+  // Render assigns each service a random suffix (velora-frontend-a1b2.onrender.com),
+  // which isn't known until after the first deploy — so CORS_ORIGIN has to be
+  // filled in by hand afterwards, and if it's wrong by one character the whole
+  // app just reports "no connection to the server" with nothing to diagnose
+  // from. This accepts this project's own frontend on Render whatever suffix
+  // it drew, which removes that failure mode entirely.
+  //
+  // It is deliberately narrow: only https, only the `velora-` prefix, only
+  // .onrender.com. Abusing it would mean owning a velora-*.onrender.com
+  // subdomain. Set CORS_ORIGIN explicitly (and it still takes precedence) if
+  // you later move to a custom domain and want to drop this allowance.
+  const isOwnRenderOrigin = (origin: string) =>
+    /^https:\/\/velora-[a-z0-9-]+\.onrender\.com$/.test(origin);
+
   // Logged once at boot: a CORS misconfiguration presents to the user as a
   // blanket "no connection to the server", with nothing in the browser to
   // say which origin was expected. Having the effective list in the deploy
@@ -53,7 +67,9 @@ export async function buildApp() {
       if (!origin) return cb(null, true);
       const normalised = origin.replace(/\/+$/, "");
       if (config.corsOrigin.includes(normalised)) return cb(null, true);
+      if (isOwnRenderOrigin(normalised)) return cb(null, true);
       if (config.env !== "production" && isPrivateLanOrigin(origin)) return cb(null, true);
+      app.log.warn({ origin: normalised, allowed: config.corsOrigin }, "CORS: origin rejected");
       return cb(null, false);
     },
     credentials: true,

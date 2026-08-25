@@ -2,3 +2,8 @@ node_modules
 dist
 .env.local
 *.log
+# Build artifacts of vite.config.ts — Vite resolves vite.config.js BEFORE
+# vite.config.ts, so a committed stale .js silently overrides the real config.
+vite.config.js
+vite.config.d.ts
+*.tsbuildinfo
