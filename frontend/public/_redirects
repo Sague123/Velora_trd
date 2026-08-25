@@ -1,0 +1,9 @@
+# SPA fallback: serve index.html for any path the static host has no file for,
+# with status 200 (a 301/302 would rewrite the address bar and destroy the very
+# path the router needs to read). Real files are matched first, so hashed JS/CSS
+# assets are unaffected — this only catches what would otherwise 404.
+#
+# Belt-and-braces alongside the `routes:` rewrite in render.yaml: that block is
+# applied when the service is created, so an existing service can end up without
+# it. Harmlessly ignored by hosts that don't read this file.
+/*    /index.html   200
