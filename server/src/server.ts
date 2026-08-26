@@ -3,13 +3,16 @@ import { config } from "./config.js";
 import { closeDb } from "./db.js";
 import { startPriceFeed } from "./engine/prices.js";
 import { startEngine } from "./engine/matching.js";
+import { startStrategyEngine } from "./engine/strategy.js";
 
 const app = await buildApp();
 const stopFeed = startPriceFeed();
 const stopEngine = startEngine();
+const stopStrategies = startStrategyEngine();
 
 function shutdown(signal: string) {
   app.log.info(`${signal} received, shutting down`);
+  stopStrategies();
   stopEngine();
   stopFeed();
   app.close().then(() => closeDb()).then(() => process.exit(0));

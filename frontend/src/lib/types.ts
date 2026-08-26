@@ -221,6 +221,79 @@ export interface AuditResponse {
   entries: AuditEntry[];
 }
 
+/* ----------------------------- strategy bots ------------------------------ */
+// Bots live on the server (server/src/engine/strategy.ts) and keep trading
+// with no browser attached. Everything below mirrors what that engine stores:
+// `config` is the definition the user created and never changes; `state` is
+// the engine's own bookkeeping, read-only from here.
+
+export type BotType = "GRID" | "MARTINGALE";
+export type BotStatus = "RUNNING" | "STOPPED" | "ERROR";
+
+export interface GridConfig {
+  lower: string;
+  upper: string;
+  levels: number;
+  qtyPerLevel: string;
+  leverage: number;
+}
+
+export interface MartingaleConfig {
+  side: OrderSide;
+  baseQty: string;
+  multiplier: number;
+  maxSteps: number;
+  takeProfitPct: number;
+  addOnDrawdownPct: number;
+  leverage: number;
+}
+
+export interface GridOrderRef {
+  orderId: string;
+  level: number;
+  side: OrderSide;
+  price: string;
+}
+
+export interface GridState { gridOrders: GridOrderRef[] }
+export interface MartingaleState { positionIds: string[]; step: number }
+
+interface BotBase {
+  id: string;
+  symbol: string;
+  status: BotStatus;
+  errorCount: number;
+  lastError: string | null;
+  estimatedCapital: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GridBot extends BotBase {
+  type: "GRID";
+  config: GridConfig;
+  state: GridState;
+}
+
+export interface MartingaleBot extends BotBase {
+  type: "MARTINGALE";
+  config: MartingaleConfig;
+  state: MartingaleState;
+}
+
+export type Bot = GridBot | MartingaleBot;
+
+export interface BotLogEntry { ts: string; message: string }
+
+export interface BotDetail {
+  bot: Bot;
+  logs: BotLogEntry[];
+}
+
+export type CreateBotInput =
+  | { type: "GRID"; symbol: string; config: GridConfig }
+  | { type: "MARTINGALE"; symbol: string; config: MartingaleConfig };
+
 /* -------------------------------- errors --------------------------------- */
 
 export interface ApiErrorBody {

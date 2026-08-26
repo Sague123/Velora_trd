@@ -283,6 +283,37 @@ CREATE TABLE IF NOT EXISTS alerts (
 );
 CREATE INDEX IF NOT EXISTS idx_alerts_user ON alerts(user_id);
 
+-- Trading bots. Their engine runs server-side (engine/strategy.ts), so a bot
+-- keeps trading whether or not the trader who created it has a tab open.
+-- The config column is the user-supplied strategy definition and never
+-- changes once created; state is engine-owned runtime bookkeeping (which grid orders are
+-- currently resting, which positions belong to the open martingale group).
+-- Keeping the two apart means a restart, a reload or an admin looking at the
+-- row can always tell the intent from the progress.
+CREATE TABLE IF NOT EXISTS bots (
+  id          TEXT PRIMARY KEY,
+  user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type        TEXT NOT NULL,
+  symbol      TEXT NOT NULL REFERENCES instruments(symbol),
+  config      JSONB NOT NULL,
+  state       JSONB NOT NULL DEFAULT '{}'::jsonb,
+  status      TEXT NOT NULL DEFAULT 'STOPPED',
+  error_count INTEGER NOT NULL DEFAULT 0,
+  last_error  TEXT,
+  created_at  TEXT NOT NULL,
+  updated_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_bots_user ON bots(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_bots_status ON bots(status);
+
+CREATE TABLE IF NOT EXISTS bot_logs (
+  id      TEXT PRIMARY KEY,
+  bot_id  TEXT NOT NULL REFERENCES bots(id) ON DELETE CASCADE,
+  ts      TEXT NOT NULL,
+  message TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_bot_logs_bot ON bot_logs(bot_id, ts);
+
 CREATE TABLE IF NOT EXISTS audit_logs (
   id             TEXT PRIMARY KEY,
   actor_id       TEXT,

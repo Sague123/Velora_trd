@@ -39,4 +39,14 @@ export const config = {
   // displays. Binance's REST rate limit is generous (1200 weight/min; this
   // is ~2 calls/cycle, ~80 weight/min), so 2s is safe.
   priceRefreshMs: 2_000,
+  // How often the server-side strategy engine (engine/strategy.ts) steps every
+  // RUNNING bot. Slower than the matching tick on purpose: a bot step can place
+  // or close real orders, and there is nothing to gain from re-evaluating a
+  // grid faster than the grid can plausibly fill.
+  strategyTickMs: 5_000,
+  // Consecutive failing steps before a bot is parked in ERROR. Transient
+  // conditions (a missing quote) are not counted — only real failures.
+  botMaxConsecutiveErrors: 3,
+  // How many log lines each bot keeps. Old lines are pruned as new ones land.
+  botLogCap: 200,
 } as const;

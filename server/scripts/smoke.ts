@@ -191,6 +191,72 @@ async function main() {
   const alerts = await api("/api/alerts", { token });
   check("alert listed and pending", alerts.body?.alerts?.[0]?.firedAt === null);
 
+  /* ------------------------------ strategies ------------------------------ */
+  // The bot engine runs on the server (engine/strategy.ts), so it is testable
+  // the same way everything else here is: create a bot over HTTP, wait for a
+  // tick, and look at what actually landed on the book.
+  console.log("\nstrategies (server-side bot engine)");
+
+  const badRange = await api("/api/strategies", {
+    token, method: "POST",
+    body: {
+      type: "GRID", symbol: "BTCUSDT",
+      config: { lower: "60000", upper: "50000", levels: 4, qtyPerLevel: "0.001", leverage: 1 },
+    },
+  });
+  check("inverted grid range rejected", badRange.status === 400, badRange.body?.error);
+
+  const grid = await api("/api/strategies", {
+    token, method: "POST",
+    body: {
+      type: "GRID", symbol: "BTCUSDT",
+      config: {
+        lower: (price * 0.9).toFixed(2), upper: (price * 1.1).toFixed(2),
+        levels: 6, qtyPerLevel: "0.001", leverage: 1,
+      },
+    },
+  });
+  check("grid bot created", grid.status === 201, grid.body);
+  check("new bot starts stopped", grid.body?.bot?.status === "STOPPED", grid.body?.bot?.status);
+  const botId = grid.body?.bot?.id;
+
+  const ordersBeforeStart = await api("/api/orders?status=NEW", { token });
+  const restingBefore = ordersBeforeStart.body?.orders?.length ?? 0;
+
+  const started = await api(`/api/strategies/${botId}/start`, { token, method: "POST" });
+  check("bot started", started.body?.bot?.status === "RUNNING", started.body);
+
+  // One strategy tick is 5s; give the engine two so a slow CI runner still sees it.
+  await new Promise((r) => setTimeout(r, 11_000));
+
+  const botAfterTick = await api(`/api/strategies/${botId}`, { token });
+  const rungs = botAfterTick.body?.bot?.state?.gridOrders ?? [];
+  check("engine armed the grid without a browser", rungs.length > 0, botAfterTick.body?.bot);
+  check("grid brackets the market", rungs.some((g: any) => g.side === "BUY") && rungs.some((g: any) => g.side === "SELL"),
+    rungs.map((g: any) => g.side));
+  check("bot journal written", (botAfterTick.body?.logs?.length ?? 0) > 0);
+  check("bot reports no errors", botAfterTick.body?.bot?.errorCount === 0, botAfterTick.body?.bot?.lastError);
+
+  const ordersAfterStart = await api("/api/orders?status=NEW", { token });
+  check("grid rungs are real resting orders",
+    (ordersAfterStart.body?.orders?.length ?? 0) === restingBefore + rungs.length,
+    { before: restingBefore, after: ordersAfterStart.body?.orders?.length, rungs: rungs.length });
+
+  const stopped = await api(`/api/strategies/${botId}/stop`, { token, method: "POST" });
+  check("bot stopped", stopped.body?.bot?.status === "STOPPED", stopped.body);
+  const ordersAfterStop = await api("/api/orders?status=NEW", { token });
+  check("stopping releases every rung it was holding",
+    (ordersAfterStop.body?.orders?.length ?? 0) === restingBefore,
+    ordersAfterStop.body?.orders?.length);
+
+  const otherUsersBot = await api(`/api/strategies/${botId}`, {});
+  check("bots require authentication", otherUsersBot.status === 401, otherUsersBot.status);
+
+  const deleted = await api(`/api/strategies/${botId}`, { token, method: "DELETE" });
+  check("bot deleted", deleted.body?.ok === true, deleted.body);
+  const gone = await api(`/api/strategies/${botId}`, { token });
+  check("deleted bot is gone", gone.status === 404, gone.status);
+
   /* --------------------------------- admin -------------------------------- */
   console.log("\nadmin");
   const asUser = await api("/api/admin/users", { token });

@@ -1,7 +1,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useStrategiesStore, type Bot, type GridBot, type MartingaleBot } from "../store/strategies";
-import { stopBot } from "../lib/strategyEngine";
+import { useBots, useCreateBot, useDeleteBot, useStartBot, useStopBot } from "../store/strategies";
+import type { Bot, CreateBotInput } from "../lib/types";
 import { useChartBars, useInstruments } from "../hooks/useMarket";
 import { suggestGrid, estimateGridBacktest } from "../lib/gridSuggestion";
 import { GridPreviewChart } from "../components/strategies/GridPreviewChart";
@@ -9,19 +9,16 @@ import { CoinPicker } from "../components/strategies/CoinPicker";
 import { BotDetailModal } from "../components/strategies/BotDetailModal";
 import { classNames, fmt, fmtPrice, fmtUsd } from "../lib/format";
 import { toast } from "../store/toast";
-import { IconFlask, IconGrid, IconTarget, IconTrendDown, IconTrendUp } from "../components/icons/Icon";
+import { IconFlask, IconGrid, IconServer, IconTarget, IconTrendDown, IconTrendUp } from "../components/icons/Icon";
 import type { Timeframe } from "../lib/types";
+import { ApiError } from "../lib/api";
 import { SiteFooter } from "../components/layout/SiteFooter";
-
-function newId() {
-  return `bot_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-}
 
 const inputCls = "w-full rounded border border-line bg-bg-2 px-2 py-1.5 text-xs tabular outline-none focus:border-accent transition-colors";
 const labelCls = "mb-1 block text-2xs font-medium text-txt-2";
 const PREVIEW_TFS: Timeframe[] = ["15m", "1H", "4H", "1D"];
 
-function GridBotForm({ onCreate }: { onCreate: (bot: GridBot) => void }) {
+function GridBotForm({ onCreate }: { onCreate: (input: CreateBotInput) => void }) {
   const { data } = useInstruments();
   const cryptoInstruments = data?.instruments ?? [];
   const [symbol, setSymbol] = useState("BTCUSDT");
@@ -55,12 +52,13 @@ function GridBotForm({ onCreate }: { onCreate: (bot: GridBot) => void }) {
     e.preventDefault();
     const lo = Number(lower), hi = Number(upper), lv = Math.max(2, Math.trunc(Number(levels))), qty = Number(qtyPerLevel), lev = Math.max(1, Math.trunc(Number(leverage)));
     if (!(lo > 0) || !(hi > lo) || !(qty > 0)) return toast.warning("Проверьте диапазон цен и объём на уровень");
-    const bot: GridBot = {
-      id: newId(), type: "GRID", symbol, leverage: lev, status: "STOPPED", createdAt: new Date().toISOString(),
-      log: [{ ts: new Date().toISOString(), message: "Бот создан" }], errorCount: 0,
-      lower: lo, upper: hi, levels: lv, qtyPerLevel: qty, gridOrders: [],
-    };
-    onCreate(bot);
+    // Money-shaped fields go over the wire as fixed-precision decimal strings:
+    // the server keeps every price and quantity as a scaled integer, and a
+    // JS float would be the one place precision could be lost on the way in.
+    onCreate({
+      type: "GRID", symbol,
+      config: { lower: lo.toFixed(8), upper: hi.toFixed(8), levels: lv, qtyPerLevel: qty.toFixed(8), leverage: lev },
+    });
     setLower(""); setUpper(""); setQtyPerLevel("");
   }
 
@@ -142,7 +140,7 @@ function GridBotForm({ onCreate }: { onCreate: (bot: GridBot) => void }) {
   );
 }
 
-function MartingaleBotForm({ onCreate }: { onCreate: (bot: MartingaleBot) => void }) {
+function MartingaleBotForm({ onCreate }: { onCreate: (input: CreateBotInput) => void }) {
   const [symbol, setSymbol] = useState("BTC-PERP");
   const [timeframe, setTimeframe] = useState<Timeframe>("1H");
   const [side, setSide] = useState<"BUY" | "SELL">("BUY");
@@ -157,14 +155,15 @@ function MartingaleBotForm({ onCreate }: { onCreate: (bot: MartingaleBot) => voi
     e.preventDefault();
     const qty = Number(baseQty), mult = Number(multiplier), steps = Math.max(1, Math.trunc(Number(maxSteps)));
     if (!(qty > 0) || !(mult > 1)) return toast.warning("Проверьте базовый объём и множитель (> 1)");
-    const bot: MartingaleBot = {
-      id: newId(), type: "MARTINGALE", symbol, leverage: Math.max(1, Math.trunc(Number(leverage))), status: "STOPPED",
-      createdAt: new Date().toISOString(), log: [{ ts: new Date().toISOString(), message: "Бот создан" }], errorCount: 0,
-      side, baseQty: qty, multiplier: mult, maxSteps: steps,
-      takeProfitPct: Number(takeProfitPct) || 5, addOnDrawdownPct: Number(addOnDrawdownPct) || 10,
-      step: 0, positionIds: [],
-    };
-    onCreate(bot);
+    onCreate({
+      type: "MARTINGALE", symbol,
+      config: {
+        side, baseQty: qty.toFixed(8), multiplier: mult, maxSteps: steps,
+        takeProfitPct: Number(takeProfitPct) || 5,
+        addOnDrawdownPct: Number(addOnDrawdownPct) || 10,
+        leverage: Math.max(1, Math.trunc(Number(leverage))),
+      },
+    });
     setBaseQty("");
   }
 
@@ -226,22 +225,45 @@ function MartingaleBotForm({ onCreate }: { onCreate: (bot: MartingaleBot) => voi
 }
 
 function BotCard({ bot, onOpen }: { bot: Bot; onOpen: () => void }) {
-  const remove = useStrategiesStore((s) => s.remove);
-  const setStatus = useStrategiesStore((s) => s.setStatus);
+  const start = useStartBot();
+  const stop = useStopBot();
+  const remove = useDeleteBot();
   const [armStop, setArmStop] = useState(false);
+  const busy = start.isPending || stop.isPending || remove.isPending;
 
   async function handleStart() {
-    setStatus(bot.id, "RUNNING");
-    toast.success(`${bot.type === "GRID" ? "Grid" : "Martingale"} bot started`, bot.symbol);
+    try {
+      await start.mutateAsync(bot.id);
+      toast.success(`${bot.type === "GRID" ? "Grid" : "Martingale"} bot started`, `${bot.symbol} — торгует на сервере`);
+    } catch (e) {
+      toast.error("Не удалось запустить бота", e instanceof ApiError ? e.message : undefined);
+    }
   }
+
   async function handleStop() {
     if (!armStop) { setArmStop(true); setTimeout(() => setArmStop(false), 4000); return; }
     setArmStop(false);
-    await stopBot(bot);
+    try {
+      await stop.mutateAsync(bot.id);
+      toast.info("Бот остановлен", bot.symbol);
+    } catch (e) {
+      toast.error("Не удалось остановить бота", e instanceof ApiError ? e.message : undefined);
+    }
   }
-  function handleDelete() {
+
+  async function handleDelete() {
     if (bot.status === "RUNNING") return toast.warning("Сначала остановите бота");
-    remove(bot.id);
+    try {
+      const res = await remove.mutateAsync(bot.id);
+      // Martingale positions survive their bot on purpose — the server never
+      // closes a live position unasked — so say so rather than let the trader
+      // find them later and wonder where they came from.
+      if (res.openPositions > 0) {
+        toast.warning("Бот удалён", `Открытых позиций осталось: ${res.openPositions} — закройте их вручную при необходимости`);
+      }
+    } catch (e) {
+      toast.error("Не удалось удалить бота", e instanceof ApiError ? e.message : undefined);
+    }
   }
 
   return (
@@ -265,36 +287,40 @@ function BotCard({ bot, onOpen }: { bot: Bot; onOpen: () => void }) {
         </div>
         <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
           {bot.status !== "RUNNING" ? (
-            <button onClick={handleStart} className="btn-fx rounded border border-buy/40 px-2 py-1 text-2xs font-medium text-buy hover:bg-buy-soft">Start</button>
+            <button onClick={handleStart} disabled={busy} className="btn-fx rounded border border-buy/40 px-2 py-1 text-2xs font-medium text-buy hover:bg-buy-soft disabled:opacity-40">Start</button>
           ) : (
-            <button onClick={handleStop} className="btn-fx rounded border border-sell/40 px-2 py-1 text-2xs font-medium text-sell hover:bg-sell-soft">
+            <button onClick={handleStop} disabled={busy} className="btn-fx rounded border border-sell/40 px-2 py-1 text-2xs font-medium text-sell hover:bg-sell-soft disabled:opacity-40">
               {armStop ? "Confirm Stop?" : "Stop"}
             </button>
           )}
-          <button onClick={handleDelete} className="btn-fx rounded border border-line px-2 py-1 text-2xs text-txt-2 hover:text-sell">Delete</button>
+          <button onClick={handleDelete} disabled={busy} className="btn-fx rounded border border-line px-2 py-1 text-2xs text-txt-2 hover:text-sell disabled:opacity-40">Delete</button>
         </div>
       </div>
+
+      {bot.status === "ERROR" && bot.lastError && (
+        <div className="border-b border-line-soft bg-sell-soft px-3 py-1.5 text-2xs text-sell">{bot.lastError}</div>
+      )}
 
       <div className="grid grid-cols-2 gap-2 px-3 py-2 text-2xs sm:grid-cols-4">
         {bot.type === "GRID" ? (
           <>
-            <div><span className="text-txt-2">Range: </span><span className="tabular text-txt-1">{fmtPrice(bot.lower, 4)} – {fmtPrice(bot.upper, 4)}</span></div>
-            <div><span className="text-txt-2">Levels: </span><span className="tabular text-txt-1">{bot.levels}</span></div>
-            <div><span className="text-txt-2">Qty/level: </span><span className="tabular text-txt-1">{bot.qtyPerLevel}</span></div>
-            <div><span className="text-txt-2">Open grid orders: </span><span className="tabular text-txt-1">{bot.gridOrders.length}</span></div>
+            <div><span className="text-txt-2">Range: </span><span className="tabular text-txt-1">{fmtPrice(bot.config.lower, 4)} – {fmtPrice(bot.config.upper, 4)}</span></div>
+            <div><span className="text-txt-2">Levels: </span><span className="tabular text-txt-1">{bot.config.levels}</span></div>
+            <div><span className="text-txt-2">Qty/level: </span><span className="tabular text-txt-1">{bot.config.qtyPerLevel}</span></div>
+            <div><span className="text-txt-2">Open grid orders: </span><span className="tabular text-txt-1">{bot.state.gridOrders?.length ?? 0}</span></div>
           </>
         ) : (
           <>
-            <div><span className="text-txt-2">Direction: </span><span className={bot.side === "BUY" ? "text-buy" : "text-sell"}>{bot.side === "BUY" ? "Long" : "Short"}</span></div>
-            <div><span className="text-txt-2">Base qty × mult: </span><span className="tabular text-txt-1">{bot.baseQty} × {bot.multiplier}</span></div>
-            <div><span className="text-txt-2">Step: </span><span className="tabular text-txt-1">{bot.step} / {bot.maxSteps}</span></div>
-            <div><span className="text-txt-2">TP / DD: </span><span className="tabular text-txt-1">{bot.takeProfitPct}% / -{bot.addOnDrawdownPct}%</span></div>
+            <div><span className="text-txt-2">Direction: </span><span className={bot.config.side === "BUY" ? "text-buy" : "text-sell"}>{bot.config.side === "BUY" ? "Long" : "Short"}</span></div>
+            <div><span className="text-txt-2">Base qty × mult: </span><span className="tabular text-txt-1">{bot.config.baseQty} × {bot.config.multiplier}</span></div>
+            <div><span className="text-txt-2">Step: </span><span className="tabular text-txt-1">{bot.state.step ?? 0} / {bot.config.maxSteps}</span></div>
+            <div><span className="text-txt-2">TP / DD: </span><span className="tabular text-txt-1">{bot.config.takeProfitPct}% / -{bot.config.addOnDrawdownPct}%</span></div>
           </>
         )}
       </div>
 
       <button onClick={onOpen} className="btn-fx block w-full border-t border-line-soft px-3 py-1.5 text-left text-2xs text-accent hover:bg-bg-2/40">
-        Открыть детали бота: ордера, позиции, журнал ({bot.log.length}) →
+        Открыть детали бота: ордера, позиции, журнал →
       </button>
     </div>
   );
@@ -302,20 +328,35 @@ function BotCard({ bot, onOpen }: { bot: Bot; onOpen: () => void }) {
 
 export function StrategiesPage() {
   const { t } = useTranslation();
-  const bots = useStrategiesStore((s) => s.bots);
-  const upsert = useStrategiesStore((s) => s.upsert);
+  const { data, isLoading } = useBots();
+  const create = useCreateBot();
   const [tab, setTab] = useState<"grid" | "martingale">("grid");
   const [openBotId, setOpenBotId] = useState<string | null>(null);
-  const list = Object.values(bots).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-  const openBot = openBotId ? bots[openBotId] : null;
+  const list = data?.bots ?? [];
+
+  async function handleCreate(input: CreateBotInput) {
+    try {
+      await create.mutateAsync(input);
+      toast.success("Бот создан", `${input.type} ${input.symbol} — нажмите Start, чтобы запустить`);
+    } catch (e) {
+      toast.error("Не удалось создать бота", e instanceof ApiError ? e.message : undefined);
+    }
+  }
 
   return (
     <div className="mx-auto flex h-full w-full max-w-[1700px] flex-col overflow-y-auto p-3">
-      {openBot && <BotDetailModal bot={openBot} onClose={() => setOpenBotId(null)} />}
+      {openBotId && <BotDetailModal botId={openBotId} onClose={() => setOpenBotId(null)} />}
 
-      <div className="anim-rise mb-3 flex items-center justify-between">
+      <div className="anim-rise mb-3 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-sm font-semibold text-txt-0">{t("strategies.title")}</h1>
-        <span className="flex items-center gap-1.5 rounded-full border border-warn/40 bg-warn/10 px-2.5 py-1 text-2xs font-medium text-warn"><IconFlask size={12} /> Боты в тестовом режиме</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent-soft px-2.5 py-1 text-2xs font-medium text-accent">
+            <IconServer size={12} /> Работают на сервере — вкладку можно закрыть
+          </span>
+          <span className="flex items-center gap-1.5 rounded-full border border-warn/40 bg-warn/10 px-2.5 py-1 text-2xs font-medium text-warn">
+            <IconFlask size={12} /> Боты в тестовом режиме
+          </span>
+        </div>
       </div>
 
       <div className="anim-rise-2 mb-3 rounded-lg border border-line bg-bg-1 p-3.5">
@@ -323,11 +364,12 @@ export function StrategiesPage() {
           <button onClick={() => setTab("grid")} className={classNames("btn-fx flex items-center gap-1.5 rounded-md px-4 py-1.5 text-xs font-semibold", tab === "grid" ? "bg-accent-fill text-white" : "text-txt-2")}><IconGrid size={14} /> Grid Bot</button>
           <button onClick={() => setTab("martingale")} className={classNames("btn-fx flex items-center gap-1.5 rounded-md px-4 py-1.5 text-xs font-semibold", tab === "martingale" ? "bg-gradient-to-r from-warn to-sell text-white" : "text-txt-2")}><IconTrendDown size={14} /> Martingale Bot</button>
         </div>
-        {tab === "grid" ? <GridBotForm onCreate={upsert} /> : <MartingaleBotForm onCreate={upsert} />}
+        {tab === "grid" ? <GridBotForm onCreate={handleCreate} /> : <MartingaleBotForm onCreate={handleCreate} />}
       </div>
 
       <div className="anim-rise-3 space-y-2">
-        {list.length === 0 && <div className="rounded-lg border border-dashed border-line bg-bg-1 px-3 py-8 text-center text-2xs text-txt-3">Нет созданных ботов — настройте один выше.</div>}
+        {isLoading && <div className="rounded-lg border border-line bg-bg-1 px-3 py-8 text-center text-2xs text-txt-3">Загрузка ботов…</div>}
+        {!isLoading && list.length === 0 && <div className="rounded-lg border border-dashed border-line bg-bg-1 px-3 py-8 text-center text-2xs text-txt-3">Нет созданных ботов — настройте один выше.</div>}
         {list.map((bot) => <BotCard key={bot.id} bot={bot} onOpen={() => setOpenBotId(bot.id)} />)}
       </div>
 

@@ -1,14 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { useAuthStore } from "./store/auth";
 import { useThemeStore } from "./store/theme";
-import { useStrategiesStore } from "./store/strategies";
 import { useEnsurePriceSocket } from "./hooks/useLivePrices";
 import { useBinanceTickerFeed } from "./hooks/useBinanceTickerFeed";
-import { useStrategyEngineRunner } from "./hooks/useStrategyEngineRunner";
 import { TopBar } from "./components/layout/TopBar";
 import { ActiveBotsBanner } from "./components/layout/ActiveBotsBanner";
-import { BotResumeModal } from "./components/layout/BotResumeModal";
 import { Toaster } from "./components/common/Toaster";
 import { AdminRoute, GuestRoute, ProtectedRoute } from "./routes/ProtectedRoute";
 import { HomePage } from "./pages/HomePage";
@@ -57,17 +54,12 @@ export default function App() {
   const booting = useAuthStore((s) => s.booting);
   const user = useAuthStore((s) => s.user);
   const theme = useThemeStore((s) => s.theme);
-  const runningBots = useStrategiesStore((s) => Object.values(s.bots).filter((b) => b.status === "RUNNING"));
-  // Not persisted anywhere on purpose: a bot left RUNNING from a previous
-  // session must never silently resume placing real orders just because the
-  // app loaded. Every fresh load re-asks; only an explicit "resume" or
-  // "stop" click here lets the strategy engine start ticking.
-  const [botsConfirmed, setBotsConfirmed] = useState(false);
-  const pendingBotConfirmation = !!user && runningBots.length > 0 && !botsConfirmed;
-
+  // No bot runner here any more: strategies tick on the server
+  // (server/src/engine/strategy.ts), so nothing about whether a bot trades
+  // depends on this tab being open — which also retires the "a bot was still
+  // running from last time, resume it?" gate this screen used to need.
   useEnsurePriceSocket();
   useBinanceTickerFeed();
-  useStrategyEngineRunner(!!user && !pendingBotConfirmation);
 
   useEffect(() => {
     bootstrap();
@@ -82,13 +74,6 @@ export default function App() {
   return (
     <>
       <Toaster />
-      {pendingBotConfirmation && (
-        <BotResumeModal
-          bots={runningBots}
-          onResume={() => setBotsConfirmed(true)}
-          onStopAll={() => setBotsConfirmed(true)}
-        />
-      )}
       <Routes>
         {/* Public regardless of auth state — the exchange Home, and the
             privacy policy linked from the register form */}

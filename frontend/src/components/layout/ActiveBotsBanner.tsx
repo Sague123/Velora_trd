@@ -1,39 +1,62 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useStrategiesStore } from "../../store/strategies";
-import { stopBot } from "../../lib/strategyEngine";
+import { useAuthStore } from "../../store/auth";
+import { useBots, useStopBot } from "../../store/strategies";
 import { toast } from "../../store/toast";
+import { ApiError } from "../../lib/api";
 import { IconBot } from "../icons/Icon";
 
 /**
- * A bot only trades while its tab is open — which means it's easy to leave
- * one running in a background tab and forget about it entirely, only to see
- * mystery positions appear later. This banner is visible on every page,
- * everywhere in the app, whenever this browser has a bot RUNNING, precisely
- * so that can't happen silently again.
+ * A running bot places real orders on the trader's account on the server's
+ * schedule — now genuinely around the clock, not just while a tab happens to
+ * be open. That makes it easier, not harder, to forget one is running, so this
+ * banner sits on every page for as long as the account has a bot RUNNING, with
+ * a one-click way to stop them all.
  */
 export function ActiveBotsBanner() {
-  const bots = useStrategiesStore((s) => s.bots);
+  const user = useAuthStore((s) => s.user);
+  const { data } = useBots(!!user);
+  const stop = useStopBot();
   const [stopping, setStopping] = useState(false);
-  const running = Object.values(bots).filter((b) => b.status === "RUNNING");
 
-  if (running.length === 0) return null;
+  const running = (data?.bots ?? []).filter((b) => b.status === "RUNNING");
+  const errored = (data?.bots ?? []).filter((b) => b.status === "ERROR");
+
+  if (running.length === 0 && errored.length === 0) return null;
 
   async function stopAll() {
     setStopping(true);
     try {
-      for (const bot of running) await stopBot(bot);
+      for (const bot of running) await stop.mutateAsync(bot.id);
       toast.info(`Остановлено ботов: ${running.length}`);
+    } catch (e) {
+      toast.error("Не удалось остановить ботов", e instanceof ApiError ? e.message : undefined);
     } finally {
       setStopping(false);
     }
+  }
+
+  if (running.length === 0) {
+    return (
+      <div className="flex shrink-0 items-center gap-2 border-b border-sell/40 bg-sell-soft px-3 py-1.5 text-2xs text-sell">
+        <IconBot size={13} />
+        <span className="font-medium">
+          {errored.length === 1 ? "Бот остановлен из-за ошибки" : `Ботов с ошибкой: ${errored.length}`}{" "}
+          ({errored.map((b) => b.symbol).join(", ")})
+        </span>
+        <Link to="/strategies" className="ml-auto underline decoration-dotted hover:text-txt-0">
+          Разобраться
+        </Link>
+      </div>
+    );
   }
 
   return (
     <div className="flex shrink-0 items-center gap-2 border-b border-warn/40 bg-warn/10 px-3 py-1.5 text-2xs text-warn">
       <IconBot size={13} />
       <span className="font-medium">
-        {running.length === 1 ? "Активен 1 бот" : `Активно ботов: ${running.length}`} ({running.map((b) => b.symbol).join(", ")}) — торгует прямо сейчас, пока открыта эта вкладка.
+        {running.length === 1 ? "Активен 1 бот" : `Активно ботов: ${running.length}`}{" "}
+        ({running.map((b) => b.symbol).join(", ")}) — торгует на сервере, даже если закрыть вкладку.
       </span>
       <Link to="/strategies" className="ml-auto underline decoration-dotted hover:text-txt-0">
         Открыть

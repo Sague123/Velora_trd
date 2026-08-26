@@ -1,99 +1,93 @@
-import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { useMemo } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiDelete, apiGet, apiPost } from "../lib/api";
+import type { Bot, BotDetail, CreateBotInput } from "../lib/types";
 
-export type BotType = "GRID" | "MARTINGALE";
-export type BotStatus = "RUNNING" | "STOPPED" | "ERROR";
+/**
+ * Bots used to live here: a Zustand store persisted to localStorage, driven by
+ * an interval in the page. That made this browser tab the bot's runtime — the
+ * strategy only traded while it was open, a reload could silently re-arm it,
+ * and two tabs would run the same bot twice.
+ *
+ * The engine now runs on the server (server/src/engine/strategy.ts), so this
+ * file holds no bot state at all any more. It is a thin read/write layer over
+ * /api/strategies: the server is the single source of truth for what a bot is,
+ * whether it's running and what it currently holds, and every screen reads
+ * that same truth.
+ */
 
-export interface GridOrderRef {
-  orderId: string;
-  level: number; // grid index, 0 = lowest
-  side: "BUY" | "SELL";
-  price: number;
+const BOTS_KEY = ["bots"] as const;
+
+export function useBots(enabled = true) {
+  return useQuery({
+    queryKey: BOTS_KEY,
+    queryFn: () => apiGet<{ bots: Bot[] }>("/api/strategies"),
+    enabled,
+    // Bots act on the server's own schedule, so what's shown here is a poll of
+    // someone else's progress rather than a mirror of local state.
+    refetchInterval: 4000,
+  });
 }
 
-export interface BotBase {
-  id: string;
-  type: BotType;
-  symbol: string;
-  leverage: number;
-  status: BotStatus;
-  createdAt: string;
-  log: { ts: string; message: string }[];
-  errorCount: number;
+export function useBot(id: string | null, enabled = true) {
+  return useQuery({
+    queryKey: ["bot", id],
+    queryFn: () => apiGet<BotDetail>(`/api/strategies/${id}`),
+    enabled: enabled && !!id,
+    refetchInterval: 4000,
+  });
 }
 
-export interface GridBot extends BotBase {
-  type: "GRID";
-  lower: number;
-  upper: number;
-  levels: number; // number of grid lines
-  qtyPerLevel: number; // base-asset qty per grid order
-  gridOrders: GridOrderRef[];
+/** Bot actions move real money, so they refresh the trading views too. */
+function invalidateBotState(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: BOTS_KEY });
+  qc.invalidateQueries({ queryKey: ["bot"] });
+  qc.invalidateQueries({ queryKey: ["orders"] });
+  qc.invalidateQueries({ queryKey: ["positions"] });
+  qc.invalidateQueries({ queryKey: ["account"] });
 }
 
-export interface MartingaleBot extends BotBase {
-  type: "MARTINGALE";
-  side: "BUY" | "SELL";
-  baseQty: number;
-  multiplier: number;
-  maxSteps: number;
-  takeProfitPct: number;
-  addOnDrawdownPct: number;
-  step: number;
-  positionIds: string[];
+export function useCreateBot() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateBotInput) => apiPost<{ bot: Bot }>("/api/strategies", input),
+    onSuccess: () => invalidateBotState(qc),
+  });
 }
 
-export type Bot = GridBot | MartingaleBot;
-
-const LOG_CAP = 80;
-
-interface StrategiesState {
-  bots: Record<string, Bot>;
-  upsert: (bot: Bot) => void;
-  remove: (id: string) => void;
-  setStatus: (id: string, status: BotStatus) => void;
-  log: (id: string, message: string) => void;
-  patch: (id: string, patch: Partial<Bot>) => void;
+export function useStartBot() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiPost<{ bot: Bot }>(`/api/strategies/${id}/start`),
+    onSuccess: () => invalidateBotState(qc),
+  });
 }
 
-export const useStrategiesStore = create<StrategiesState>()(
-  persist(
-    (set) => ({
-      bots: {},
-      upsert: (bot) => set((s) => ({ bots: { ...s.bots, [bot.id]: bot } })),
-      remove: (id) =>
-        set((s) => {
-          const next = { ...s.bots };
-          delete next[id];
-          return { bots: next };
-        }),
-      setStatus: (id, status) =>
-        set((s) => (s.bots[id] ? { bots: { ...s.bots, [id]: { ...s.bots[id], status } } } : s)),
-      log: (id, message) =>
-        set((s) => {
-          const bot = s.bots[id];
-          if (!bot) return s;
-          const entry = { ts: new Date().toISOString(), message };
-          const nextLog = [...bot.log, entry].slice(-LOG_CAP);
-          return { bots: { ...s.bots, [id]: { ...bot, log: nextLog } } };
-        }),
-      patch: (id, patch) =>
-        set((s) => (s.bots[id] ? { bots: { ...s.bots, [id]: { ...s.bots[id], ...patch } as Bot } } : s)),
-    }),
-    { name: "velora-strategies" }
-  )
-);
+export function useStopBot() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiPost<{ bot: Bot }>(`/api/strategies/${id}/stop`),
+    onSuccess: () => invalidateBotState(qc),
+  });
+}
 
-/** Order ids ever placed by a grid bot — including stopped/deleted-but-still-
- * cached bots, since the order itself is real and its origin doesn't change
- * when the bot's own record is later removed. Used to tell "market" orders
- * (placed by hand) apart from "bot" orders in the shared Orders views. */
-export function useBotOrderIds(): Set<string> {
-  return useStrategiesStore((s) => {
+export function useDeleteBot() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiDelete<{ ok: boolean; openPositions: number }>(`/api/strategies/${id}`),
+    onSuccess: () => invalidateBotState(qc),
+  });
+}
+
+/** Orders currently held by a grid bot — lets the shared Orders views tell a
+ * bot's rungs apart from orders the trader placed by hand. */
+export function useBotOrderIds(enabled = true): Set<string> {
+  const { data } = useBots(enabled);
+  return useMemo(() => {
     const ids = new Set<string>();
-    for (const bot of Object.values(s.bots)) {
-      if (bot.type === "GRID") for (const g of bot.gridOrders) ids.add(g.orderId);
+    for (const bot of data?.bots ?? []) {
+      if (bot.type === "GRID") for (const rung of bot.state.gridOrders ?? []) ids.add(rung.orderId);
     }
     return ids;
-  });
+  }, [data]);
 }
