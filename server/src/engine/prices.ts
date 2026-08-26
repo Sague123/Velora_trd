@@ -33,7 +33,7 @@ export const feedStatus = () => ({
   /** Which upstream last refused, and how. Without this a halted market is
    * indistinguishable from a bug, because the browser's own Binance feed keeps
    * the UI looking live. Carries no secrets — host and status only. */
-  lastFailure: lastUpstreamFailure,
+  failures: feedFailures(),
 });
 
 /**
@@ -145,13 +145,24 @@ async function setPrice(symbol: string, priceScaled: bigint, extra: {
  * regions it does not serve.
  */
 export interface UpstreamFailure { host: string; status: number | null; detail: string; at: string }
-let lastUpstreamFailure: UpstreamFailure | null = null;
-export const lastFeedFailure = () => lastUpstreamFailure;
+// Keyed by host, not a single "last failure": the refresh talks to several
+// upstreams per cycle, so one host's error would otherwise overwrite another's
+// and hide it. Distinguishing "futures is refused" from "CoinGecko is rate
+// limited" is the whole point, since they need different fixes.
+const upstreamFailures = new Map<string, UpstreamFailure>();
+export const feedFailures = (): UpstreamFailure[] =>
+  [...upstreamFailures.values()].sort((a, b) => (a.at < b.at ? 1 : -1));
 
 function noteFailure(url: string, status: number | null, detail: string): void {
   let host = url;
   try { host = new URL(url).host; } catch { /* keep the raw string */ }
-  lastUpstreamFailure = { host, status, detail, at: now() };
+  upstreamFailures.set(host, { host, status, detail, at: now() });
+}
+
+/** Cleared on a host's next success, so the list only ever shows what is
+ * currently broken rather than everything that has ever hiccuped. */
+function noteSuccess(url: string): void {
+  try { upstreamFailures.delete(new URL(url).host); } catch { /* ignore */ }
 }
 
 async function fetchJson(url: string, timeoutMs = 8000): Promise<any | null> {
@@ -167,6 +178,7 @@ async function fetchJson(url: string, timeoutMs = 8000): Promise<any | null> {
         : res.statusText || `HTTP ${res.status}`);
       return null;
     }
+    noteSuccess(url);
     return await res.json();
   } catch (e) {
     noteFailure(url, null, e instanceof Error ? e.message : "request failed");
