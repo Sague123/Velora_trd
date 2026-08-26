@@ -136,7 +136,7 @@ export interface TotpSetup {
 }
 
 export type Category = "SPOT" | "PERP" | "COMMODITY" | "FX" | "CFD";
-export type PriceSource = "BINANCE" | "COINGECKO" | "ECB" | "SYNTHETIC" | "NONE";
+export type PriceSource = "BINANCE" | "DERIVED" | "COINGECKO" | "ECB" | "SYNTHETIC" | "NONE";
 
 export interface Instrument {
   symbol: string;

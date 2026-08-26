@@ -294,6 +294,11 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
                 <span className="rounded border border-warn/40 bg-warn/10 px-1 py-px text-2xs text-warn">model</span>
               </Tooltip>
             )}
+            {inst?.source === "DERIVED" && (
+              <Tooltip label="Цена базового актива (спот): фьючерсный фид недоступен из региона сервера, поэтому маркировка перпетуала следует за спотом. Данные биржевые, но это не котировка фьючерса.">
+                <span className="rounded border border-accent/40 bg-accent-soft px-1 py-px text-2xs text-accent">spot-based</span>
+              </Tooltip>
+            )}
           </div>
         )}
 

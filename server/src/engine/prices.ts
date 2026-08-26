@@ -230,6 +230,7 @@ export async function refreshUpstream(): Promise<string[]> {
   const spotWanted = withMapping.filter((x) => x.mapping!.market === "spot");
   const futuresWanted = withMapping.filter((x) => x.mapping!.market === "futures");
   const binanceOk = new Set<string>();
+  const spotSeen = new Map<string, BinanceTicker24h>();
 
   if (spotWanted.length) {
     const symbolsParam = encodeURIComponent(JSON.stringify(spotWanted.map((x) => x.mapping!.binanceSymbol)));
@@ -247,6 +248,9 @@ export async function refreshUpstream(): Promise<string[]> {
       for (const { ins, mapping } of spotWanted) {
         const row = byBinanceSymbol.get(mapping!.binanceSymbol);
         if (!row) continue;
+        // Kept so a perpetual can fall back to its own underlying's spot mark
+        // below when the futures host is unreachable.
+        spotSeen.set(mapping!.binanceSymbol, row);
         await setPrice(ins.symbol, toScaled(Number(row.lastPrice)), {
           change: Number(row.priceChangePercent) || 0,
           high: toScaled(Number(row.highPrice)),
@@ -282,6 +286,35 @@ export async function refreshUpstream(): Promise<string[]> {
       }
       ok = ok || touched.length > 0;
     }
+  }
+
+  // Perpetuals whose futures quote didn't arrive fall back to their own
+  // underlying's spot mark, which this same cycle already fetched.
+  //
+  // Binance's futures host has no unrestricted mirror the way spot does, so in
+  // a geo-blocked region PERP would otherwise depend entirely on CoinGecko —
+  // which rate-limits (429) and would halt those symbols for two minutes at a
+  // time. A perpetual tracks its underlying closely, so spot is a far better
+  // mark than a stale one, and it is real exchange data rather than a guess.
+  //
+  // No synthetic basis is applied on purpose: inventing a spread would be
+  // fabricating price movement the market never made. The number is labelled
+  // DERIVED so the API and UI can say plainly that this is the underlying's
+  // price, not a real futures quote.
+  for (const { ins, mapping } of futuresWanted) {
+    if (binanceOk.has(ins.symbol)) continue;
+    const row = spotSeen.get(mapping!.binanceSymbol);
+    if (!row) continue;
+    await setPrice(ins.symbol, toScaled(Number(row.lastPrice)), {
+      change: Number(row.priceChangePercent) || 0,
+      high: toScaled(Number(row.highPrice)),
+      low: toScaled(Number(row.lowPrice)),
+      volume: toScaled(Math.round(Number(row.quoteVolume))),
+      source: "DERIVED",
+    });
+    touched.push(ins.symbol);
+    binanceOk.add(ins.symbol);
+    ok = true;
   }
 
   // CoinGecko fallback: only for instruments that have a cg_id but Binance
