@@ -1,7 +1,15 @@
 /**
  * End-to-end smoke test against a running API.
  * Run the server first (npm run dev), then: npm run smoke
+ *
+ * One run registers two accounts, which is under /register's rate limit of 5
+ * per 10 minutes per IP — but two runs back to back are not. The limiter keeps
+ * its counters in memory, so restarting the server resets them; that is the
+ * intended way to re-run this locally, rather than loosening a production rate
+ * limit for the convenience of a test.
  */
+import { generate } from "otplib";
+
 const BASE = process.env.BASE ?? "http://localhost:4000";
 
 let passed = 0;
@@ -198,6 +206,93 @@ async function main() {
   check("alert created", alert.status === 201, alert.body);
   const alerts = await api("/api/alerts", { token });
   check("alert listed and pending", alerts.body?.alerts?.[0]?.firedAt === null);
+
+  /* --------------------- authentication — 2FA and recovery ----------------- */
+  console.log("\nauthentication — 2FA, verification, recovery");
+
+  const mfaEmail = `smoke-mfa-${Date.now()}@velora.test`;
+  const mfaReg = await api("/api/auth/register", {
+    method: "POST", body: { email: mfaEmail, password: "SmokeTest12345", name: "MFA" },
+  });
+  check("new account starts unverified", mfaReg.body?.user?.emailVerified === false, mfaReg.body?.user);
+  check("new account starts without 2FA", mfaReg.body?.user?.totpEnabled === false);
+  const mfaToken0 = mfaReg.body?.accessToken as string;
+
+  const setup = await api("/api/auth/2fa/setup", { token: mfaToken0, method: "POST" });
+  check("2fa setup returns a secret", typeof setup.body?.secret === "string" && setup.body.secret.length >= 16);
+  check("2fa setup returns a scannable QR", String(setup.body?.qr ?? "").startsWith("data:image/png;base64,"));
+  const secret = setup.body.secret as string;
+
+  const enableBad = await api("/api/auth/2fa/enable", { token: mfaToken0, method: "POST", body: { code: "000000" } });
+  check("2fa rejects a wrong enrolment code", enableBad.status === 400, enableBad.body?.error);
+
+  const stillOff = await api("/api/auth/me", { token: mfaToken0 });
+  check("a failed enrolment leaves 2fa off", stillOff.body?.totpEnabled === false);
+
+  const enable = await api("/api/auth/2fa/enable", {
+    token: mfaToken0, method: "POST", body: { code: await generate({ secret }) },
+  });
+  check("2fa enabled with a real code", enable.status === 200, enable.body?.error);
+  check("backup codes issued once", Array.isArray(enable.body?.backupCodes) && enable.body.backupCodes.length === 10,
+    enable.body?.backupCodes?.length);
+  const backupCode = enable.body.backupCodes[0] as string;
+
+  const step1 = await api("/api/auth/login", { method: "POST", body: { email: mfaEmail, password: "SmokeTest12345" } });
+  check("password alone no longer logs in", step1.body?.mfaRequired === true && !step1.body?.accessToken, step1.body);
+  const challenge = step1.body.mfaToken as string;
+
+  // The critical one: the challenge token is signed with the same key as an
+  // access token, so if it were accepted as one, 2FA would be decorative.
+  const challengeAsAccess = await api("/api/auth/me", { token: challenge });
+  check("the 2fa challenge token is not an access token", challengeAsAccess.status === 401, challengeAsAccess.status);
+
+  const wrongCode = await api("/api/auth/login/2fa", { method: "POST", body: { mfaToken: challenge, code: "000000" } });
+  check("wrong second factor rejected", wrongCode.status === 401, wrongCode.body?.error);
+
+  const step2 = await api("/api/auth/login/2fa", {
+    method: "POST", body: { mfaToken: challenge, code: await generate({ secret }) },
+  });
+  check("correct second factor completes login", !!step2.body?.accessToken, step2.body?.error);
+
+  // Backup codes: usable exactly once, because a code that works twice is a
+  // password, not a backup code.
+  const viaBackup1 = await api("/api/auth/login", { method: "POST", body: { email: mfaEmail, password: "SmokeTest12345" } });
+  const usedBackup = await api("/api/auth/login/2fa", {
+    method: "POST", body: { mfaToken: viaBackup1.body.mfaToken, code: backupCode },
+  });
+  check("a backup code completes login", !!usedBackup.body?.accessToken, usedBackup.body?.error);
+  const viaBackup2 = await api("/api/auth/login", { method: "POST", body: { email: mfaEmail, password: "SmokeTest12345" } });
+  const reusedBackup = await api("/api/auth/login/2fa", {
+    method: "POST", body: { mfaToken: viaBackup2.body.mfaToken, code: backupCode },
+  });
+  check("the same backup code cannot be used twice", reusedBackup.status === 401, reusedBackup.status);
+
+  const mfaToken = usedBackup.body.accessToken as string;
+  const disableNoCode = await api("/api/auth/2fa/disable", {
+    token: mfaToken, method: "POST", body: { password: "SmokeTest12345", code: "000000" },
+  });
+  check("disabling 2fa needs a real second factor", disableNoCode.status === 400, disableNoCode.body?.error);
+  const disableWrongPw = await api("/api/auth/2fa/disable", {
+    token: mfaToken, method: "POST", body: { password: "not-the-password", code: await generate({ secret }) },
+  });
+  check("disabling 2fa needs the password too", disableWrongPw.status === 400, disableWrongPw.body?.error);
+
+  const badVerify = await api("/api/auth/verify-email", { method: "POST", body: { token: "not-a-real-token" } });
+  check("a bogus verification link is refused", badVerify.status === 400, badVerify.body?.error);
+
+  // Both answers must be identical — anything else turns this into a public
+  // oracle for which email addresses hold funds here.
+  const forgotKnown = await api("/api/auth/forgot-password", { method: "POST", body: { email: mfaEmail } });
+  const forgotUnknown = await api("/api/auth/forgot-password", { method: "POST", body: { email: "nobody@velora.test" } });
+  check("password reset does not reveal whether an account exists",
+    forgotKnown.status === forgotUnknown.status &&
+    JSON.stringify(forgotKnown.body) === JSON.stringify(forgotUnknown.body),
+    { known: forgotKnown.body, unknown: forgotUnknown.body });
+
+  const badReset = await api("/api/auth/reset-password", {
+    method: "POST", body: { token: "not-a-real-token", newPassword: "AnotherPass123" },
+  });
+  check("a bogus reset link is refused", badReset.status === 400, badReset.body?.error);
 
   /* ------------------------------ strategies ------------------------------ */
   // The bot engine runs on the server (engine/strategy.ts), so it is testable

@@ -12,6 +12,25 @@ export interface AuthUser {
   dateOfBirth?: string | null;
   avatar?: string | null;
   accountNumber?: string | null;
+  emailVerified?: boolean;
+  totpEnabled?: boolean;
+  /** Only present on /me — how many single-use recovery codes are left. */
+  backupCodesRemaining?: number;
+}
+
+/** /login answers one of two ways: a finished session, or a five-minute
+ * window in which to prove the second factor. */
+export interface MfaChallenge {
+  mfaRequired: true;
+  mfaToken: string;
+}
+
+export interface TotpSetup {
+  /** Shown once during enrolment and never readable again. */
+  secret: string;
+  otpauthUrl: string;
+  /** data: URI PNG of the otpauth URL. */
+  qr: string;
 }
 
 export type Category = "SPOT" | "PERP" | "COMMODITY" | "FX" | "CFD";

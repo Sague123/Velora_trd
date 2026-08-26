@@ -1,19 +1,25 @@
 import { create } from "zustand";
 import { api, apiPost, apiGet, setAccessToken, setUnauthorizedHandler } from "../lib/api";
 import { identifyUser } from "../lib/monitoring";
-import type { AuthUser } from "../lib/types";
+import type { AuthUser, MfaChallenge } from "../lib/types";
 
 interface AuthResponse {
   accessToken: string;
   user: AuthUser;
 }
 
+type LoginResult = AuthResponse | MfaChallenge;
+const isChallenge = (r: LoginResult): r is MfaChallenge => (r as MfaChallenge).mfaRequired === true;
+
 interface AuthState {
   user: AuthUser | null;
   booting: boolean;
   busy: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  /** Resolves to a challenge when the account has 2FA on — the caller then
+   * collects a code and calls completeMfa(). No session exists until then. */
+  login: (email: string, password: string) => Promise<MfaChallenge | null>;
+  completeMfa: (mfaToken: string, code: string) => Promise<void>;
   register: (email: string, password: string, name?: string) => Promise<void>;
   logout: () => Promise<void>;
   bootstrap: () => Promise<void>;
@@ -34,12 +40,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   login: async (email, password) => {
     set({ busy: true, error: null });
     try {
-      const res = await apiPost<AuthResponse>("/api/auth/login", { email, password });
+      const res = await apiPost<LoginResult>("/api/auth/login", { email, password });
+      if (isChallenge(res)) {
+        set({ busy: false });
+        return res;
+      }
+      setAccessToken(res.accessToken);
+      identifyUser(res.user.id);
+      set({ user: res.user, busy: false });
+      return null;
+    } catch (e: any) {
+      set({ busy: false, error: e?.message ?? "Не удалось войти" });
+      throw e;
+    }
+  },
+
+  completeMfa: async (mfaToken, code) => {
+    set({ busy: true, error: null });
+    try {
+      const res = await apiPost<AuthResponse>("/api/auth/login/2fa", { mfaToken, code });
       setAccessToken(res.accessToken);
       identifyUser(res.user.id);
       set({ user: res.user, busy: false });
     } catch (e: any) {
-      set({ busy: false, error: e?.message ?? "Не удалось войти" });
+      set({ busy: false, error: e?.message ?? "Не удалось подтвердить код" });
       throw e;
     }
   },

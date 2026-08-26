@@ -314,6 +314,22 @@ CREATE TABLE IF NOT EXISTS bot_logs (
 );
 CREATE INDEX IF NOT EXISTS idx_bot_logs_bot ON bot_logs(bot_id, ts);
 
+-- Single-use, expiring, emailed credentials: email verification and password
+-- reset. One table rather than two because they differ only in what the link
+-- does, and a single well-tested consume-once path is worth more than two
+-- similar ones. The raw token is never stored — only its SHA-256, so a
+-- database leak yields no usable links (the same reasoning as refresh_tokens).
+CREATE TABLE IF NOT EXISTS auth_tokens (
+  id         TEXT PRIMARY KEY,
+  user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind       TEXT NOT NULL,
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at TEXT NOT NULL,
+  used_at    TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_user ON auth_tokens(user_id, kind);
+
 CREATE TABLE IF NOT EXISTS audit_logs (
   id             TEXT PRIMARY KEY,
   actor_id       TEXT,
@@ -371,6 +387,15 @@ export async function migrate(): Promise<void> {
   // A short numeric account number — this user's "wallet number" for
   // internal transfers between Velora accounts, shown in their profile.
   await addColumnIfMissing("users", "account_number", "account_number TEXT");
+  // Second factor. The shared secret is stored encrypted (lib/crypto.ts), not
+  // hashed, because the server must read it back on every login to derive the
+  // expected code; backup_codes holds SHA-256 hashes of the single-use recovery
+  // codes as a JSON array.
+  await addColumnIfMissing("users", "totp_secret", "totp_secret TEXT");
+  await addColumnIfMissing("users", "totp_enabled", "totp_enabled BOOLEAN NOT NULL DEFAULT FALSE");
+  await addColumnIfMissing("users", "backup_codes", "backup_codes JSONB");
+  // Whether the address has been proven to belong to whoever registered it.
+  await addColumnIfMissing("users", "email_verified", "email_verified BOOLEAN NOT NULL DEFAULT FALSE");
   await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_account_number ON users(account_number)");
   await backfillAccountNumbers();
 }

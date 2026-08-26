@@ -23,7 +23,8 @@ const insToken = db.prepare(`
 `);
 const selToken = db.prepare(`
   SELECT rt.*, u.id AS u_id, u.email AS u_email, u.name AS u_name, u.role AS u_role, u.status AS u_status,
-         u.avatar AS u_avatar, u.account_number AS u_account_number
+         u.avatar AS u_avatar, u.account_number AS u_account_number,
+         u.email_verified AS u_email_verified, u.totp_enabled AS u_totp_enabled
   FROM refresh_tokens rt JOIN users u ON u.id = rt.user_id WHERE rt.token_hash = ?
 `);
 const revokeOne = db.prepare("UPDATE refresh_tokens SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL");
@@ -73,7 +74,13 @@ export async function rotateRefreshToken(
   if (row.u_status !== "ACTIVE") return null;
 
   await revokeOne.run(now(), row.id);
-  const user = { id: row.u_id, email: row.u_email, name: row.u_name, role: row.u_role, avatar: row.u_avatar ?? null, accountNumber: row.u_account_number ?? null };
+  // Same shape /login and /register return, so a page that reloads through
+  // /refresh never sees a user object missing fields it had a moment ago.
+  const user = {
+    id: row.u_id, email: row.u_email, name: row.u_name, role: row.u_role,
+    avatar: row.u_avatar ?? null, accountNumber: row.u_account_number ?? null,
+    emailVerified: row.u_email_verified === true, totpEnabled: row.u_totp_enabled === true,
+  };
   const tokens = await issueTokens(app, user, ctx);
   return { tokens, user };
 }

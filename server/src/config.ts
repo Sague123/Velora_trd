@@ -26,6 +26,10 @@ export const config = {
     .filter(Boolean),
   jwtSecret: secret("JWT_SECRET", "dev-only-access-secret"),
   jwtRefreshSecret: secret("JWT_REFRESH_SECRET", "dev-only-refresh-secret"),
+  // Encrypts the TOTP shared secrets at rest (lib/crypto.ts). Rotating it makes
+  // every enrolled authenticator unreadable, so those users must re-enrol —
+  // which the code handles gracefully, but is not something to do casually.
+  encryptionKey: secret("ENCRYPTION_KEY", "dev-only-encryption-key"),
   accessTtl: "15m",
   refreshTtlDays: 30,
   takerFeeBps: 4,              // 0.04% taker fee
@@ -66,4 +70,21 @@ export const config = {
   // stale price is how a trader gets filled at a number the market left
   // behind minutes ago. See engine/execution.ts.
   maxQuoteAgeMs: Number(process.env.MAX_QUOTE_AGE_MS ?? 120_000),
+
+  /* -------------------------- accounts & security ------------------------- */
+  appName: "Velora",
+  // Where the links in verification/reset emails point — the SPA, not the API.
+  publicAppUrl: (process.env.PUBLIC_APP_URL ?? "http://localhost:5000").replace(/\/+$/, ""),
+  // Transactional email. Empty key = messages are written to the log instead of
+  // sent, which is exactly what local development wants.
+  resendApiKey: process.env.RESEND_API_KEY ?? "",
+  mailFrom: process.env.MAIL_FROM ?? "Velora <no-reply@velora.local>",
+  // A verification link is a bearer credential for an inbox; a day is plenty.
+  emailTokenTtlHours: 24,
+  // A reset link is a bearer credential for the whole account. Short on purpose.
+  resetTokenTtlMinutes: 60,
+  // How long the half-authenticated window between password and TOTP code lasts.
+  mfaChallengeTtlMinutes: 5,
+  // How many single-use backup codes a user gets when they enable 2FA.
+  backupCodeCount: 10,
 } as const;

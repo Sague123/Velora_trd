@@ -6,12 +6,16 @@ import { useEnsurePriceSocket } from "./hooks/useLivePrices";
 import { useBinanceTickerFeed } from "./hooks/useBinanceTickerFeed";
 import { TopBar } from "./components/layout/TopBar";
 import { ActiveBotsBanner } from "./components/layout/ActiveBotsBanner";
+import { EmailVerificationBanner } from "./components/layout/EmailVerificationBanner";
 import { Toaster } from "./components/common/Toaster";
 import { AdminRoute, GuestRoute, ProtectedRoute } from "./routes/ProtectedRoute";
 import { HomePage } from "./pages/HomePage";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { LegalPage } from "./pages/LegalPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
+import { VerifyEmailPage } from "./pages/VerifyEmailPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { TerminalPage } from "./pages/TerminalPage";
 import { MarketsPage } from "./pages/MarketsPage";
@@ -25,6 +29,7 @@ function AppLayout() {
   return (
     <div className="app-shell flex flex-col bg-bg-0 text-txt-0">
       <TopBar />
+      <EmailVerificationBanner />
       <ActiveBotsBanner />
       <div className="min-h-0 flex-1">
         <div key={location.pathname} className="page-transition h-full">
@@ -79,10 +84,16 @@ export default function App() {
             privacy policy linked from the register form */}
         <Route path="/" element={<HomePage />} />
         <Route path="/legal/privacy" element={<LegalPage />} />
+        {/* Reached from a link in an inbox, which may be on a different device
+            from the one that's signed in — so these must work in either state,
+            and cannot sit behind GuestRoute or ProtectedRoute. */}
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
         <Route element={<GuestRoute />}>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         </Route>
 
         <Route element={<ProtectedRoute />}>

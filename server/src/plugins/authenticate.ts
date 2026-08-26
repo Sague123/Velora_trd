@@ -29,6 +29,13 @@ export default fp(async function authPlugin(app: FastifyInstance) {
     } catch {
       throw unauthorized("Недействительный или истёкший токен");
     }
+    // The half-authenticated token handed out between password and TOTP code
+    // is signed with the same key as an access token, so it must be rejected
+    // explicitly here — otherwise a correct password alone would be enough to
+    // reach every authenticated route, and 2FA would be decorative.
+    if ((req.user as unknown as { mfa?: boolean }).mfa === true) {
+      throw unauthorized("Требуется подтверждение второго фактора");
+    }
     // A suspended account loses access immediately, not at token expiry.
     const row = (await getUser.get(req.user.sub)) as { status: string; role: string } | undefined;
     if (!row) throw unauthorized("Пользователь не найден");
