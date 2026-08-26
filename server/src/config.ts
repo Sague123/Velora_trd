@@ -87,4 +87,23 @@ export const config = {
   mfaChallengeTtlMinutes: 5,
   // How many single-use backup codes a user gets when they enable 2FA.
   backupCodeCount: 10,
+
+  /* ----------------------------------- KYC -------------------------------- */
+  // Supabase Storage holds identity documents and selfies. Empty = KYC
+  // submission is refused with a clear "storage not configured" rather than
+  // silently accepting documents it has nowhere safe to put.
+  supabaseUrl: process.env.SUPABASE_URL ?? "",
+  // Server-only. This key bypasses row-level security; it must never be
+  // shipped to a browser or logged.
+  supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
+  // Must be a PRIVATE bucket. Documents are only ever read back through
+  // short-lived signed URLs — see lib/storage.ts.
+  kycBucket: process.env.SUPABASE_KYC_BUCKET ?? "kyc-documents",
+  // How long a signed link to a document stays valid. Long enough for an
+  // admin to open it, short enough that a copied URL is worthless by the time
+  // it lands anywhere else.
+  kycSignedUrlTtlSec: Number(process.env.KYC_SIGNED_URL_TTL_SEC ?? 300),
+  // Per-image ceiling after the client downscales. A phone photo of a passport
+  // compresses well under this; anything larger is not a document scan.
+  kycMaxImageBytes: 4 * 1024 * 1024,
 } as const;

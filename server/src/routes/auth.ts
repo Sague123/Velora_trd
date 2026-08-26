@@ -64,6 +64,7 @@ const sUser = (u: any) => ({
   avatar: u.avatar ?? null, accountNumber: u.account_number ?? null,
   emailVerified: u.email_verified === true,
   totpEnabled: u.totp_enabled === true,
+  kycStatus: u.kyc_status ?? "NONE",
 });
 
 /**

@@ -7,6 +7,7 @@ import { placeOrder, cancelOrder, closePositionById, changeLeverage, markPrice }
 import { getCandles, feedStatus, quoteIsFresh } from "../engine/prices.js";
 import { postLedger, audit } from "../lib/ledger.js";
 import { notFound, badRequest, conflict } from "../lib/errors.js";
+import { requireApprovedKyc } from "./kyc.js";
 import { sOrder, sPosition, sTrade, sLedger } from "./serialize.js";
 
 const decimal = z.string().regex(/^\d+(\.\d{1,8})?$/, "Ожидается положительное десятичное число");
@@ -214,6 +215,11 @@ export default async function tradingRoutes(app: FastifyInstance) {
     const body = z.object({ amount: decimal, note: z.string().max(200).optional() }).parse(req.body);
     const amount = toScaled(body.amount);
     if (amount <= 0n) throw badRequest("ZERO_AMOUNT", "Сумма должна быть больше нуля");
+    // Money leaving the platform is the one direction identity has to be
+    // established first. Deposits and internal transfers deliberately are not
+    // gated: refusing to let someone *put money in*, or move it between their
+    // own and another Velora account, adds friction without adding assurance.
+    await requireApprovedKyc(req.user.sub);
 
     const balance = await tx(async () => {
       const b = await postLedger({ userId: req.user.sub, type: "WITHDRAWAL", amountScaled: -amount, note: body.note ?? "Вывод" });

@@ -1,12 +1,14 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { db, now, tx, asBig, asBigOrNull, asNum } from "../db.js";
+import { config } from "../config.js";
 import { out, toScaled, pctOf } from "../lib/money.js";
 import { pnlFor, type Side } from "../engine/risk.js";
 import { postLedger, audit } from "../lib/ledger.js";
 import { closePositionById, cancelOrder, markPrice } from "../engine/execution.js";
 import { revokeAllForUser, hashPassword } from "../lib/auth.js";
-import { badRequest, notFound, forbidden } from "../lib/errors.js";
+import { badRequest, notFound, forbidden, conflict } from "../lib/errors.js";
+import { signedUrlFor, storageConfigured } from "../lib/storage.js";
 import { sOrder, sPosition, sTrade, sLedger } from "./serialize.js";
 
 const money = z.string().regex(/^-?\d+(\.\d{1,8})?$/, "Ожидается десятичное число");
@@ -63,6 +65,24 @@ const q = {
   `),
   updInstrument: db.prepare("UPDATE instruments SET active = ?, max_leverage = ? WHERE symbol = ?"),
   instrument: db.prepare("SELECT * FROM instruments WHERE symbol = ?"),
+  kycList: db.prepare(`
+    SELECT k.*, u.email, u.name AS user_name
+    FROM kyc_submissions k JOIN users u ON u.id = k.user_id
+    WHERE (@status::text = 'ALL' OR k.status = @status)
+    ORDER BY k.created_at ASC LIMIT @limit OFFSET @offset
+  `),
+  kycCount: db.prepare("SELECT COUNT(*) AS n FROM kyc_submissions k WHERE (@status::text = 'ALL' OR k.status = @status)"),
+  kycOne: db.prepare(`
+    SELECT k.*, u.email, u.name AS user_name
+    FROM kyc_submissions k JOIN users u ON u.id = k.user_id WHERE k.id = ?
+  `),
+  kycReview: db.prepare(`
+    UPDATE kyc_submissions SET status = @status, rejection_reason = @reason,
+                               reviewed_by = @reviewer, reviewed_at = @ts
+    WHERE id = @id AND status = 'PENDING'
+    RETURNING user_id
+  `),
+  setKycStatus: db.prepare("UPDATE users SET kyc_status = ?, updated_at = ? WHERE id = ?"),
 };
 
 export default async function adminRoutes(app: FastifyInstance) {
@@ -131,7 +151,9 @@ export default async function adminRoutes(app: FastifyInstance) {
 
     return {
       user: { id: user.id, email: user.email, name: user.name, role: user.role,
-        status: user.status, createdAt: user.created_at, lastLoginAt: user.last_login_at },
+        status: user.status, kycStatus: user.kyc_status ?? "NONE",
+        emailVerified: user.email_verified === true,
+        createdAt: user.created_at, lastLoginAt: user.last_login_at },
       account: {
         cash: out(cash, 2), usedMargin: out(usedMargin, 2),
         unrealisedPnl: out(unrealised, 2), realisedPnl: out(realised, 2),
@@ -151,6 +173,11 @@ export default async function adminRoutes(app: FastifyInstance) {
       name: z.string().min(1).max(80).optional(),
       status: z.enum(["ACTIVE", "SUSPENDED"]).optional(),
       role: z.enum(["USER", "ADMIN"]).optional(),
+      // Identity verified through some channel other than an upload — in
+      // person, or against a document already on file. Heavily audited,
+      // because it is a way to grant money-moving access without evidence
+      // attached to it.
+      kycStatus: z.enum(["NONE", "PENDING", "APPROVED", "REJECTED"]).optional(),
     }).parse(req.body);
 
     const user = (await q.user.get(id)) as any;
@@ -162,6 +189,11 @@ export default async function adminRoutes(app: FastifyInstance) {
 
     const next = { name: body.name ?? user.name, status: body.status ?? user.status, role: body.role ?? user.role };
     await q.updUser.run(next.name, next.status, next.role, now(), id);
+    if (body.kycStatus) {
+      await q.setKycStatus.run(body.kycStatus, now(), id);
+      await audit({ actorId: req.user.sub, targetUserId: id, action: "KYC_STATUS_OVERRIDDEN",
+        meta: { from: user.kyc_status ?? "NONE", to: body.kycStatus }, ip: req.ip });
+    }
     if (next.status === "SUSPENDED") await revokeAllForUser(id);
     await audit({ actorId: req.user.sub, targetUserId: id, action: "USER_UPDATED", meta: body, ip: req.ip });
     return { user: { id, ...next, email: user.email } };
@@ -230,6 +262,97 @@ export default async function adminRoutes(app: FastifyInstance) {
         meta: r.meta ? JSON.parse(r.meta) : null, ip: r.ip, createdAt: r.created_at,
       })),
     };
+  });
+
+  /* ---------------------------------- KYC --------------------------------- */
+  /**
+   * The review queue. Oldest first: a verification queue worked newest-first
+   * leaves the people who have waited longest waiting indefinitely.
+   *
+   * The list carries no document links at all — signing three URLs per row for
+   * a page nobody has opened yet would put dozens of live links to identity
+   * documents into one response. They are minted one submission at a time,
+   * below, when a reviewer actually opens it.
+   */
+  app.get("/kyc", async (req) => {
+    const p = z.object({
+      status: z.enum(["PENDING", "APPROVED", "REJECTED", "ALL"]).default("PENDING"),
+      page: z.coerce.number().int().min(1).default(1),
+      pageSize: z.coerce.number().int().min(1).max(100).default(25),
+    }).parse(req.query);
+
+    const args = { status: p.status, limit: p.pageSize, offset: (p.page - 1) * p.pageSize };
+    return {
+      total: asNum(((await q.kycCount.get(args)) as any).n),
+      page: p.page, pageSize: p.pageSize,
+      storageConfigured: storageConfigured(),
+      submissions: ((await q.kycList.all(args)) as any[]).map((k) => ({
+        id: k.id, userId: k.user_id, email: k.email, userName: k.user_name,
+        fullName: k.full_name, documentType: k.document_type,
+        status: k.status, rejectionReason: k.rejection_reason ?? null,
+        reviewedAt: k.reviewed_at ?? null, createdAt: k.created_at,
+      })),
+    };
+  });
+
+  /** One submission, with freshly signed links valid for a few minutes. */
+  app.get("/kyc/:id", async (req) => {
+    const { id } = z.object({ id: z.string() }).parse(req.params);
+    const k = (await q.kycOne.get(id)) as any;
+    if (!k) throw notFound("Заявка не найдена");
+
+    // Opening someone's identity documents is itself an event worth recording:
+    // "who looked at this passport, and when" is a question that gets asked.
+    await audit({ actorId: req.user.sub, targetUserId: k.user_id, action: "KYC_DOCUMENTS_VIEWED",
+      meta: { submissionId: id }, ip: req.ip });
+
+    const [front, back, selfie] = await Promise.all([
+      signedUrlFor(k.document_front_url),
+      signedUrlFor(k.document_back_url),
+      signedUrlFor(k.selfie_url),
+    ]);
+
+    return {
+      submission: {
+        id: k.id, userId: k.user_id, email: k.email, userName: k.user_name,
+        fullName: k.full_name, address: k.address,
+        documentType: k.document_type, documentNumber: k.document_number,
+        status: k.status, rejectionReason: k.rejection_reason ?? null,
+        reviewedAt: k.reviewed_at ?? null, createdAt: k.created_at,
+      },
+      // Short-lived and single-purpose; they expire on their own within minutes.
+      documents: { front, back, selfie, expiresInSec: config.kycSignedUrlTtlSec },
+    };
+  });
+
+  app.post("/kyc/:id/review", async (req) => {
+    const { id } = z.object({ id: z.string() }).parse(req.params);
+    const body = z.object({
+      decision: z.enum(["APPROVE", "REJECT"]),
+      // A rejection the applicant cannot act on is just a dead end, so the
+      // reason is mandatory and goes back to them verbatim.
+      reason: z.string().min(3).max(500).optional(),
+    }).parse(req.body);
+
+    if (body.decision === "REJECT" && !body.reason) {
+      throw badRequest("REASON_REQUIRED", "Укажите причину отклонения — она будет показана пользователю");
+    }
+
+    const status = body.decision === "APPROVE" ? "APPROVED" : "REJECTED";
+    // Conditional on status = 'PENDING', so two admins clicking at once cannot
+    // both record a decision.
+    const reviewed = (await q.kycReview.get({
+      id, status, reason: body.decision === "REJECT" ? body.reason : null,
+      reviewer: req.user.sub, ts: now(),
+    })) as { user_id: string } | undefined;
+    if (!reviewed) throw conflict("NOT_PENDING", "Заявка уже рассмотрена");
+
+    await q.setKycStatus.run(status, now(), reviewed.user_id);
+    await audit({ actorId: req.user.sub, targetUserId: reviewed.user_id,
+      action: body.decision === "APPROVE" ? "KYC_APPROVED" : "KYC_REJECTED",
+      meta: { submissionId: id, reason: body.reason ?? null }, ip: req.ip });
+
+    return { ok: true, status };
   });
 
   app.patch("/instruments/:symbol", async (req) => {

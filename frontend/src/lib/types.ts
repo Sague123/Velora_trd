@@ -14,6 +14,7 @@ export interface AuthUser {
   accountNumber?: string | null;
   emailVerified?: boolean;
   totpEnabled?: boolean;
+  kycStatus?: KycStatus;
   /** Only present on /me — how many single-use recovery codes are left. */
   backupCodesRemaining?: number;
 }
@@ -23,6 +24,39 @@ export interface AuthUser {
 export interface MfaChallenge {
   mfaRequired: true;
   mfaToken: string;
+}
+
+export type KycStatus = "NONE" | "PENDING" | "APPROVED" | "REJECTED";
+export type KycDocumentType = "PASSPORT" | "ID_CARD" | "DRIVER_LICENSE";
+
+export interface KycSubmission {
+  id: string;
+  status: KycStatus;
+  documentType: KycDocumentType;
+  rejectionReason: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+}
+
+export interface KycState {
+  status: KycStatus;
+  emailVerified: boolean;
+  /** False when document storage isn't configured — the form says so instead
+   * of letting someone photograph a passport and then fail. */
+  uploadAvailable: boolean;
+  current: KycSubmission | null;
+  history: KycSubmission[];
+}
+
+export interface KycSubmitInput {
+  fullName: string;
+  address: string;
+  documentType: KycDocumentType;
+  documentNumber: string;
+  /** data: URI JPEGs, downscaled in the browser before upload. */
+  documentFront: string;
+  documentBack?: string;
+  selfie: string;
 }
 
 export interface TotpSetup {

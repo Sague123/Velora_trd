@@ -15,6 +15,7 @@ import authRoutes from "./routes/auth.js";
 import tradingRoutes from "./routes/trading.js";
 import adminRoutes from "./routes/admin.js";
 import strategyRoutes from "./routes/strategies.js";
+import kycRoutes from "./routes/kyc.js";
 import { onPriceUpdate, allPrices, feedStatus } from "./engine/prices.js";
 
 export async function buildApp() {
@@ -134,6 +135,7 @@ export async function buildApp() {
   await app.register(authRoutes, { prefix: "/api/auth" });
   await app.register(tradingRoutes, { prefix: "/api" });
   await app.register(strategyRoutes, { prefix: "/api/strategies" });
+  await app.register(kycRoutes, { prefix: "/api/kyc" });
   await app.register(adminRoutes, { prefix: "/api/admin" });
 
   // One server-side price feed fans out to every connected client.

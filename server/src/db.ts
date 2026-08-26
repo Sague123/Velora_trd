@@ -314,6 +314,34 @@ CREATE TABLE IF NOT EXISTS bot_logs (
 );
 CREATE INDEX IF NOT EXISTS idx_bot_logs_bot ON bot_logs(bot_id, ts);
 
+-- Identity verification. The *_url columns hold object PATHS inside a private
+-- Supabase Storage bucket, never public URLs: a passport scan reachable by URL
+-- is the exact failure this design exists to prevent. Documents are only ever
+-- read back through short-lived signed links (see lib/storage.ts).
+--
+-- Kept as a history rather than one row per user: a rejected submission and the
+-- reason it was rejected must still be readable after the user submits again,
+-- both to answer "why was I rejected" and because an approval decision that
+-- overwrites its own evidence is not auditable.
+CREATE TABLE IF NOT EXISTS kyc_submissions (
+  id                  TEXT PRIMARY KEY,
+  user_id             TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  full_name           TEXT NOT NULL,
+  address             TEXT NOT NULL,
+  document_type       TEXT NOT NULL,
+  document_number     TEXT NOT NULL,
+  document_front_url  TEXT NOT NULL,
+  document_back_url   TEXT,
+  selfie_url          TEXT NOT NULL,
+  status              TEXT NOT NULL DEFAULT 'PENDING',
+  rejection_reason    TEXT,
+  reviewed_by         TEXT REFERENCES users(id),
+  reviewed_at         TEXT,
+  created_at          TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_kyc_user ON kyc_submissions(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_kyc_status ON kyc_submissions(status, created_at);
+
 -- Single-use, expiring, emailed credentials: email verification and password
 -- reset. One table rather than two because they differ only in what the link
 -- does, and a single well-tested consume-once path is worth more than two
@@ -396,6 +424,10 @@ export async function migrate(): Promise<void> {
   await addColumnIfMissing("users", "backup_codes", "backup_codes JSONB");
   // Whether the address has been proven to belong to whoever registered it.
   await addColumnIfMissing("users", "email_verified", "email_verified BOOLEAN NOT NULL DEFAULT FALSE");
+  // Denormalised from the newest kyc_submissions row so that gating a request
+  // on identity is one column read rather than a subquery on every order.
+  // NONE | PENDING | APPROVED | REJECTED.
+  await addColumnIfMissing("users", "kyc_status", "kyc_status TEXT NOT NULL DEFAULT 'NONE'");
   await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_account_number ON users(account_number)");
   await backfillAccountNumbers();
 }

@@ -360,6 +360,21 @@ async function main() {
   const gone = await api(`/api/strategies/${botId}`, { token });
   check("deleted bot is gone", gone.status === 404, gone.status);
 
+  /* ------------------------- wallet & identity gating ---------------------- */
+  console.log("\nwallet & KYC gating");
+
+  const deposit = await api("/api/account/deposit", { token, method: "POST", body: { amount: "250" } });
+  check("self-service deposit works without KYC", deposit.status === 201, deposit.body);
+
+  const kyc0 = await api("/api/kyc", { token });
+  check("identity starts unverified", kyc0.body?.status === "NONE", kyc0.body?.status);
+  check("kyc reports whether uploads are available", typeof kyc0.body?.uploadAvailable === "boolean");
+
+  // Money leaving the platform is the one direction that needs identity first.
+  const blockedWithdraw = await api("/api/account/withdraw", { token, method: "POST", body: { amount: "10" } });
+  check("withdrawal blocked before identity is verified",
+    blockedWithdraw.status === 409 && blockedWithdraw.body?.error === "KYC_REQUIRED", blockedWithdraw.body);
+
   /* --------------------------------- admin -------------------------------- */
   console.log("\nadmin");
   const asUser = await api("/api/admin/users", { token });
@@ -419,6 +434,25 @@ async function main() {
   check("balance changes are audited", auditLog.body?.entries?.length >= 2, auditLog.body?.total);
   check("audit names the actor", auditLog.body?.entries?.[0]?.actor === "admin@velora.local",
     auditLog.body?.entries?.[0]);
+
+  const kycQueue = await api("/api/admin/kyc?status=PENDING", { token: adminToken });
+  check("admin can read the KYC review queue", Array.isArray(kycQueue.body?.submissions), kycQueue.body);
+  check("KYC queue never carries document links",
+    (kycQueue.body?.submissions ?? []).every((s: any) => !("documents" in s) && !("front" in s)),
+    kycQueue.body?.submissions?.[0]);
+
+  const override = await api(`/api/admin/users/${target.id}`, {
+    token: adminToken, method: "PATCH", body: { kycStatus: "APPROVED" },
+  });
+  check("admin can record identity verified out of band", override.status === 200, override.body);
+  const afterApproval = await api("/api/kyc", { token });
+  check("user sees their identity approved", afterApproval.body?.status === "APPROVED", afterApproval.body?.status);
+
+  const allowedWithdraw = await api("/api/account/withdraw", { token, method: "POST", body: { amount: "10" } });
+  check("withdrawal allowed once identity is verified", allowedWithdraw.status === 200, allowedWithdraw.body);
+
+  const overrideAudited = await api("/api/admin/audit?action=KYC_STATUS_OVERRIDDEN", { token: adminToken });
+  check("an out-of-band KYC approval is audited", (overrideAudited.body?.total ?? 0) > 0, overrideAudited.body?.total);
 
   console.log(`\n${passed} passed, ${failed} failed\n`);
   process.exit(failed === 0 ? 0 : 1);
