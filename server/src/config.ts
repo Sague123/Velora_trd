@@ -106,4 +106,13 @@ export const config = {
   // Per-image ceiling after the client downscales. A phone photo of a passport
   // compresses well under this; anything larger is not a document scan.
   kycMaxImageBytes: 4 * 1024 * 1024,
+
+  /* --------------------------------- savings ------------------------------- */
+  // How often the accrual pass runs. It pays whole elapsed days, so a shorter
+  // interval does not pay more often — it only shortens the wait after a
+  // restart before the day that was owed gets paid.
+  savingsTickMs: 15 * 60_000,
+  // Withdrawing from a savings account requires a verified identity for the
+  // same reason a withdrawal does: it is the door money leaves through.
+  savingsRequiresKyc: process.env.SAVINGS_REQUIRES_KYC !== "false",
 } as const;

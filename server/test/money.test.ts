@@ -101,3 +101,17 @@ test("pctOf is display-only and never divides by zero", () => {
   assert.equal(pctOf(toScaled("-50"), toScaled("200")), -25);
   assert.equal(pctOf(toScaled("1"), 0n), 0);
 });
+
+test("daily savings interest is a truncated slice of the annual rate", async () => {
+  const { dailyInterest } = await import("../src/engine/savings.js");
+  // 6% APY on 10,000 is 600/year, ~1.643835.../day. Truncation is toward zero,
+  // so the platform never pays out a fraction of a unit it did not owe.
+  assert.equal(toDecimalString(dailyInterest(toScaled("10000"), 6), 8), "1.64383561");
+  assert.equal(dailyInterest(toScaled("10000"), 0), 0n);
+  assert.equal(dailyInterest(0n, 6), 0n);
+  assert.equal(dailyInterest(toScaled("-100"), 6), 0n); // a negative principal earns nothing
+  // 365 days of it stays just under the headline rate, never over.
+  const year = dailyInterest(toScaled("10000"), 6) * 365n;
+  assert.ok(year <= toScaled("600"), toDecimalString(year, 8));
+  assert.ok(year > toScaled("599.99"), toDecimalString(year, 8));
+});

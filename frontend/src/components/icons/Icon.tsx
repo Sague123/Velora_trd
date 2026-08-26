@@ -17,6 +17,8 @@ export const IconHome = (p: IconProps) => base({ ...p, children: <><path d="M3 1
 export const IconTrade = (p: IconProps) => base({ ...p, children: <><path d="M4 8h13M17 8l-3-3M17 8l-3 3" /><path d="M20 16H7M7 16l3-3M7 16l3 3" /></> });
 export const IconMarkets = (p: IconProps) => base({ ...p, children: <><path d="M4 20V10M11 20V4M18 20v-7" /><path d="M3 20h18" /></> });
 export const IconBot = (p: IconProps) => base({ ...p, children: <><rect x="5" y="8" width="14" height="11" rx="2.5" /><path d="M12 8V4" /><circle cx="12" cy="3" r="1" /><path d="M2 13h2M20 13h2" /><circle cx="9.5" cy="13.5" r="1.2" fill="currentColor" stroke="none" /><circle cx="14.5" cy="13.5" r="1.2" fill="currentColor" stroke="none" /></> });
+export const IconLock = (p: IconProps) => base({ ...p, children: <><rect x="4.5" y="10.5" width="15" height="9.5" rx="2" /><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" /><circle cx="12" cy="15" r="1.2" fill="currentColor" stroke="none" /></> });
+export const IconVault = (p: IconProps) => base({ ...p, children: <><rect x="3" y="4" width="18" height="16" rx="2.5" /><circle cx="12" cy="12" r="4" /><path d="M12 8v1.5M12 14.5V16M8 12h1.5M14.5 12H16" /></> });
 export const IconServer = (p: IconProps) => base({ ...p, children: <><rect x="3" y="4" width="18" height="7" rx="2" /><rect x="3" y="13" width="18" height="7" rx="2" /><path d="M7 7.5h.01M7 16.5h.01" /></> });
 export const IconSun = (p: IconProps) => base({ ...p, children: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></> });
 export const IconMoon = (p: IconProps) => base({ ...p, children: <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z" /> });

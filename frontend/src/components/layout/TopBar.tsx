@@ -7,7 +7,7 @@ import { useAccount } from "../../hooks/useTrading";
 import { useIsMobile } from "../../hooks/useIsMobile";
 import { classNames, fmtUsd } from "../../lib/format";
 import type { AuthUser } from "../../lib/types";
-import { IconBot, IconGear, IconHome, IconMarkets, IconTrade } from "../icons/Icon";
+import { IconBot, IconGear, IconHome, IconMarkets, IconTrade, IconVault } from "../icons/Icon";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { ThemeToggle } from "./ThemeToggle";
 import { Logo } from "./Logo";
@@ -17,6 +17,7 @@ const NAV = [
   { to: "/terminal", key: "nav.trade", Icon: IconTrade },
   { to: "/markets", key: "nav.markets", Icon: IconMarkets },
   { to: "/strategies", key: "nav.strategies", Icon: IconBot },
+  { to: "/savings", key: "nav.savings", Icon: IconVault },
 ];
 
 function Avatar({ user }: { user: AuthUser | null }) {

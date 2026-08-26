@@ -3,7 +3,12 @@ import { conflict, notFound } from "./errors.js";
 
 export type LedgerType =
   | "DEPOSIT" | "WITHDRAWAL" | "TRANSFER_OUT" | "TRANSFER_IN" | "MARGIN_HOLD" | "MARGIN_RELEASE"
-  | "PNL" | "FEE" | "ADMIN_ADJUSTMENT";
+  | "PNL" | "FEE" | "ADMIN_ADJUSTMENT"
+  // Savings moves the same money between the trading balance and a savings
+  // account, so it goes through this journal like everything else: the cash
+  // balance stays reconstructible from these rows alone, and the savings
+  // principal is the running total of DEPOSIT minus WITHDRAWAL against it.
+  | "SAVINGS_DEPOSIT" | "SAVINGS_WITHDRAWAL" | "SAVINGS_INTEREST";
 
 export interface LedgerMove {
   userId: string;

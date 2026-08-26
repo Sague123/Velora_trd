@@ -314,6 +314,32 @@ CREATE TABLE IF NOT EXISTS bot_logs (
 );
 CREATE INDEX IF NOT EXISTS idx_bot_logs_bot ON bot_logs(bot_id, ts);
 
+-- Savings accounts. The principal lives here; the *cash* balance it came from
+-- lives in accounts.cash_scaled as always, and every move between the two is a
+-- ledger_entries row, so neither side can drift.
+--
+-- Interest is credited to the trading balance rather than compounded into the
+-- principal — the same way a real flexible-savings product pays out to the spot
+-- wallet — which keeps one journal as the single source of truth for money and
+-- makes a locked plan's payouts spendable while the principal is still locked.
+CREATE TABLE IF NOT EXISTS savings_accounts (
+  id             TEXT PRIMARY KEY,
+  user_id        TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  plan_type      TEXT NOT NULL,
+  balance_scaled BIGINT NOT NULL DEFAULT 0,
+  apy            DOUBLE PRECISION NOT NULL,
+  locked_until   TEXT,
+  status         TEXT NOT NULL DEFAULT 'ACTIVE',
+  -- The day boundary interest was last paid for. Accrual is driven off this,
+  -- not off wall-clock ticks, so a server that was down for two days pays two
+  -- days on its next tick instead of silently skipping them.
+  last_accrual_at TEXT NOT NULL,
+  created_at     TEXT NOT NULL,
+  updated_at     TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_savings_user ON savings_accounts(user_id, status);
+CREATE INDEX IF NOT EXISTS idx_savings_active ON savings_accounts(status);
+
 -- Identity verification. The *_url columns hold object PATHS inside a private
 -- Supabase Storage bucket, never public URLs: a passport scan reachable by URL
 -- is the exact failure this design exists to prevent. Documents are only ever

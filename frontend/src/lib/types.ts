@@ -26,6 +26,38 @@ export interface MfaChallenge {
   mfaToken: string;
 }
 
+export interface SavingsPlan {
+  type: string;
+  label: string;
+  apy: number;
+  lockDays: number;
+  description: string;
+}
+
+export interface SavingsAccount {
+  id: string;
+  planType: string;
+  planLabel: string;
+  balance: string;
+  apy: number;
+  lockedUntil: string | null;
+  locked: boolean;
+  /** What today pays at today's balance — computed server-side so the UI
+   * cannot re-derive it slightly differently. */
+  dailyInterest: string;
+  projectedYear: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface SavingsOverview {
+  plans: SavingsPlan[];
+  accounts: SavingsAccount[];
+  totalSaved: string;
+  totalEarned: string;
+  kycRequired: boolean;
+}
+
 export type KycStatus = "NONE" | "PENDING" | "APPROVED" | "REJECTED";
 export type KycDocumentType = "PASSPORT" | "ID_CARD" | "DRIVER_LICENSE";
 
@@ -170,6 +202,9 @@ export interface Account {
   cash: string;
   usedMargin: string;
   lockedMargin: string;
+  /** Principal held in savings accounts. Counted in `equity` — it is still
+   * the trader's money — but not spendable until withdrawn back to cash. */
+  savings: string;
   unrealisedPnl: string;
   realisedPnl: string;
   equity: string;
@@ -182,7 +217,8 @@ export interface Account {
 
 export type LedgerType =
   | "DEPOSIT" | "WITHDRAWAL" | "TRANSFER_OUT" | "TRANSFER_IN"
-  | "MARGIN_HOLD" | "MARGIN_RELEASE" | "FEE" | "PNL" | "ADMIN_ADJUSTMENT";
+  | "MARGIN_HOLD" | "MARGIN_RELEASE" | "FEE" | "PNL" | "ADMIN_ADJUSTMENT"
+  | "SAVINGS_DEPOSIT" | "SAVINGS_WITHDRAWAL" | "SAVINGS_INTEREST";
 
 export interface LedgerEntry {
   id: string;

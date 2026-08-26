@@ -4,15 +4,18 @@ import { closeDb } from "./db.js";
 import { startPriceFeed } from "./engine/prices.js";
 import { startEngine } from "./engine/matching.js";
 import { startStrategyEngine } from "./engine/strategy.js";
+import { startSavingsEngine } from "./engine/savings.js";
 import { captureError, flushMonitoring } from "./lib/monitoring.js";
 
 const app = await buildApp();
 const stopFeed = startPriceFeed();
 const stopEngine = startEngine();
 const stopStrategies = startStrategyEngine();
+const stopSavings = startSavingsEngine();
 
 function shutdown(signal: string) {
   app.log.info(`${signal} received, shutting down`);
+  stopSavings();
   stopStrategies();
   stopEngine();
   stopFeed();

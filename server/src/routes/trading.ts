@@ -32,6 +32,7 @@ const q = {
   allTrades: db.prepare("SELECT pnl_scaled FROM trades WHERE user_id = ?"),
   account: db.prepare("SELECT cash_scaled FROM accounts WHERE user_id = ?"),
   ledger: db.prepare("SELECT * FROM ledger_entries WHERE user_id = ? ORDER BY created_at DESC LIMIT 200"),
+  savings: db.prepare("SELECT COALESCE(SUM(balance_scaled), 0) AS n FROM savings_accounts WHERE user_id = ? AND status = 'ACTIVE'"),
   userByEmail: db.prepare("SELECT id, email, status FROM users WHERE email = ?"),
   userByAccountNumber: db.prepare("SELECT id, email, status FROM users WHERE account_number = ?"),
   alerts: db.prepare("SELECT * FROM alerts WHERE user_id = ? ORDER BY created_at DESC"),
@@ -176,11 +177,16 @@ export default async function tradingRoutes(app: FastifyInstance) {
       unrealised += pnlFor(p.side as Side, asBig(p.qty_scaled), asBig(p.entry_scaled), mark);
     }
     const realised = trades.reduce((s, t) => s + asBig(t.pnl_scaled), 0n);
-    const equity = cash + usedMargin + lockedMargin + unrealised;
+    // Money in a savings account is still the trader's money — leaving it out
+    // of equity would show their net worth dropping the moment they saved some
+    // of it, which is exactly backwards.
+    const savings = asBig(((await q.savings.get(req.user.sub)) as any).n);
+    const equity = cash + usedMargin + lockedMargin + unrealised + savings;
     const wins = trades.filter((t) => asBig(t.pnl_scaled) > 0n).length;
 
     return {
       cash: out(cash, 2), usedMargin: out(usedMargin, 2), lockedMargin: out(lockedMargin, 2),
+      savings: out(savings, 2),
       unrealisedPnl: out(unrealised, 2), realisedPnl: out(realised, 2), equity: out(equity, 2),
       marginUsagePct: pctOf(usedMargin, equity),
       openPositions: positions.length, openOrders: openOrders.length,

@@ -375,6 +375,21 @@ async function main() {
   check("withdrawal blocked before identity is verified",
     blockedWithdraw.status === 409 && blockedWithdraw.body?.error === "KYC_REQUIRED", blockedWithdraw.body);
 
+  /* -------------------------------- savings -------------------------------- */
+  console.log("\nsavings accounts");
+
+  const savings0 = await api("/api/savings", { token });
+  check("savings plans offered", (savings0.body?.plans?.length ?? 0) >= 2, savings0.body?.plans);
+  check("no savings accounts yet", savings0.body?.accounts?.length === 0);
+
+  // Opening one takes custody of money for a period, so it sits behind the same
+  // identity check as a withdrawal — and this user is not verified yet.
+  const openBeforeKyc = await api("/api/savings/accounts", {
+    token, method: "POST", body: { planType: "FLEXIBLE", amount: "100" },
+  });
+  check("savings blocked before identity is verified",
+    openBeforeKyc.status === 409 && openBeforeKyc.body?.error === "KYC_REQUIRED", openBeforeKyc.body);
+
   /* --------------------------------- admin -------------------------------- */
   console.log("\nadmin");
   const asUser = await api("/api/admin/users", { token });
@@ -453,6 +468,73 @@ async function main() {
 
   const overrideAudited = await api("/api/admin/audit?action=KYC_STATUS_OVERRIDDEN", { token: adminToken });
   check("an out-of-band KYC approval is audited", (overrideAudited.body?.total ?? 0) > 0, overrideAudited.body?.total);
+
+  // Now that identity is verified (above), the savings flow is open.
+  console.log("\nsavings accounts — after verification");
+  const acctBeforeSavings = (await api("/api/account", { token })).body;
+  const cashBefore = num(acctBeforeSavings.cash);
+  const equityBefore = num(acctBeforeSavings.equity);
+
+  const tooSmall = await api("/api/savings/accounts", {
+    token, method: "POST", body: { planType: "FLEXIBLE", amount: "1" },
+  });
+  check("a savings account too small to earn anything is refused", tooSmall.status === 400, tooSmall.body?.error);
+
+  const opened = await api("/api/savings/accounts", {
+    token, method: "POST", body: { planType: "FLEXIBLE", amount: "100" },
+  });
+  check("flexible savings account opened", opened.status === 201, opened.body);
+  check("principal recorded", near(num(opened.body?.account?.balance), 100), opened.body?.account?.balance);
+  check("account quotes what a day pays", num(opened.body?.account?.dailyInterest) > 0, opened.body?.account);
+  const savingsId = opened.body.account.id;
+
+  const acctWithSavings = await api("/api/account", { token });
+  check("opening savings moves money out of free cash",
+    near(num(acctWithSavings.body.cash), cashBefore - 100), { before: cashBefore, after: acctWithSavings.body.cash });
+  check("savings shown on the account", near(num(acctWithSavings.body.savings), 100), acctWithSavings.body.savings);
+  // Saving money must not make the trader's net worth appear to drop.
+  check("equity is unchanged by saving", near(num(acctWithSavings.body.equity), equityBefore, 0.05),
+    { before: equityBefore, after: acctWithSavings.body.equity });
+
+  const locked = await api("/api/savings/accounts", {
+    token, method: "POST", body: { planType: "LOCKED_90", amount: "50" },
+  });
+  check("locked plan carries a maturity date", !!locked.body?.account?.lockedUntil, locked.body?.account);
+  check("locked plan reports itself locked", locked.body?.account?.locked === true);
+  const earlyExit = await api(`/api/savings/accounts/${locked.body.account.id}/withdraw`, {
+    token, method: "POST", body: { amount: "10" },
+  });
+  check("locked funds cannot be withdrawn early",
+    earlyExit.status === 409 && earlyExit.body?.error === "PLAN_LOCKED", earlyExit.body);
+  const topUpLocked = await api(`/api/savings/accounts/${locked.body.account.id}/deposit`, {
+    token, method: "POST", body: { amount: "10" },
+  });
+  check("a locked plan cannot be topped up", topUpLocked.status === 409, topUpLocked.body?.error);
+
+  const overWithdraw = await api(`/api/savings/accounts/${savingsId}/withdraw`, {
+    token, method: "POST", body: { amount: "1000" },
+  });
+  check("cannot withdraw more than the principal", overWithdraw.status === 409, overWithdraw.body?.error);
+
+  const partial = await api(`/api/savings/accounts/${savingsId}/withdraw`, {
+    token, method: "POST", body: { amount: "40" },
+  });
+  check("partial withdrawal leaves the account open",
+    partial.body?.closed === false && near(num(partial.body?.account?.balance), 60), partial.body?.account);
+
+  const closed = await api(`/api/savings/accounts/${savingsId}/withdraw`, { token, method: "POST", body: {} });
+  check("withdrawing everything closes the account", closed.body?.closed === true, closed.body);
+
+  const cashAfter = num((await api("/api/account", { token })).body.cash);
+  check("every unit put into savings comes back out", near(cashAfter, cashBefore - 50),
+    { before: cashBefore, after: cashAfter });
+
+  const savingsHistory = await api("/api/savings/history", { token });
+  check("savings movements are journalled",
+    (savingsHistory.body?.entries?.length ?? 0) >= 4, savingsHistory.body?.entries?.length);
+  check("savings journal uses its own ledger types",
+    (savingsHistory.body?.entries ?? []).every((e: any) => e.type.startsWith("SAVINGS_")),
+    savingsHistory.body?.entries?.map((e: any) => e.type));
 
   console.log(`\n${passed} passed, ${failed} failed\n`);
   process.exit(failed === 0 ? 0 : 1);

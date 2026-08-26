@@ -12,6 +12,9 @@ const TYPE_LABEL: Record<LedgerEntry["type"], string> = {
   FEE: "Fee",
   PNL: "PnL settlement",
   ADMIN_ADJUSTMENT: "Admin adjustment",
+  SAVINGS_DEPOSIT: "To savings",
+  SAVINGS_WITHDRAWAL: "From savings",
+  SAVINGS_INTEREST: "Savings interest",
 };
 
 export function LedgerTable({ entries }: { entries: LedgerEntry[] }) {

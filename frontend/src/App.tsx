@@ -20,6 +20,7 @@ import { OverviewPage } from "./pages/OverviewPage";
 import { TerminalPage } from "./pages/TerminalPage";
 import { MarketsPage } from "./pages/MarketsPage";
 import { StrategiesPage } from "./pages/StrategiesPage";
+import { SavingsPage } from "./pages/SavingsPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { AdminPage } from "./pages/AdminPage";
 import { Spinner } from "./components/common/States";
@@ -108,6 +109,7 @@ export default function App() {
             <Route path="/alerts" element={<Navigate to="/terminal" replace />} />
             <Route path="/settings" element={<Navigate to="/profile" replace />} />
             <Route path="/strategies" element={<StrategiesPage />} />
+            <Route path="/savings" element={<SavingsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route element={<AdminRoute />}>
               <Route path="/admin" element={<AdminPage />} />
