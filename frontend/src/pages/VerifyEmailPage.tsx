@@ -55,7 +55,7 @@ export function VerifyEmailPage() {
           {user ? "Перейти в терминал" : "Войти"}
         </Link>}
       >
-        <div className="rounded border border-buy/40 bg-buy-soft px-3 py-2.5 text-2xs text-buy">
+        <div className="rounded-lg border border-buy/40 bg-buy-soft px-3 py-2.5 text-2xs leading-relaxed text-buy">
           Подтверждённая почта нужна, чтобы восстановить доступ к аккаунту и получать уведомления о смене пароля.
         </div>
       </AuthShell>
@@ -68,7 +68,7 @@ export function VerifyEmailPage() {
       subtitle={error}
       footer={<Link to="/login" className="text-accent hover:underline">Вернуться ко входу</Link>}
     >
-      <div className="rounded border border-line-soft bg-bg-2/40 px-3 py-2.5 text-2xs text-txt-2">
+      <div className="rounded-lg border border-line-soft bg-bg-2/40 px-3 py-2.5 text-2xs leading-relaxed text-txt-2">
         Ссылка действует 24 часа и срабатывает один раз. Если срок истёк — войдите в аккаунт и запросите новое
         письмо в профиле.
       </div>

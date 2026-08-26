@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiDelete, apiGet, apiPatch, apiPost } from "../lib/api";
 import type {
-  AdminStats, AdminUserDetail, AdminUsersResponse, AuditResponse, Role, UserStatus,
+  AdminKycDetail, AdminKycListResponse, AdminStats, AdminUserDetail, AdminUsersResponse,
+  AuditResponse, KycStatus, Role, UserStatus,
 } from "../lib/types";
 
 export function useAdminStats(enabled: boolean) {
@@ -110,5 +111,44 @@ export function useAdminUpdateInstrument() {
     mutationFn: (input: { symbol: string; active?: boolean; maxLeverage?: number }) =>
       apiPatch(`/api/admin/instruments/${input.symbol}`, { active: input.active, maxLeverage: input.maxLeverage }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["instruments"] }),
+  });
+}
+
+/* ---------------------------------- KYC ----------------------------------- */
+
+export function useAdminKycQueue(status: KycStatus | "ALL", enabled: boolean) {
+  return useQuery({
+    queryKey: ["admin", "kyc", status],
+    queryFn: () => apiGet<AdminKycListResponse>(`/api/admin/kyc?status=${status}`),
+    enabled,
+    refetchInterval: 15_000,
+  });
+}
+
+/**
+ * Fetched only when a reviewer opens a submission, and never cached: the
+ * response carries signed links to someone's identity documents that expire in
+ * minutes, so holding them in a query cache would keep stale links around and
+ * show expired images on the next open.
+ */
+export function useAdminKycDetail(id: string | null) {
+  return useQuery({
+    queryKey: ["admin", "kyc-detail", id],
+    queryFn: () => apiGet<AdminKycDetail>(`/api/admin/kyc/${id}`),
+    enabled: !!id,
+    gcTime: 0,
+    staleTime: 0,
+  });
+}
+
+export function useReviewKyc() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, decision, reason }: { id: string; decision: "APPROVE" | "REJECT"; reason?: string }) =>
+      apiPost<{ ok: boolean; status: KycStatus }>(`/api/admin/kyc/${id}/review`, { decision, reason }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "kyc"] });
+      qc.invalidateQueries({ queryKey: ["admin", "users"] });
+    },
   });
 }

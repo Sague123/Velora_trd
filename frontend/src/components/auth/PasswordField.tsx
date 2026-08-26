@@ -43,11 +43,12 @@ export function passwordStrength(value: string): { score: number; label: string 
   // A long string of one repeated character, or a straight run off the
   // keyboard, is not the entropy its length suggests.
   if (/^(.)\1+$/.test(value) || /12345|qwerty|password|пароль/i.test(value)) score = Math.min(score, 1);
-  const labels = ["очень слабый", "слабый", "средний", "хороший", "надёжный"];
+  const labels = ["Очень слабый пароль", "Слабый пароль", "Средний пароль", "Хороший пароль", "Надёжный пароль"];
   return { score, label: labels[Math.min(score, 4)] };
 }
 
 const BAR_COLORS = ["bg-sell", "bg-sell", "bg-warn", "bg-accent", "bg-buy"];
+const TEXT_COLORS = ["text-sell", "text-sell", "text-warn", "text-accent", "text-buy"];
 
 export function PasswordField({
   label,
@@ -77,8 +78,8 @@ export function PasswordField({
   const showProblems = touched && value.length > 0;
 
   return (
-    <div className="mb-3">
-      <span className="mb-1 block text-2xs text-txt-2">{label}</span>
+    <div className="mb-4">
+      <span className="mb-1.5 block text-2xs font-medium text-txt-2">{label}</span>
       <div className="relative">
         <input
           type={visible ? "text" : "password"}
@@ -89,7 +90,7 @@ export function PasswordField({
           onChange={(e) => onChange(e.target.value)}
           onBlur={() => setTouched(true)}
           className={classNames(
-            "w-full rounded border bg-bg-2 px-2.5 py-2 pr-14 text-xs text-txt-0 outline-none focus:border-accent",
+            "w-full rounded-lg border bg-bg-2 px-3 py-2.5 pr-16 text-xs text-txt-0 outline-none transition-colors placeholder:text-txt-3 focus:border-accent",
             showProblems && !passwordIsValid(value) ? "border-sell/60" : "border-line"
           )}
           placeholder={placeholder}
@@ -97,7 +98,7 @@ export function PasswordField({
         <button
           type="button"
           onClick={() => setVisible((v) => !v)}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-2xs text-txt-2 hover:text-txt-0"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-2xs text-txt-2 hover:text-txt-0"
           tabIndex={-1}
         >
           {visible ? "скрыть" : "показать"}
@@ -106,7 +107,7 @@ export function PasswordField({
 
       {showMeter && value.length > 0 && (
         <>
-          <div className="mt-1.5 flex gap-1" aria-hidden>
+          <div className="mt-2.5 flex gap-1" aria-hidden>
             {[0, 1, 2, 3].map((i) => (
               <span
                 key={i}
@@ -117,7 +118,7 @@ export function PasswordField({
               />
             ))}
           </div>
-          <div className="mt-1 text-2xs text-txt-3">Надёжность: {strength.label}</div>
+          <div className={classNames("mt-1.5 text-2xs font-medium", TEXT_COLORS[strength.score])}>{strength.label}</div>
           <ul className="mt-1 space-y-0.5">
             {rules.map((r) => (
               <li

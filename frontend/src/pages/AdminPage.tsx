@@ -3,9 +3,10 @@ import { StatsCards } from "../components/admin/StatsCards";
 import { UsersTab } from "../components/admin/UsersTab";
 import { AuditTab } from "../components/admin/AuditTab";
 import { InstrumentsTab } from "../components/admin/InstrumentsTab";
+import { KycTab } from "../components/admin/KycTab";
 import { classNames } from "../lib/format";
 
-type Tab = "users" | "audit" | "instruments";
+type Tab = "users" | "kyc" | "audit" | "instruments";
 
 export function AdminPage() {
   const [tab, setTab] = useState<Tab>("users");
@@ -26,6 +27,7 @@ export function AdminPage() {
           {(
             [
               ["users", "Users"],
+              ["kyc", "KYC"],
               ["audit", "Audit Log"],
               ["instruments", "Instruments"],
             ] as [Tab, string][]
@@ -44,6 +46,7 @@ export function AdminPage() {
         </div>
         <div className="min-h-0 flex-1">
           {tab === "users" && <UsersTab />}
+          {tab === "kyc" && <KycTab />}
           {tab === "audit" && <AuditTab />}
           {tab === "instruments" && <InstrumentsTab />}
         </div>

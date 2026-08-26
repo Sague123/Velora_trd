@@ -2,16 +2,18 @@ import { FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../store/auth";
-import type { MfaChallenge } from "../lib/types";
+import { AuthShell, authButtonCls, authInputCls } from "../components/auth/AuthShell";
 import { toast } from "../store/toast";
 import { ApiError } from "../lib/api";
+import type { MfaChallenge } from "../lib/types";
 
 export function LoginPage() {
   const { t } = useTranslation();
   const login = useAuthStore((s) => s.login);
+  const completeMfa = useAuthStore((s) => s.completeMfa);
   const busy = useAuthStore((s) => s.busy);
   const navigate = useNavigate();
-  const completeMfa = useAuthStore((s) => s.completeMfa);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -26,10 +28,7 @@ export function LoginPage() {
     setError(null);
     try {
       const mfa = await login(email, password);
-      if (mfa) {
-        setChallenge(mfa);
-        return;
-      }
+      if (mfa) return setChallenge(mfa);
       toast.success("Добро пожаловать", email);
       navigate("/terminal");
     } catch (e) {
@@ -51,120 +50,89 @@ export function LoginPage() {
     }
   }
 
-  const inputCls = "w-full rounded border border-line bg-bg-2 px-2.5 py-2 text-xs text-txt-0 outline-none focus:border-accent";
+  const errorBlock = error && (
+    <div className="mb-4 rounded-lg border border-sell/40 bg-sell-soft px-3 py-2 text-2xs text-sell">{error}</div>
+  );
 
-  return (
-    <div className="flex h-screen w-screen items-center justify-center bg-bg-0 px-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center gap-2">
-          <svg width="34" height="34" viewBox="0 0 32 32" aria-hidden>
-            <rect width="32" height="32" rx="6" fill="#0b0e14" />
-            <path d="M8 9l8 15 8-15h-3.4L16 19.6 10.4 9H8z" fill="#17c885" />
-          </svg>
-          <div className="text-base font-semibold tracking-tight">Velora Terminal</div>
-          <div className="text-2xs text-txt-2">{t("auth.login.tagline")}</div>
-        </div>
-
-        {challenge ? (
-          <form onSubmit={onSubmitCode} className="rounded border border-line bg-bg-1 p-5 shadow-panel">
-            <h1 className="mb-1 text-sm font-semibold text-txt-0">Подтверждение входа</h1>
-            <p className="mb-4 text-2xs text-txt-2">
-              Введите шестизначный код из приложения-аутентификатора. Если телефон недоступен — используйте
-              один из резервных кодов.
-            </p>
-
-            <label className="mb-4 block">
-              <span className="mb-1 block text-2xs text-txt-2">Код подтверждения</span>
-              <input
-                required
-                autoFocus
-                inputMode="text"
-                autoComplete="one-time-code"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                className={`${inputCls} tabular tracking-[0.3em]`}
-                placeholder="000000"
-              />
-            </label>
-
-            {error && (
-              <div className="mb-3 rounded border border-sell/40 bg-sell-soft px-2.5 py-1.5 text-2xs text-sell">{error}</div>
-            )}
-
-            <button
-              type="submit"
-              disabled={busy}
-              className="w-full rounded bg-accent-fill py-2 text-xs font-semibold text-white transition-colors hover:bg-accent-dim disabled:opacity-50"
-            >
-              {busy ? "Проверка…" : "Подтвердить"}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => { setChallenge(null); setCode(""); setError(null); setPassword(""); }}
-              className="mt-3 w-full text-center text-2xs text-txt-2 hover:text-txt-0"
-            >
-              Войти под другим аккаунтом
-            </button>
-          </form>
-        ) : (
-        <form onSubmit={onSubmit} className="rounded border border-line bg-bg-1 p-5 shadow-panel">
-          <h1 className="mb-4 text-sm font-semibold text-txt-0">{t("auth.login.title")}</h1>
-
-          <label className="mb-3 block">
-            <span className="mb-1 block text-2xs text-txt-2">{t("auth.login.email")}</span>
+  if (challenge) {
+    return (
+      <AuthShell
+        title="Подтверждение входа"
+        subtitle="Введите шестизначный код из приложения-аутентификатора. Если телефон недоступен — используйте один из резервных кодов."
+      >
+        <form onSubmit={onSubmitCode}>
+          <label className="mb-5 block">
+            <span className="mb-1.5 block text-2xs font-medium text-txt-2">Код подтверждения</span>
             <input
-              type="email"
-              required
-              autoFocus
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded border border-line bg-bg-2 px-2.5 py-2 text-xs text-txt-0 outline-none focus:border-accent"
-              placeholder="you@example.com"
+              required autoFocus inputMode="text" autoComplete="one-time-code"
+              value={code} onChange={(e) => setCode(e.target.value)}
+              className={`${authInputCls} tabular text-center text-sm tracking-[0.4em]`}
+              placeholder="000000"
             />
           </label>
 
-          <label className="mb-4 block">
-            <span className="mb-1 block text-2xs text-txt-2">{t("auth.login.password")}</span>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded border border-line bg-bg-2 px-2.5 py-2 text-xs text-txt-0 outline-none focus:border-accent"
-              placeholder="••••••••••"
-            />
-          </label>
+          {errorBlock}
 
-          {error && (
-            <div className="mb-3 rounded border border-sell/40 bg-sell-soft px-2.5 py-1.5 text-2xs text-sell">
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={busy}
-            className="w-full rounded bg-accent-fill py-2 text-xs font-semibold text-white transition-colors hover:bg-accent-dim disabled:opacity-50"
-          >
-            {busy ? t("auth.login.submitting") : t("auth.login.submit")}
+          <button type="submit" disabled={busy} className={authButtonCls}>
+            {busy ? "Проверка…" : "Подтвердить"}
           </button>
 
-          <div className="mt-3 text-center text-2xs text-txt-2">
-            <Link to="/forgot-password" className="text-txt-2 hover:text-accent hover:underline">
-              Забыли пароль?
-            </Link>
-          </div>
-
-          <div className="mt-2 text-center text-2xs text-txt-2">
-            {t("auth.login.noAccount")}{" "}
-            <Link to="/register" className="text-accent hover:underline">
-              {t("auth.login.register")}
-            </Link>
-          </div>
+          <button
+            type="button"
+            onClick={() => { setChallenge(null); setCode(""); setError(null); setPassword(""); }}
+            className="mt-4 w-full text-center text-2xs text-txt-2 hover:text-txt-0"
+          >
+            Войти под другим аккаунтом
+          </button>
         </form>
-        )}
-      </div>
-    </div>
+      </AuthShell>
+    );
+  }
+
+  return (
+    <AuthShell
+      title={t("auth.login.title")}
+      subtitle={t("auth.login.tagline")}
+      footer={
+        <>
+          {t("auth.login.noAccount")}{" "}
+          <Link to="/register" className="font-medium text-accent hover:underline">
+            {t("auth.login.register")}
+          </Link>
+        </>
+      }
+    >
+      <form onSubmit={onSubmit}>
+        <label className="mb-4 block">
+          <span className="mb-1.5 block text-2xs font-medium text-txt-2">{t("auth.login.email")}</span>
+          <input
+            type="email" required autoFocus value={email} autoComplete="email"
+            onChange={(e) => setEmail(e.target.value)}
+            className={authInputCls} placeholder="you@example.com"
+          />
+        </label>
+
+        <label className="mb-2 block">
+          <span className="mb-1.5 block text-2xs font-medium text-txt-2">{t("auth.login.password")}</span>
+          <input
+            type="password" required value={password} autoComplete="current-password"
+            onChange={(e) => setPassword(e.target.value)}
+            className={authInputCls} placeholder="••••••••••"
+          />
+        </label>
+
+        <div className="mb-5 text-right">
+          <Link to="/forgot-password" className="text-2xs text-txt-2 hover:text-accent hover:underline">
+            Забыли пароль?
+          </Link>
+        </div>
+
+        {errorBlock}
+
+        <button type="submit" disabled={busy} className={authButtonCls}>
+          {busy ? t("auth.login.submitting") : t("auth.login.submit")}
+        </button>
+      </form>
+    </AuthShell>
   );
 }

@@ -73,6 +73,12 @@ export default {
         // reads the theme-aware token from globals.css instead of a fixed
         // dark-only value, so it actually looks right in light mode too
         panel: "var(--shadow-panel)",
+        // The token .btn-fx already applies on hover — exposed here so a
+        // control can also carry it at rest. (`shadow-btn` was already being
+        // written in components before this existed, and quietly did nothing.)
+        btn: "var(--shadow-btn)",
+        // A larger lift, for a page's single primary action.
+        lift: "var(--shadow-lift)",
       },
     },
   },

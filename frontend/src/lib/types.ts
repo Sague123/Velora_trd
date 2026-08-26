@@ -91,6 +91,33 @@ export interface KycSubmitInput {
   selfie: string;
 }
 
+export interface AdminKycRow {
+  id: string;
+  userId: string;
+  email: string;
+  userName: string;
+  fullName: string;
+  documentType: KycDocumentType;
+  status: KycStatus;
+  rejectionReason: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+}
+
+export interface AdminKycListResponse {
+  total: number;
+  page: number;
+  pageSize: number;
+  storageConfigured: boolean;
+  submissions: AdminKycRow[];
+}
+
+export interface AdminKycDetail {
+  submission: AdminKycRow & { address: string; documentNumber: string };
+  /** Signed links, valid for `expiresInSec`. Never stored, never reused. */
+  documents: { front: string | null; back: string | null; selfie: string | null; expiresInSec: number };
+}
+
 export interface TotpSetup {
   /** Shown once during enrolment and never readable again. */
   secret: string;

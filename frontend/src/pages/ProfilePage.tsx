@@ -11,6 +11,7 @@ import { BalanceStats } from "../components/profile/BalanceStats";
 import { WalletActions } from "../components/profile/WalletActions";
 import { TradeHistoryTab } from "../components/profile/TradeHistoryTab";
 import { AvatarUpload } from "../components/profile/AvatarUpload";
+import { SecurityTab } from "../components/profile/SecurityTab";
 import { PositionsTable } from "../components/terminal/PositionsTable";
 import { OrdersTable } from "../components/terminal/OrdersTable";
 import { TradesTable } from "../components/terminal/TradesTable";
@@ -23,7 +24,7 @@ import { IconMoon, IconSun } from "../components/icons/Icon";
 import type { OrderStatus, Timeframe } from "../lib/types";
 import { SiteFooter } from "../components/layout/SiteFooter";
 
-type Tab = "wallet" | "balance" | "portfolio" | "history" | "settings";
+type Tab = "wallet" | "balance" | "portfolio" | "history" | "security" | "settings";
 
 function InfoForm() {
   const user = useAuthStore((s) => s.user);
@@ -319,6 +320,7 @@ export function ProfilePage() {
             ["balance", t("profileTabs.balance")],
             ["portfolio", t("profileTabs.portfolio")],
             ["history", t("profileTabs.history")],
+            ["security", "Безопасность"],
             ["settings", t("profileTabs.settings")],
           ] as [Tab, string][]
         ).map(([id, label]) => (
@@ -340,6 +342,8 @@ export function ProfilePage() {
       {tab === "portfolio" && <PortfolioTab />}
 
       {tab === "history" && <TradeHistoryTab />}
+
+      {tab === "security" && <SecurityTab />}
 
       {tab === "settings" && <SettingsTab />}
 

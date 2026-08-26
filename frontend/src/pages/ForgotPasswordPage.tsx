@@ -33,7 +33,7 @@ export function ForgotPasswordPage() {
         subtitle="Если аккаунт с таким адресом существует, мы отправили на него ссылку для сброса пароля."
         footer={<Link to="/login" className="text-accent hover:underline">Вернуться ко входу</Link>}
       >
-        <div className="rounded border border-line-soft bg-bg-2/40 px-3 py-2.5 text-2xs text-txt-2">
+        <div className="rounded-lg border border-line-soft bg-bg-2/40 px-3 py-2.5 text-2xs leading-relaxed text-txt-2">
           Ссылка действует 60 минут и сработает только один раз. Письмо не пришло — проверьте папку «Спам»
           или попробуйте ещё раз через несколько минут.
         </div>
@@ -48,8 +48,8 @@ export function ForgotPasswordPage() {
       footer={<Link to="/login" className="text-accent hover:underline">Вернуться ко входу</Link>}
     >
       <form onSubmit={onSubmit}>
-        <label className="mb-4 block">
-          <span className="mb-1 block text-2xs text-txt-2">Email</span>
+        <label className="mb-5 block">
+          <span className="mb-1.5 block text-2xs font-medium text-txt-2">Email</span>
           <input
             type="email" required autoFocus value={email}
             onChange={(e) => setEmail(e.target.value)}

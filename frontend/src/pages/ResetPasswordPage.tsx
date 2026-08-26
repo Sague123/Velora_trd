@@ -1,9 +1,10 @@
 import { FormEvent, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { apiPost, ApiError } from "../lib/api";
-import { AuthShell, authButtonCls } from "../components/auth/AuthShell";
+import { AuthShell, authButtonCls, authInputCls } from "../components/auth/AuthShell";
 import { PasswordField, passwordIsValid } from "../components/auth/PasswordField";
 import { toast } from "../store/toast";
+import { classNames } from "../lib/format";
 
 export function ResetPasswordPage() {
   const [params] = useSearchParams();
@@ -55,15 +56,15 @@ export function ResetPasswordPage() {
       <form onSubmit={onSubmit}>
         <PasswordField label="Новый пароль" value={password} onChange={setPassword} autoFocus />
 
-        <label className="mb-4 block">
-          <span className="mb-1 block text-2xs text-txt-2">Повторите пароль</span>
+        <label className="mb-5 block">
+          <span className="mb-1.5 block text-2xs font-medium text-txt-2">Повторите пароль</span>
           <input
             type="password" required value={confirm} autoComplete="new-password"
             onChange={(e) => setConfirm(e.target.value)}
-            className={`w-full rounded border bg-bg-2 px-2.5 py-2 text-xs text-txt-0 outline-none focus:border-accent ${mismatch ? "border-sell/60" : "border-line"}`}
+            className={classNames(authInputCls, mismatch && "border-sell/60")}
             placeholder="••••••••••"
           />
-          {mismatch && <div className="mt-1 text-2xs text-sell">Пароли не совпадают</div>}
+          {mismatch && <div className="mt-1.5 text-2xs text-sell">Пароли не совпадают</div>}
         </label>
 
         {error && (

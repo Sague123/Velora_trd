@@ -2,15 +2,28 @@ import { FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../store/auth";
+import { AuthShell, authButtonCls, authInputCls } from "../components/auth/AuthShell";
+import { PasswordField, passwordIsValid } from "../components/auth/PasswordField";
 import { toast } from "../store/toast";
 import { ApiError } from "../lib/api";
 import { classNames } from "../lib/format";
 
+/**
+ * Registration asks for exactly what an account needs: an email, a password,
+ * and optionally a name.
+ *
+ * Identity verification is deliberately *not* part of this screen. It is
+ * optional — it gates withdrawals and savings, nothing else — and asking
+ * someone to photograph a passport before they have seen the product would
+ * lose people who would otherwise have signed up. It lives in the profile's
+ * security settings, where someone goes when they actually need it.
+ */
 export function RegisterPage() {
   const { t } = useTranslation();
   const register = useAuthStore((s) => s.register);
   const busy = useAuthStore((s) => s.busy);
   const navigate = useNavigate();
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,24 +31,21 @@ export function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [details, setDetails] = useState<string[]>([]);
 
+  const passwordsMatch = confirmPassword.length > 0 && confirmPassword === password;
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setDetails([]);
-    if (password !== confirmPassword) {
-      setError("Пароли не совпадают");
-      return;
-    }
+    if (!passwordsMatch) return setError("Пароли не совпадают");
     try {
-      await register(email, password, name || undefined);
+      await register(email.trim().toLowerCase(), password, name || undefined);
       toast.success("Аккаунт создан", "Стартовый баланс зачислен");
       navigate("/terminal");
     } catch (e) {
       if (e instanceof ApiError) {
         setError(e.message);
-        if (Array.isArray(e.details)) {
-          setDetails((e.details as any[]).map((d) => d.message));
-        }
+        if (Array.isArray(e.details)) setDetails((e.details as any[]).map((d) => d.message));
       } else {
         setError("Не удалось зарегистрироваться");
       }
@@ -43,106 +53,79 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-bg-0 px-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center gap-2">
-          <svg width="34" height="34" viewBox="0 0 32 32" aria-hidden>
-            <rect width="32" height="32" rx="6" fill="#0b0e14" />
-            <path d="M8 9l8 15 8-15h-3.4L16 19.6 10.4 9H8z" fill="#17c885" />
-          </svg>
-          <div className="text-base font-semibold tracking-tight">Velora Terminal</div>
-          <div className="text-2xs text-txt-2">{t("auth.register.createAccount")}</div>
-        </div>
+    <AuthShell
+      title={t("auth.register.title")}
+      subtitle="Аккаунт создаётся за минуту. Стартовый баланс зачисляется сразу — торговать можно немедленно."
+      footer={
+        <>
+          {t("auth.register.haveAccount")}{" "}
+          <Link to="/login" className="font-medium text-accent hover:underline">
+            {t("auth.register.login")}
+          </Link>
+        </>
+      }
+    >
+      <form onSubmit={onSubmit}>
+        <label className="mb-4 block">
+          <span className="mb-1.5 block text-2xs font-medium text-txt-2">{t("auth.register.name")}</span>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className={authInputCls}
+            placeholder="Alex Trader"
+          />
+        </label>
 
-        <form onSubmit={onSubmit} className="rounded border border-line bg-bg-1 p-5 shadow-panel">
-          <h1 className="mb-4 text-sm font-semibold text-txt-0">{t("auth.register.title")}</h1>
+        <label className="mb-4 block">
+          <span className="mb-1.5 block text-2xs font-medium text-txt-2">{t("auth.register.email")}</span>
+          <input
+            type="email" required value={email} autoComplete="email"
+            onChange={(e) => setEmail(e.target.value)}
+            className={authInputCls} placeholder="you@example.com"
+          />
+        </label>
 
-          <label className="mb-3 block">
-            <span className="mb-1 block text-2xs text-txt-2">{t("auth.register.name")}</span>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full rounded border border-line bg-bg-2 px-2.5 py-2 text-xs text-txt-0 outline-none focus:border-accent"
-              placeholder="Alex Trader"
-            />
-          </label>
+        <PasswordField label={t("auth.register.password")} value={password} onChange={setPassword} />
 
-          <label className="mb-3 block">
-            <span className="mb-1 block text-2xs text-txt-2">{t("auth.register.email")}</span>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded border border-line bg-bg-2 px-2.5 py-2 text-xs text-txt-0 outline-none focus:border-accent"
-              placeholder="you@example.com"
-            />
-          </label>
-
-          <label className="mb-3 block">
-            <span className="mb-1 block text-2xs text-txt-2">{t("auth.register.password")}</span>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded border border-line bg-bg-2 px-2.5 py-2 text-xs text-txt-0 outline-none focus:border-accent"
-              placeholder="Минимум 10 символов"
-            />
-          </label>
-
-          <label className="mb-1 block">
-            <span className="mb-1 block text-2xs text-txt-2">{t("auth.register.confirmPassword")}</span>
-            <input
-              type="password"
-              required
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className={classNames(
-                "w-full rounded border bg-bg-2 px-2.5 py-2 text-xs text-txt-0 outline-none focus:border-accent",
-                confirmPassword && confirmPassword !== password ? "border-sell" : "border-line"
-              )}
-              placeholder="Ещё раз тот же пароль"
-            />
-          </label>
-          <div className="mb-4 text-2xs text-txt-3">{t("auth.register.passwordHint")}</div>
-
-          {error && (
-            <div className="mb-3 rounded border border-sell/40 bg-sell-soft px-2.5 py-1.5 text-2xs text-sell">
-              {error}
-              {details.length > 0 && (
-                <ul className="mt-1 list-disc pl-4">
-                  {details.map((d, i) => (
-                    <li key={i}>{d}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
+        <label className="mb-5 block">
+          <span className="mb-1.5 block text-2xs font-medium text-txt-2">{t("auth.register.confirmPassword")}</span>
+          <input
+            type="password" required value={confirmPassword} autoComplete="new-password"
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            className={classNames(authInputCls, confirmPassword && !passwordsMatch && "border-sell/60")}
+            placeholder="Ещё раз тот же пароль"
+          />
+          {confirmPassword && !passwordsMatch && (
+            <div className="mt-1.5 text-2xs text-sell">Пароли не совпадают</div>
           )}
+        </label>
 
-          <button
-            type="submit"
-            disabled={busy || (confirmPassword.length > 0 && confirmPassword !== password)}
-            className="w-full rounded bg-accent-fill py-2 text-xs font-semibold text-white transition-colors hover:bg-accent-dim disabled:opacity-50"
-          >
-            {busy ? t("auth.register.submitting") : t("auth.register.submit")}
-          </button>
-
-          <div className="mt-3 text-center text-2xs text-txt-3">
-            {t("auth.register.policyAgree")}{" "}
-            <Link to="/legal/privacy" target="_blank" className="text-accent hover:underline">
-              {t("auth.register.policyLink")}
-            </Link>
+        {error && (
+          <div className="mb-4 rounded-lg border border-sell/40 bg-sell-soft px-3 py-2 text-2xs text-sell">
+            {error}
+            {details.length > 0 && (
+              <ul className="mt-1 list-disc pl-4">{details.map((d, i) => <li key={i}>{d}</li>)}</ul>
+            )}
           </div>
+        )}
 
-          <div className="mt-4 text-center text-2xs text-txt-2">
-            {t("auth.register.haveAccount")}{" "}
-            <Link to="/login" className="text-accent hover:underline">
-              {t("auth.register.login")}
-            </Link>
-          </div>
-        </form>
-      </div>
-    </div>
+        <button
+          type="submit"
+          disabled={busy || !passwordIsValid(password) || !passwordsMatch}
+          className={authButtonCls}
+        >
+          {busy ? t("auth.register.submitting") : t("auth.register.submit")}
+        </button>
+
+        <p className="mt-4 text-center text-2xs leading-relaxed text-txt-3">
+          {t("auth.register.policyAgree")}{" "}
+          <Link to="/legal/privacy" target="_blank" className="text-accent hover:underline">
+            {t("auth.register.policyLink")}
+          </Link>
+          . Подтверждение личности не требуется — его можно пройти позже в настройках профиля,
+          если понадобится вывод средств или накопительный счёт.
+        </p>
+      </form>
+    </AuthShell>
   );
 }
