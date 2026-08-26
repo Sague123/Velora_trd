@@ -536,6 +536,141 @@ async function main() {
     (savingsHistory.body?.entries ?? []).every((e: any) => e.type.startsWith("SAVINGS_")),
     savingsHistory.body?.entries?.map((e: any) => e.type));
 
+  /* ---------------------------------- CRM --------------------------------- */
+  console.log("\nCRM — lead pipeline");
+
+  // The sales desk is a separate role: it must reach the CRM and nothing else,
+  // and a regular trader must not reach it at all.
+  const crmAsTrader = await api("/api/crm/leads", { token });
+  check("a regular user cannot reach the CRM", crmAsTrader.status === 403, crmAsTrader.body?.error);
+  const crmAnon = await api("/api/crm/leads", {});
+  check("the CRM requires authentication", crmAnon.status === 401, crmAnon.status);
+
+  const managerEmail = `smoke-manager-${Date.now()}@velora.test`;
+  const managerReg = await api("/api/auth/register", {
+    method: "POST", body: { email: managerEmail, password: "SmokeManager123", name: "Smoke Manager" },
+  });
+  const managerId = managerReg.body?.user?.id as string;
+  let managerToken = managerReg.body?.accessToken as string;
+
+  const beforePromotion = await api("/api/crm/leads", { token: managerToken });
+  check("a fresh account has no CRM access", beforePromotion.status === 403, beforePromotion.status);
+
+  const promote = await api(`/api/admin/users/${managerId}`, {
+    token: adminToken, method: "PATCH", body: { role: "MANAGER" },
+  });
+  check("admin can grant the MANAGER role", promote.body?.user?.role === "MANAGER", promote.body);
+
+  // The role is read from the database on every request, not from the token,
+  // so the promotion takes effect without re-issuing one.
+  const afterPromotion = await api("/api/crm/leads", { token: managerToken });
+  check("the MANAGER role takes effect on the existing session", afterPromotion.status === 200, afterPromotion.status);
+
+  const adminOnCrm = await api("/api/crm/leads", { token: adminToken });
+  check("admins reach the CRM too", adminOnCrm.status === 200, adminOnCrm.status);
+  const managerOnAdmin = await api("/api/admin/stats", { token: managerToken });
+  check("a manager cannot reach the admin console", managerOnAdmin.status === 403, managerOnAdmin.status);
+
+  const meta = await api("/api/crm/meta", { token: managerToken });
+  check("CRM publishes its funnel stages", (meta.body?.statuses ?? []).includes("WELCOME_CALL"), meta.body?.statuses);
+  check("verification statuses are a separate list",
+    (meta.body?.verificationStatuses ?? []).length === 4, meta.body?.verificationStatuses);
+
+  const noContact = await api("/api/crm/leads/import", {
+    token: managerToken, method: "POST", body: { fullName: "No Contact" },
+  });
+  check("a lead with no phone and no email is refused", noContact.status === 400, noContact.body?.error);
+
+  const phone = `+7900${Date.now() % 10_000_000}`;
+  const leadEmail = `smoke-lead-${Date.now()}@velora.test`;
+  const imported = await api("/api/crm/leads/import", {
+    token: managerToken, method: "POST",
+    body: { fullName: "Ivan Petrov", phone, email: leadEmail, country: "RU", source: "smoke-affiliate" },
+  });
+  check("lead imported", imported.status === 201, imported.body);
+  check("a new lead starts at NEW / NOT_SUBMITTED",
+    imported.body?.lead?.status === "NEW" && imported.body?.lead?.verificationStatus === "NOT_SUBMITTED",
+    imported.body?.lead);
+  const leadId = imported.body.lead.id as string;
+
+  const duplicate = await api("/api/crm/leads/import", {
+    token: managerToken, method: "POST", body: { fullName: "Ivan P", phone },
+  });
+  check("the same phone cannot create a second card", duplicate.status === 400, duplicate.body?.error);
+
+  // A lead whose email already belongs to a platform account links to it on
+  // import, so the desk sees the real balance instead of a blank card.
+  const linked = await api("/api/crm/leads/import", {
+    token: managerToken, method: "POST",
+    body: { fullName: "Existing Trader", email, country: "PL", source: "smoke-affiliate" },
+  });
+  check("an already-registered lead links to their account", !!linked.body?.lead?.platform?.userId, linked.body?.lead);
+  check("the card reads the live platform balance", !!linked.body?.lead?.platform?.balance, linked.body?.lead?.platform);
+
+  const badStatus = await api(`/api/crm/leads/${leadId}/status`, {
+    token: managerToken, method: "PATCH", body: { status: "NOT_A_STAGE" },
+  });
+  check("an unknown funnel stage is refused", badStatus.status === 400, badStatus.body?.error);
+
+  const moved = await api(`/api/crm/leads/${leadId}/status`, {
+    token: managerToken, method: "PATCH", body: { status: "CALLBACK" },
+  });
+  check("status changed", moved.body?.lead?.status === "CALLBACK", moved.body);
+
+  const verified = await api(`/api/crm/leads/${leadId}/verification`, {
+    token: managerToken, method: "PATCH", body: { verificationStatus: "PENDING" },
+  });
+  check("verification is tracked separately from the funnel stage",
+    verified.body?.lead?.verificationStatus === "PENDING" && verified.body?.lead?.status === "CALLBACK",
+    verified.body?.lead);
+
+  const assigned = await api(`/api/crm/leads/${leadId}/assign`, {
+    token: managerToken, method: "PATCH", body: { managerId },
+  });
+  check("lead assigned to a manager", assigned.body?.lead?.assignedManager?.id === managerId, assigned.body?.lead);
+  const assignToTrader = await api(`/api/crm/leads/${leadId}/assign`, {
+    token: managerToken, method: "PATCH", body: { managerId: target.id },
+  });
+  check("a lead cannot be assigned to a non-manager", assignToTrader.status === 400, assignToTrader.body?.error);
+
+  const comment = await api(`/api/crm/leads/${leadId}/comments`, {
+    token: managerToken, method: "POST", body: { text: "Дозвонился, перезвонить вечером" },
+  });
+  check("comment added", comment.status === 201, comment.body);
+  check("a comment names its author", comment.body?.comment?.manager?.id === managerId, comment.body?.comment);
+  const emptyComment = await api(`/api/crm/leads/${leadId}/comments`, {
+    token: managerToken, method: "POST", body: { text: "   " },
+  });
+  check("an empty comment is refused", emptyComment.status === 400, emptyComment.body?.error);
+  const commentList = await api(`/api/crm/leads/${leadId}/comments`, { token: managerToken });
+  check("comments listed", (commentList.body?.comments ?? []).length === 1, commentList.body?.comments?.length);
+
+  // Every transition is logged, including the lead's very first status —
+  // otherwise the timeline starts blank for a lead nobody has touched yet.
+  const card = await api(`/api/crm/leads/${leadId}`, { token: managerToken });
+  const transitions = (card.body?.history ?? []).map((h: any) => `${h.kind}:${h.oldStatus}>${h.newStatus}`);
+  check("status change is journalled", transitions.includes("STATUS:NEW>CALLBACK"), transitions);
+  check("verification change shares the same timeline",
+    transitions.includes("VERIFICATION:NOT_SUBMITTED>PENDING"), transitions);
+  check("the lead's creation is the first transition", transitions.includes("STATUS:null>NEW"), transitions);
+
+  const byStatus = await api("/api/crm/leads?status=CALLBACK", { token: managerToken });
+  check("filter by status", (byStatus.body?.leads ?? []).some((l: any) => l.id === leadId), byStatus.body?.total);
+  const byManager = await api(`/api/crm/leads?managerId=${managerId}`, { token: managerToken });
+  check("filter by assigned manager", (byManager.body?.leads ?? []).some((l: any) => l.id === leadId), byManager.body?.total);
+  const byPhone = await api(`/api/crm/leads?search=${encodeURIComponent(phone.slice(-6))}`, { token: managerToken });
+  check("search by phone fragment", (byPhone.body?.leads ?? []).some((l: any) => l.id === leadId), byPhone.body?.total);
+  const byName = await api("/api/crm/leads?search=IVAN%20PETROV", { token: managerToken });
+  check("search by name is case-insensitive", (byName.body?.leads ?? []).some((l: any) => l.id === leadId), byName.body?.total);
+  const noMatch = await api("/api/crm/leads?search=zzz-nothing-matches-zzz", { token: managerToken });
+  check("a search with no matches returns an empty page", noMatch.body?.total === 0, noMatch.body?.total);
+
+  const paged = await api("/api/crm/leads?page=1&pageSize=1", { token: managerToken });
+  check("pagination caps the page", (paged.body?.leads ?? []).length === 1 && paged.body?.total >= 2, paged.body?.total);
+
+  const missing = await api("/api/crm/leads/does-not-exist", { token: managerToken });
+  check("an unknown lead is a 404", missing.status === 404, missing.status);
+
   console.log(`\n${passed} passed, ${failed} failed\n`);
   process.exit(failed === 0 ? 0 : 1);
 }

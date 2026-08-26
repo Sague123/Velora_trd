@@ -7,7 +7,7 @@ import { useAccount } from "../../hooks/useTrading";
 import { useIsMobile } from "../../hooks/useIsMobile";
 import { classNames, fmtUsd } from "../../lib/format";
 import type { AuthUser } from "../../lib/types";
-import { IconBot, IconGear, IconHome, IconMarkets, IconTrade, IconVault } from "../icons/Icon";
+import { IconBot, IconClipboard, IconGear, IconHome, IconMarkets, IconTrade, IconVault } from "../icons/Icon";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { ThemeToggle } from "./ThemeToggle";
 import { Logo } from "./Logo";
@@ -38,6 +38,9 @@ function Avatar({ user }: { user: AuthUser | null }) {
 export function TopBar() {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
+  // Admins get the CRM too: an admin who could not see it would just be handed
+  // a second account, which is worse than the overlap.
+  const isManager = user?.role === "MANAGER" || user?.role === "ADMIN";
   const wsStatus = useConnStatus();
   const { data: health, isError: healthError } = useServerHealth();
   const { data: account } = useAccount(!!user);
@@ -85,6 +88,19 @@ export function TopBar() {
               {t(item.key)}
             </NavLink>
           ))}
+          {isManager && (
+            <NavLink
+              to="/crm"
+              className={({ isActive }) =>
+                classNames(
+                  "tap-sm flex flex-1 basis-0 shrink-0 items-center justify-center gap-1 rounded px-2 text-2xs font-medium transition-colors",
+                  isActive ? "bg-accent-soft text-accent" : "text-txt-2 hover:bg-bg-3 hover:text-txt-0"
+                )
+              }
+            >
+              <IconClipboard size={14} /> {t("nav.crm")}
+            </NavLink>
+          )}
           {user?.role === "ADMIN" && (
             <NavLink
               to="/admin"
@@ -125,6 +141,19 @@ export function TopBar() {
             {t(item.key)}
           </NavLink>
         ))}
+        {isManager && (
+          <NavLink
+            to="/crm"
+            className={({ isActive }) =>
+              classNames(
+                "nav-link btn-fx flex items-center border-b-2 px-2.5 text-[12.5px] font-medium transition-colors",
+                isActive ? "border-accent text-txt-0" : "border-transparent text-txt-2 hover:text-txt-0"
+              )
+            }
+          >
+            {t("nav.crm")}
+          </NavLink>
+        )}
         {user?.role === "ADMIN" && (
           <NavLink
             to="/admin"

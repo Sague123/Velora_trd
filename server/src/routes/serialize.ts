@@ -40,3 +40,69 @@ export const sLedger = (e: any) => ({
   balanceAfter: out(asBig(e.balance_after_scaled), 2),
   note: e.note, actorUserId: e.actor_user_id, createdAt: e.created_at,
 });
+
+/* ----------------------------------- CRM ---------------------------------- */
+
+/** Row shape for the leads table: enough to work the list, nothing more. */
+export const sLead = (l: any) => ({
+  id: l.id,
+  fullName: l.full_name,
+  phone: l.phone ?? null,
+  email: l.email ?? null,
+  country: l.country ?? null,
+  source: l.source ?? null,
+  status: l.status,
+  verificationStatus: l.verification_status,
+  assignedManager: l.assigned_manager_id
+    ? { id: l.assigned_manager_id, name: l.manager_name, email: l.manager_email }
+    : null,
+  /** Set once the lead registered on the platform — the list shows it as a
+   * badge, because "already a user" changes how the desk works the lead. */
+  platformUserId: l.platform_user_id ?? null,
+  createdAt: l.created_at,
+  updatedAt: l.updated_at,
+});
+
+/**
+ * The card. Everything under `platform` is read live from the users table on
+ * each request rather than copied into the lead, so it cannot go stale: a
+ * balance or a KYC decision that changed a minute ago shows here immediately.
+ * Null when the lead has not registered yet.
+ */
+export const sLeadDetail = (l: any) => ({
+  ...sLead(l),
+  platform: l.platform_user_id
+    ? {
+        userId: l.platform_user_id,
+        email: l.platform_email,
+        name: l.platform_name,
+        status: l.platform_status,
+        kycStatus: l.platform_kyc_status ?? "NONE",
+        emailVerified: l.platform_email_verified === true,
+        registeredAt: l.platform_registered_at ?? null,
+        // There is no presence tracking on this platform, so "last seen" is the
+        // most recent real signal there is: the later of their last login and
+        // their last audited action. Labelled as such rather than dressed up as
+        // an online indicator the data cannot support.
+        lastLoginAt: l.platform_last_login_at ?? null,
+        lastActionAt: l.platform_last_action_at ?? null,
+        balance: out(asBigOrNull(l.platform_cash_scaled), 2),
+      }
+    : null,
+});
+
+export const sLeadComment = (c: any) => ({
+  id: c.id,
+  text: c.text,
+  manager: { id: c.manager_id, name: c.manager_name, email: c.manager_email },
+  createdAt: c.created_at,
+});
+
+export const sLeadHistory = (h: any) => ({
+  id: h.id,
+  kind: h.kind,
+  oldStatus: h.old_status ?? null,
+  newStatus: h.new_status,
+  manager: h.manager_id ? { id: h.manager_id, name: h.manager_name } : null,
+  createdAt: h.created_at,
+});

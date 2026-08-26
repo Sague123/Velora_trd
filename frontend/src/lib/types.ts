@@ -1,4 +1,6 @@
-export type Role = "USER" | "ADMIN";
+/** MANAGER is the sales desk: the CRM and nothing else. It is not a weaker
+ * ADMIN — the two grant disjoint powers apart from CRM access. */
+export type Role = "USER" | "MANAGER" | "ADMIN";
 export type UserStatus = "ACTIVE" | "SUSPENDED";
 
 export interface AuthUser {
@@ -412,6 +414,95 @@ export interface BotDetail {
 export type CreateBotInput =
   | { type: "GRID"; symbol: string; config: GridConfig }
   | { type: "MARTINGALE"; symbol: string; config: MartingaleConfig };
+
+/* ----------------------------------- CRM ---------------------------------- */
+
+export type LeadStatus =
+  | "NEW" | "OLDDB" | "CALLBACK" | "WELCOME_CALL" | "NO_ANSWER"
+  | "WRONG_INFO" | "LOW_POTENTIAL" | "NOT_INTERESTED" | "DENY_REG" | "UNDER_18";
+
+/** Deliberately separate from LeadStatus: a lead can be VERIFIED and
+ * NOT_INTERESTED at once, and one field could not say both. */
+export type LeadVerificationStatus = "NOT_SUBMITTED" | "PENDING" | "VERIFIED" | "REJECTED";
+
+export interface CrmManager {
+  id: string;
+  name: string;
+  email: string;
+  role?: Role;
+}
+
+export interface Lead {
+  id: string;
+  fullName: string;
+  phone: string | null;
+  email: string | null;
+  country: string | null;
+  source: string | null;
+  status: LeadStatus;
+  verificationStatus: LeadVerificationStatus;
+  assignedManager: CrmManager | null;
+  /** Non-null once this lead registered on the platform. */
+  platformUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Live account state, read from `users` on every request rather than copied
+ * into the lead — null until the lead converts. */
+export interface LeadPlatformInfo {
+  userId: string;
+  email: string;
+  name: string;
+  status: UserStatus;
+  kycStatus: KycStatus;
+  emailVerified: boolean;
+  registeredAt: string | null;
+  lastLoginAt: string | null;
+  lastActionAt: string | null;
+  balance: string | null;
+}
+
+export interface LeadDetail extends Lead {
+  platform: LeadPlatformInfo | null;
+}
+
+export interface LeadComment {
+  id: string;
+  text: string;
+  manager: CrmManager;
+  createdAt: string;
+}
+
+export interface LeadHistoryEntry {
+  id: string;
+  kind: "STATUS" | "VERIFICATION";
+  oldStatus: string | null;
+  newStatus: string;
+  manager: { id: string; name: string } | null;
+  createdAt: string;
+}
+
+export interface LeadsResponse {
+  total: number;
+  page: number;
+  pageSize: number;
+  leads: Lead[];
+}
+
+export interface CrmMeta {
+  statuses: LeadStatus[];
+  verificationStatuses: LeadVerificationStatus[];
+  managers: CrmManager[];
+}
+
+export interface ImportLeadInput {
+  fullName: string;
+  phone?: string;
+  email?: string;
+  country?: string;
+  source?: string;
+}
 
 /* -------------------------------- errors --------------------------------- */
 

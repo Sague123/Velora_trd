@@ -172,7 +172,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     const body = z.object({
       name: z.string().min(1).max(80).optional(),
       status: z.enum(["ACTIVE", "SUSPENDED"]).optional(),
-      role: z.enum(["USER", "ADMIN"]).optional(),
+      role: z.enum(["USER", "MANAGER", "ADMIN"]).optional(),
       // Identity verified through some channel other than an upload — in
       // person, or against a document already on file. Heavily audited,
       // because it is a way to grant money-moving access without evidence
@@ -182,8 +182,10 @@ export default async function adminRoutes(app: FastifyInstance) {
 
     const user = (await q.user.get(id)) as any;
     if (!user) throw notFound("Пользователь не найден");
-    if (id === req.user.sub && (body.role === "USER" || body.status === "SUSPENDED")) {
-      // Stops an admin locking the whole team out by demoting themselves.
+    const demotingSelf = body.role !== undefined && body.role !== "ADMIN";
+    if (id === req.user.sub && (demotingSelf || body.status === "SUSPENDED")) {
+      // Stops an admin locking the whole team out by demoting themselves. Any
+      // role other than ADMIN counts as a demotion now that MANAGER exists.
       throw forbidden("Нельзя понизить или заблокировать собственный аккаунт");
     }
 

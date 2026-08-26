@@ -71,8 +71,9 @@ async function main() {
   console.log(`✓ ${RETIRED_SYMBOLS.length} FX/CFD instruments deactivated (no real chart data available)`);
 
   const users = [
-    { email: "admin@velora.local",  name: "Platform Admin", role: "ADMIN", password: "AdminPass2026",  balance: "50000" },
-    { email: "trader@velora.local", name: "Demo Trader",    role: "USER",  password: "TraderPass2026", balance: config.startingBalance },
+    { email: "admin@velora.local",   name: "Platform Admin", role: "ADMIN",   password: "AdminPass2026",   balance: "50000" },
+    { email: "manager@velora.local", name: "Sales Manager",  role: "MANAGER", password: "ManagerPass2026", balance: "0" },
+    { email: "trader@velora.local",  name: "Demo Trader",    role: "USER",    password: "TraderPass2026",  balance: config.startingBalance },
   ];
 
   for (const u of users) {
@@ -84,7 +85,7 @@ async function main() {
       await insAccount.run(id, amt, ts);
       await insLedger.run({ id: newId(), userId: id, amt, ts });
     });
-    console.log(`✓ ${u.role.padEnd(5)} ${u.email} / ${u.password}`);
+    console.log(`✓ ${u.role.padEnd(7)} ${u.email} / ${u.password}`);
   }
 
   console.log("· fetching live prices…");

@@ -8,7 +8,7 @@ import { TopBar } from "./components/layout/TopBar";
 import { ActiveBotsBanner } from "./components/layout/ActiveBotsBanner";
 import { EmailVerificationBanner } from "./components/layout/EmailVerificationBanner";
 import { Toaster } from "./components/common/Toaster";
-import { AdminRoute, GuestRoute, ProtectedRoute } from "./routes/ProtectedRoute";
+import { AdminRoute, GuestRoute, ManagerRoute, ProtectedRoute } from "./routes/ProtectedRoute";
 import { HomePage } from "./pages/HomePage";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
@@ -21,6 +21,7 @@ import { TerminalPage } from "./pages/TerminalPage";
 import { MarketsPage } from "./pages/MarketsPage";
 import { StrategiesPage } from "./pages/StrategiesPage";
 import { SavingsPage } from "./pages/SavingsPage";
+import { CrmPage } from "./pages/CrmPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { AdminPage } from "./pages/AdminPage";
 import { Spinner } from "./components/common/States";
@@ -111,6 +112,9 @@ export default function App() {
             <Route path="/strategies" element={<StrategiesPage />} />
             <Route path="/savings" element={<SavingsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
+            <Route element={<ManagerRoute />}>
+              <Route path="/crm" element={<CrmPage />} />
+            </Route>
             <Route element={<AdminRoute />}>
               <Route path="/admin" element={<AdminPage />} />
             </Route>

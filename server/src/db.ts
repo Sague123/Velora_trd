@@ -314,6 +314,76 @@ CREATE TABLE IF NOT EXISTS bot_logs (
 );
 CREATE INDEX IF NOT EXISTS idx_bot_logs_bot ON bot_logs(bot_id, ts);
 
+-- CRM. Leads arrive from affiliates before the person is a platform user, so a
+-- lead carries its own contact details rather than pointing at the users table: there
+-- is nothing to point at yet, and the users table has neither a phone nor a country to
+-- borrow. What the affiliate sent stays here verbatim even after the person
+-- registers — it is the source record, and it is routinely different from what
+-- they later type in themselves. Once they do register, platform_user_id links
+-- the two and the card reads balances, KYC and activity from the users table.
+--
+-- Status values are UPPERCASE to match every other status column in this
+-- database (users.status, orders.status, kyc_submissions.status). CHECK
+-- constraints rather than Postgres ENUM types: adding a funnel stage is then an
+-- ordinary migration instead of ALTER TYPE, and the rest of the schema uses
+-- plain TEXT columns the same way.
+CREATE TABLE IF NOT EXISTS leads (
+  id                  TEXT PRIMARY KEY,
+  full_name           TEXT NOT NULL,
+  phone               TEXT,
+  email               TEXT,
+  country             TEXT,
+  source              TEXT,
+  status              TEXT NOT NULL DEFAULT 'NEW',
+  verification_status TEXT NOT NULL DEFAULT 'NOT_SUBMITTED',
+  assigned_manager_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  platform_user_id    TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at          TEXT NOT NULL,
+  updated_at          TEXT NOT NULL,
+  CONSTRAINT leads_status_check CHECK (status IN (
+    'NEW', 'OLDDB', 'CALLBACK', 'WELCOME_CALL', 'NO_ANSWER',
+    'WRONG_INFO', 'LOW_POTENTIAL', 'NOT_INTERESTED', 'DENY_REG', 'UNDER_18'
+  )),
+  CONSTRAINT leads_verification_check CHECK (verification_status IN (
+    'NOT_SUBMITTED', 'PENDING', 'VERIFIED', 'REJECTED'
+  )),
+  -- A lead with neither a phone nor an email cannot be worked, so it is not a
+  -- lead. Enforced here as well as at the API so a bad import cannot create one.
+  CONSTRAINT leads_contact_check CHECK (phone IS NOT NULL OR email IS NOT NULL)
+);
+CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_leads_manager ON leads(assigned_manager_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_leads_created ON leads(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_leads_platform_user ON leads(platform_user_id);
+-- The list's search is a contains-match over three columns, which no btree
+-- index can serve. These cover the exact lookups that matter instead: finding
+-- the lead for an inbound call, and spotting a duplicate import.
+CREATE INDEX IF NOT EXISTS idx_leads_phone ON leads(phone);
+CREATE INDEX IF NOT EXISTS idx_leads_email ON leads(LOWER(email));
+
+CREATE TABLE IF NOT EXISTS lead_comments (
+  id         TEXT PRIMARY KEY,
+  lead_id    TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+  manager_id TEXT NOT NULL REFERENCES users(id),
+  text       TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_lead_comments_lead ON lead_comments(lead_id, created_at DESC);
+
+-- Who moved a lead where, and when. The kind column is what keeps verification
+-- changes out of a second, near-identical table later: both are a transition of
+-- one field on one lead, and one timeline is what a manager wants to read.
+CREATE TABLE IF NOT EXISTS lead_status_history (
+  id         TEXT PRIMARY KEY,
+  lead_id    TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+  manager_id TEXT REFERENCES users(id),
+  kind       TEXT NOT NULL DEFAULT 'STATUS',
+  old_status TEXT,
+  new_status TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_lead_history_lead ON lead_status_history(lead_id, created_at DESC);
+
 -- Savings accounts. The principal lives here; the *cash* balance it came from
 -- lives in accounts.cash_scaled as always, and every move between the two is a
 -- ledger_entries row, so neither side can drift.

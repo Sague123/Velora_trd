@@ -8,6 +8,7 @@ declare module "fastify" {
   interface FastifyInstance {
     authenticate: (req: FastifyRequest, reply: FastifyReply) => Promise<void>;
     requireAdmin: (req: FastifyRequest, reply: FastifyReply) => Promise<void>;
+    requireManager: (req: FastifyRequest, reply: FastifyReply) => Promise<void>;
   }
 }
 
@@ -46,5 +47,22 @@ export default fp(async function authPlugin(app: FastifyInstance) {
   app.decorate("requireAdmin", async (req: FastifyRequest, reply: FastifyReply) => {
     await app.authenticate(req, reply);
     if (req.user.role !== "ADMIN") throw forbidden("Требуются права администратора");
+  });
+
+  /**
+   * CRM access. Sales managers need the lead pipeline and nothing else — not
+   * balance adjustments, not force-closing positions, not other people's KYC
+   * documents. Admins are included because an admin who cannot see the CRM
+   * would just be given a second account, which is worse.
+   *
+   * Note this is deliberately not a hierarchy check like `role >= MANAGER`:
+   * MANAGER is not a weaker ADMIN, it is a different job, and the two grant
+   * disjoint powers apart from this one overlap.
+   */
+  app.decorate("requireManager", async (req: FastifyRequest, reply: FastifyReply) => {
+    await app.authenticate(req, reply);
+    if (req.user.role !== "MANAGER" && req.user.role !== "ADMIN") {
+      throw forbidden("Требуются права менеджера");
+    }
   });
 });
