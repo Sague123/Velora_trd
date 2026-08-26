@@ -30,6 +30,10 @@ export const feedStatus = () => ({
   /** True once the outage is long enough to be an incident rather than a blip. */
   degraded: unhealthySince !== null && Date.now() - unhealthySince >= config.feedUnhealthyAlertMs,
   maxQuoteAgeMs: config.maxQuoteAgeMs,
+  /** Which upstream last refused, and how. Without this a halted market is
+   * indistinguishable from a bug, because the browser's own Binance feed keeps
+   * the UI looking live. Carries no secrets — host and status only. */
+  lastFailure: lastUpstreamFailure,
 });
 
 /**
@@ -131,14 +135,41 @@ async function setPrice(symbol: string, priceScaled: bigint, extra: {
   });
 }
 
+/**
+ * Why the last upstream failure is remembered rather than swallowed:
+ * a dead feed halts trading (see engine/execution.ts), and "trading is halted
+ * but the chart looks live" is impossible to diagnose without knowing *which*
+ * host refused and with what status. The browser gets its prices straight from
+ * Binance, so the UI can look perfectly healthy while the server is being
+ * refused — most notably HTTP 451, which is how Binance geo-blocks datacenter
+ * regions it does not serve.
+ */
+export interface UpstreamFailure { host: string; status: number | null; detail: string; at: string }
+let lastUpstreamFailure: UpstreamFailure | null = null;
+export const lastFeedFailure = () => lastUpstreamFailure;
+
+function noteFailure(url: string, status: number | null, detail: string): void {
+  let host = url;
+  try { host = new URL(url).host; } catch { /* keep the raw string */ }
+  lastUpstreamFailure = { host, status, detail, at: now() };
+}
+
 async function fetchJson(url: string, timeoutMs = 8000): Promise<any | null> {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), timeoutMs);
   try {
     const res = await fetch(url, { signal: ctl.signal, headers: { accept: "application/json" } });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      // 451 in particular is not a transient outage — it is a hard refusal
+      // that will never clear by retrying from the same region.
+      noteFailure(url, res.status, res.status === 451
+        ? "Unavailable For Legal Reasons — this host geo-blocks the server's region"
+        : res.statusText || `HTTP ${res.status}`);
+      return null;
+    }
     return await res.json();
-  } catch {
+  } catch (e) {
+    noteFailure(url, null, e instanceof Error ? e.message : "request failed");
     return null; // upstream down — callers keep the last known price
   } finally {
     clearTimeout(timer);
@@ -190,7 +221,15 @@ export async function refreshUpstream(): Promise<string[]> {
 
   if (spotWanted.length) {
     const symbolsParam = encodeURIComponent(JSON.stringify(spotWanted.map((x) => x.mapping!.binanceSymbol)));
-    const rows = await fetchJson(`https://api.binance.com/api/v3/ticker/24hr?symbols=${symbolsParam}`);
+    // api.binance.com is geo-blocked in some datacenter regions (it answers 451
+    // there), which silently halted trading on a deploy whose browser clients
+    // were meanwhile getting live prices straight from Binance. data-api.
+    // binance.vision is Binance's own public market-data host, serves the same
+    // payload shape, and is not region-restricted — so it is tried whenever the
+    // primary returns nothing, whatever the reason.
+    const rows =
+      (await fetchJson(`https://api.binance.com/api/v3/ticker/24hr?symbols=${symbolsParam}`)) ??
+      (await fetchJson(`https://data-api.binance.vision/api/v3/ticker/24hr?symbols=${symbolsParam}`));
     if (Array.isArray(rows)) {
       const byBinanceSymbol = new Map((rows as BinanceTicker24h[]).map((r) => [r.symbol, r]));
       for (const { ins, mapping } of spotWanted) {
