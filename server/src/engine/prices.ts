@@ -1,6 +1,8 @@
 import { db, now, asBig, asBool } from "../db.js";
 import { config } from "../config.js";
 import { toScaled } from "../lib/money.js";
+import { captureAlert } from "../lib/monitoring.js";
+import { isQuoteFresh } from "../lib/quotes.js";
 
 /**
  * Server-side market data. Fetching upstream here rather than in the browser
@@ -14,7 +16,69 @@ const emit = (symbols: string[]) => listeners.forEach((fn) => { try { fn(symbols
 
 let upstreamHealthy = false;
 let lastFetchAt: string | null = null;
-export const feedStatus = () => ({ healthy: upstreamHealthy, lastFetch: lastFetchAt });
+/** When the current run of failures began — null while the feed is healthy. */
+let unhealthySince: number | null = null;
+/** Whether the current outage has already been escalated, so an hour of
+ * downtime produces one alert rather than eighteen hundred. */
+let outageReported = false;
+
+export const feedStatus = () => ({
+  healthy: upstreamHealthy,
+  lastFetch: lastFetchAt,
+  /** How long the upstream has been failing, in ms. 0 while healthy. */
+  unhealthyForMs: unhealthySince === null ? 0 : Date.now() - unhealthySince,
+  /** True once the outage is long enough to be an incident rather than a blip. */
+  degraded: unhealthySince !== null && Date.now() - unhealthySince >= config.feedUnhealthyAlertMs,
+  maxQuoteAgeMs: config.maxQuoteAgeMs,
+});
+
+/**
+ * A quote nobody has refreshed recently is not a price, it is a memory. The
+ * platform will show it (better than a blank cell) but will not let anyone
+ * trade against it — see engine/execution.ts and engine/matching.ts, which
+ * both gate on this. One definition, used everywhere, so "how old is too old"
+ * can never drift apart between the two.
+ */
+export const quoteIsFresh = (updatedAt: string | null | undefined): boolean =>
+  isQuoteFresh(updatedAt, config.maxQuoteAgeMs);
+
+/** Records the outcome of one upstream refresh cycle and escalates an outage
+ * that has outlived a single cycle into a logged, reportable incident. */
+function recordFeedOutcome(ok: boolean): void {
+  if (ok) {
+    if (unhealthySince !== null) {
+      const downForMs = Date.now() - unhealthySince;
+      // Only worth saying out loud if the outage was worth reporting.
+      if (outageReported) {
+        captureAlert("Price feed recovered", { scope: "engine.prices", extra: { downForMs }, level: "warning" });
+      } else {
+        console.log(`[prices] upstream recovered after ${downForMs}ms`);
+      }
+    }
+    upstreamHealthy = true;
+    lastFetchAt = now();
+    unhealthySince = null;
+    outageReported = false;
+    return;
+  }
+
+  upstreamHealthy = false;
+  if (unhealthySince === null) {
+    // First failed cycle: a log line, not an alert — upstreams blip.
+    unhealthySince = Date.now();
+    console.warn(`[prices] upstream refresh failed — last good fetch ${lastFetchAt ?? "never"}`);
+    return;
+  }
+  const downForMs = Date.now() - unhealthySince;
+  if (!outageReported && downForMs >= config.feedUnhealthyAlertMs) {
+    outageReported = true;
+    captureAlert("Price feed unhealthy — quotes are no longer updating", {
+      scope: "engine.prices",
+      level: "error",
+      extra: { downForMs, lastFetch: lastFetchAt, maxQuoteAgeMs: config.maxQuoteAgeMs },
+    });
+  }
+}
 
 const q = {
   active: db.prepare("SELECT * FROM instruments WHERE active = 1"),
@@ -214,8 +278,7 @@ export async function refreshUpstream(): Promise<string[]> {
     }
   }
 
-  upstreamHealthy = ok;
-  if (ok) lastFetchAt = now();
+  recordFeedOutcome(ok);
   if (touched.length) emit(touched);
   return touched;
 }

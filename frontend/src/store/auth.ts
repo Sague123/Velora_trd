@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { api, apiPost, apiGet, setAccessToken, setUnauthorizedHandler } from "../lib/api";
+import { identifyUser } from "../lib/monitoring";
 import type { AuthUser } from "../lib/types";
 
 interface AuthResponse {
@@ -35,6 +36,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const res = await apiPost<AuthResponse>("/api/auth/login", { email, password });
       setAccessToken(res.accessToken);
+      identifyUser(res.user.id);
       set({ user: res.user, busy: false });
     } catch (e: any) {
       set({ busy: false, error: e?.message ?? "Не удалось войти" });
@@ -47,6 +49,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const res = await apiPost<AuthResponse>("/api/auth/register", { email, password, name });
       setAccessToken(res.accessToken);
+      identifyUser(res.user.id);
       set({ user: res.user, busy: false });
     } catch (e: any) {
       set({ busy: false, error: e?.message ?? "Не удалось зарегистрироваться" });
@@ -61,11 +64,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       /* best-effort */
     }
     setAccessToken(null);
+    identifyUser(null);
     set({ user: null });
   },
 
   refreshMe: async () => {
     const me = await apiGet<AuthUser>("/api/auth/me");
+    identifyUser(me.id);
     set({ user: me });
   },
 
@@ -78,14 +83,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       bootstrapPromise = (async () => {
         setUnauthorizedHandler(() => {
           setAccessToken(null);
-          set({ user: null });
+          identifyUser(null);
+    set({ user: null });
         });
         try {
           const res = await api<AuthResponse>("/api/auth/refresh", { method: "POST", skipAuthRetry: true });
           setAccessToken(res.accessToken);
+          identifyUser(res.user.id);
           set({ user: res.user, booting: false });
         } catch {
           setAccessToken(null);
+          identifyUser(null);
           set({ user: null, booting: false });
         }
       })();

@@ -83,7 +83,11 @@ export function OrderEntry({ compact = false }: { compact?: boolean } = {}) {
   const insufficientFunds = estimate.total > 0 && estimate.total > availableCash;
   const priceMissing = type !== "MARKET" && !price.trim();
   const qtyInvalid = qty <= 0;
-  const canSubmit = !!inst && !qtyInvalid && !priceMissing && !place.isPending && !insufficientFunds;
+  // The server halts a symbol whose quote has gone stale rather than filling
+  // against a price the market left behind (see engine/execution.ts). Saying so
+  // here beats letting the ticket look live and then rejecting the order.
+  const halted = !!inst && inst.tradeable === false;
+  const canSubmit = !!inst && !halted && !qtyInvalid && !priceMissing && !place.isPending && !insufficientFunds;
 
   function handleSubmitClick(submitSide: OrderSide) {
     if (qtyInvalid) return toast.warning("Укажите сумму или количество");
@@ -363,6 +367,11 @@ export function OrderEntry({ compact = false }: { compact?: boolean } = {}) {
       {/* Pinned below the scroll area, so the order can always be submitted
           without scrolling the form first. */}
       <div className="shrink-0 space-y-2 border-t border-line bg-bg-1 px-2.5 py-2">
+        {halted && (
+          <div className="rounded border border-warn/40 bg-warn/10 px-2 py-1.5 text-2xs text-warn">
+            Котировка устарела — торговля по {inst?.symbol} приостановлена до восстановления фида
+          </div>
+        )}
         {insufficientFunds && (
           <div className="rounded border border-sell/40 bg-sell-soft px-2 py-1.5 text-2xs text-sell">{t("terminal.insufficientFunds")}</div>
         )}

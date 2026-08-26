@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { toScaled, toDecimalString, mul } from "../src/lib/money.js";
 import { config } from "../src/config.js";
+import { isQuoteFresh } from "../src/lib/quotes.js";
 import {
   notional, marginFor, feeFor, pnlFor, liquidationPrice, maxSafeLeverage,
   isLiquidated, shouldFill, exitReason,
@@ -144,4 +145,20 @@ test("take-profit wins over stop-loss when a single tick crosses both", () => {
   // A gap can jump past both levels at once; the trader must get the better
   // of the two, not whichever branch happens to be checked first.
   assert.equal(exitReason("BUY", P("40000"), P("31000"), P("39000")), "TAKE_PROFIT");
+});
+
+test("a quote is tradeable only while it is fresh", () => {
+  // The rule two independent engines gate on: refuse to act on a price the
+  // market has left behind, rather than fill or liquidate against a memory.
+  const at = "2026-01-01T12:00:00.000Z";
+  const nowMs = new Date("2026-01-01T12:01:00.000Z").getTime(); // one minute later
+  assert.equal(isQuoteFresh(at, 120_000, nowMs), true);
+  assert.equal(isQuoteFresh(at, 30_000, nowMs), false);
+  assert.equal(isQuoteFresh(at, 60_000, nowMs), true);  // exactly at the limit still counts
+  assert.equal(isQuoteFresh(null, 120_000, nowMs), false);
+  assert.equal(isQuoteFresh(undefined, 120_000, nowMs), false);
+  assert.equal(isQuoteFresh("not a date", 120_000, nowMs), false);
+  // A timestamp slightly ahead of us is a clock skew, not a stale quote — it
+  // must not halt an otherwise-updating feed.
+  assert.equal(isQuoteFresh("2026-01-01T12:02:00.000Z", 120_000, nowMs), true);
 });

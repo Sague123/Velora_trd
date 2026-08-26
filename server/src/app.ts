@@ -9,6 +9,7 @@ import { config } from "./config.js";
 import { db, migrate, asBig, asBigOrNull } from "./db.js";
 import { AppError } from "./lib/errors.js";
 import { MoneyError, out } from "./lib/money.js";
+import { captureError, initMonitoring, monitoringEnabled } from "./lib/monitoring.js";
 import authPlugin from "./plugins/authenticate.js";
 import authRoutes from "./routes/auth.js";
 import tradingRoutes from "./routes/trading.js";
@@ -17,6 +18,9 @@ import strategyRoutes from "./routes/strategies.js";
 import { onPriceUpdate, allPrices, feedStatus } from "./engine/prices.js";
 
 export async function buildApp() {
+  // Before anything else that can fail: a migration that throws on boot is
+  // exactly the kind of failure worth having a report of.
+  initMonitoring();
   await migrate();
 
   const app = Fastify({
@@ -103,14 +107,28 @@ export async function buildApp() {
     if (typeof status === "number" && status >= 400 && status < 500) {
       return reply.code(status).send({ error: (err as any).code ?? "BAD_REQUEST", message: err.message });
     }
-    // Internals never reach the client; the full error stays in the server log.
+    // Internals never reach the client; the full error stays in the server log
+    // and, when reporting is configured, in the error tracker.
     req.log.error({ err }, "unhandled error");
+    captureError(err, {
+      scope: "http",
+      userId: (req.user as { sub?: string } | undefined)?.sub,
+      // Route pattern, not the raw URL: ids in a path are user data.
+      extra: { method: req.method, route: req.routeOptions?.url ?? req.url },
+    });
     return reply.code(500).send({ error: "INTERNAL_ERROR", message: "Внутренняя ошибка сервера" });
   });
 
+  // Always 200 while the process can serve and reach its database: this is
+  // Render's health check, and a degraded price feed must not cause the whole
+  // service to be restarted out from under open positions. The feed's state is
+  // reported in the body — that is what monitoring reads.
   app.get("/api/health", async () => {
     await db.prepare("SELECT 1").get();
-    return { status: "ok", env: config.env, feed: feedStatus(), time: new Date().toISOString() };
+    return {
+      status: "ok", env: config.env, feed: feedStatus(),
+      monitoring: monitoringEnabled(), time: new Date().toISOString(),
+    };
   });
 
   await app.register(authRoutes, { prefix: "/api/auth" });

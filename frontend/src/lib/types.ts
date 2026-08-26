@@ -31,10 +31,13 @@ export interface Instrument {
   volume24h: string | null;
   source: PriceSource;
   updatedAt: string | null;
+  /** False when the symbol is halted because its quote has gone stale. The
+   * last known price is still shown; only trading is suspended. */
+  tradeable: boolean;
 }
 
 export interface InstrumentsResponse {
-  feed: { healthy: boolean; lastFetch: string | null };
+  feed: { healthy: boolean; lastFetch: string | null; unhealthyForMs: number; degraded: boolean; maxQuoteAgeMs: number };
   instruments: Instrument[];
 }
 

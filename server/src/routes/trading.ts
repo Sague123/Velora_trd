@@ -4,7 +4,7 @@ import { db, newId, now, tx, asBig, asBigOrNull, asNum } from "../db.js";
 import { out, toScaled, pctOf } from "../lib/money.js";
 import { pnlFor, type Side } from "../engine/risk.js";
 import { placeOrder, cancelOrder, closePositionById, changeLeverage, markPrice } from "../engine/execution.js";
-import { getCandles, feedStatus } from "../engine/prices.js";
+import { getCandles, feedStatus, quoteIsFresh } from "../engine/prices.js";
 import { postLedger, audit } from "../lib/ledger.js";
 import { notFound, badRequest, conflict } from "../lib/errors.js";
 import { sOrder, sPosition, sTrade, sLedger } from "./serialize.js";
@@ -53,6 +53,10 @@ export default async function tradingRoutes(app: FastifyInstance) {
       low24h: out(asBigOrNull(i.low_24h), asNum(i.price_decimals)),
       volume24h: out(asBigOrNull(i.volume_24h), 0),
       source: i.source ?? "NONE", updatedAt: i.updated_at ?? null,
+      // False when the symbol is halted because its quote has gone stale (see
+      // tradeableMark() in engine/execution.ts). The UI shows the last known
+      // price either way, but can say why the ticket is disabled.
+      tradeable: i.price_scaled != null && quoteIsFresh(i.updated_at),
     })),
   }));
 

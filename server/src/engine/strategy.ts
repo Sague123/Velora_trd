@@ -4,6 +4,7 @@ import { toScaled, out, div, mul, abs } from "../lib/money.js";
 import { AppError } from "../lib/errors.js";
 import { placeOrder, cancelOrder, closePositionById, type OrderRow, type PositionRow } from "./execution.js";
 import { pnlFor, notional, type Side } from "./risk.js";
+import { captureError } from "../lib/monitoring.js";
 
 /**
  * The strategy engine. GRID and MARTINGALE bots used to be driven from the
@@ -308,6 +309,7 @@ export async function strategyTick() {
         await botLog(bot.id, `⚠ ${describe(e)}`);
         if (status === "ERROR") {
           await botLog(bot.id, `Бот остановлен после ${limit} ошибок подряд`);
+          captureError(e, { scope: "engine.strategy.bot", userId: bot.user_id, extra: { botId: bot.id, type: bot.type, symbol: bot.symbol } });
           // Whatever it was holding on the book is released — an ERROR bot that
           // left margin locked behind resting orders would be the worst of both.
           const fresh = (await q.byId.get(bot.id)) as BotRow | undefined;
@@ -357,7 +359,7 @@ export function estimatedCapital(type: BotType, cfg: any): bigint {
 
 export function startStrategyEngine() {
   const id = setInterval(() => {
-    strategyTick().catch((e) => console.error("[strategy] tick error", e));
+    strategyTick().catch((e) => captureError(e, { scope: "engine.strategy.tick" }));
   }, config.strategyTickMs);
   return () => clearInterval(id);
 }

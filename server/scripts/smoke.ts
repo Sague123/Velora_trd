@@ -46,11 +46,19 @@ async function main() {
   const health = await api("/api/health");
   check("health responds", health.status === 200, health.body);
 
+  check("health reports feed state", typeof health.body?.feed?.healthy === "boolean", health.body?.feed);
+  check("health reports how long the feed has been down",
+    typeof health.body?.feed?.unhealthyForMs === "number", health.body?.feed);
+
   const instruments = await api("/api/instruments");
   check("instruments listed", instruments.body?.instruments?.length > 0);
   const btc = instruments.body.instruments.find((i: any) => i.symbol === "BTCUSDT");
   check("BTCUSDT has a price", !!btc?.price, btc);
   check("instrument exposes data source", !!btc?.source);
+  // A symbol is halted when its quote goes stale; the rest of this run assumes
+  // BTCUSDT is tradeable, so surface that as its own check rather than letting
+  // a stale-feed environment fail ten confusing checks further down.
+  check("BTCUSDT is tradeable (quote is fresh)", btc?.tradeable === true, { updatedAt: btc?.updatedAt });
 
   const candles = await api("/api/instruments/BTCUSDT/candles?tf=1H");
   check("candles returned", candles.body?.candles?.length > 0);

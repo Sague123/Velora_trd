@@ -2,6 +2,8 @@ import { db, tx, now, asBig, asBigOrNull } from "../db.js";
 import { config } from "../config.js";
 import { fillRestingOrder, closePositionRow, type OrderRow, type PositionRow } from "./execution.js";
 import { shouldFill, exitReason, isLiquidated, type Side } from "./risk.js";
+import { quoteIsFresh } from "./prices.js";
+import { captureError } from "../lib/monitoring.js";
 
 /**
  * The engine tick. Runs server-side on a fixed interval so resting orders,
@@ -13,7 +15,7 @@ const q = {
   openPositions: db.prepare("SELECT * FROM positions WHERE status = 'OPEN' LIMIT 1000"),
   order: db.prepare("SELECT * FROM orders WHERE id = ?"),
   position: db.prepare("SELECT * FROM positions WHERE id = ?"),
-  prices: db.prepare("SELECT symbol, price_scaled FROM price_snapshots"),
+  prices: db.prepare("SELECT symbol, price_scaled, updated_at FROM price_snapshots"),
   pendingAlerts: db.prepare("SELECT * FROM alerts WHERE fired_at IS NULL LIMIT 500"),
   fireAlert: db.prepare("UPDATE alerts SET fired_at = ? WHERE id = ?"),
 };
@@ -26,8 +28,14 @@ export async function tick() {
   const result = { skipped: false, filled: 0, closed: 0, liquidated: 0, alerts: 0 };
 
   try {
+    // Only *fresh* quotes are in this map. A symbol whose feed has gone stale
+    // is simply absent, so every loop below skips it: no fills, no TP/SL, and
+    // above all no liquidations against a price the market left behind. See
+    // tradeableMark() in execution.ts for why that halt is the policy.
     const prices = new Map<string, bigint>(
-      ((await q.prices.all()) as any[]).map((r) => [r.symbol, asBig(r.price_scaled)])
+      ((await q.prices.all()) as any[])
+        .filter((r) => quoteIsFresh(r.updated_at))
+        .map((r) => [r.symbol, asBig(r.price_scaled)])
     );
     if (!prices.size) return result;
 
@@ -45,7 +53,7 @@ export async function tick() {
           result.filled++;
         });
       } catch (e) {
-        console.error("[engine] fill failed", order.id, e);
+        captureError(e, { scope: "engine.matching.fill", userId: order.user_id, extra: { orderId: order.id, symbol: order.symbol } });
       }
     }
 
@@ -71,7 +79,7 @@ export async function tick() {
           else result.closed++;
         });
       } catch (e) {
-        console.error("[engine] close failed", pos.id, e);
+        captureError(e, { scope: "engine.matching.close", userId: pos.user_id, extra: { positionId: pos.id, symbol: pos.symbol, reason } });
       }
     }
 
@@ -94,7 +102,7 @@ export async function tick() {
 
 export function startEngine() {
   const id = setInterval(() => {
-    tick().catch((e) => console.error("[engine] tick error", e));
+    tick().catch((e) => captureError(e, { scope: "engine.matching.tick" }));
   }, config.engineTickMs);
   return () => clearInterval(id);
 }

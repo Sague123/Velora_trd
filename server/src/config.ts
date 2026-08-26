@@ -49,4 +49,21 @@ export const config = {
   botMaxConsecutiveErrors: 3,
   // How many log lines each bot keeps. Old lines are pruned as new ones land.
   botLogCap: 200,
+
+  /* ------------------------------ monitoring ------------------------------ */
+  // Sentry DSN. Empty (the default) means error reporting is off and every
+  // error still reaches the server log — the platform must not require a
+  // third-party service to run.
+  sentryDsn: process.env.SENTRY_DSN ?? "",
+  // Fraction of transactions traced. Free-tier quotas are small; errors are
+  // what matter here, so performance tracing stays off unless asked for.
+  sentryTracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE ?? 0),
+  // The price feed is the platform's connection to reality. If it has been
+  // unhealthy for longer than this, that is an incident, not a blip, and it
+  // gets escalated from a debug line to an alert.
+  feedUnhealthyAlertMs: Number(process.env.FEED_UNHEALTHY_ALERT_MS ?? 60_000),
+  // A quote older than this is not tradeable. Opening a position against a
+  // stale price is how a trader gets filled at a number the market left
+  // behind minutes ago. See engine/execution.ts.
+  maxQuoteAgeMs: Number(process.env.MAX_QUOTE_AGE_MS ?? 120_000),
 } as const;

@@ -39,6 +39,13 @@ jobs:
       ENCRYPTION_KEY: Y2ktb25seS1lbmNyeXB0aW9uLWtleS0zMi1ieXRlcw==
       NODE_ENV: development
       PORT: 4000
+      # A stale quote halts trading on that symbol (see
+      # server/src/engine/execution.ts). CI seeds synthetic prices and may have
+      # no route to Binance, so the default two-minute window would halt the
+      # whole board and fail the smoke run for a reason unrelated to the change.
+      # A day-long window keeps the code path live while making the run
+      # independent of upstream reachability; the rule itself is unit-tested.
+      MAX_QUOTE_AGE_MS: "86400000"
 
     steps:
       - uses: actions/checkout@v4

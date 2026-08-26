@@ -2,6 +2,7 @@ import { db, newId, now, tx, asBig, asBigOrNull, asNum, asBool } from "../db.js"
 import { postLedger } from "../lib/ledger.js";
 import { badRequest, conflict, notFound } from "../lib/errors.js";
 import { notional, marginFor, feeFor, pnlFor, liquidationPrice, maxSafeLeverage, type Side } from "./risk.js";
+import { quoteIsFresh } from "./prices.js";
 
 export interface PositionRow {
   id: string; user_id: string; symbol: string; side: string;
@@ -19,7 +20,7 @@ export interface OrderRow {
 
 const q = {
   instrument: db.prepare(`
-    SELECT i.*, p.price_scaled FROM instruments i
+    SELECT i.*, p.price_scaled, p.updated_at AS price_updated_at FROM instruments i
     LEFT JOIN price_snapshots p ON p.symbol = i.symbol WHERE i.symbol = ?
   `),
   insOrder: db.prepare(`
@@ -46,14 +47,50 @@ const q = {
   getPosition: db.prepare("SELECT * FROM positions WHERE id = ?"),
   getUserPosition: db.prepare("SELECT * FROM positions WHERE id = ? AND user_id = ? AND status = 'OPEN'"),
   closePositionStmt: db.prepare("UPDATE positions SET status='CLOSED', closed_at=? WHERE id=?"),
-  markOf: db.prepare("SELECT price_scaled FROM price_snapshots WHERE symbol = ?"),
+  markOf: db.prepare("SELECT price_scaled, updated_at FROM price_snapshots WHERE symbol = ?"),
   updateLeverage: db.prepare("UPDATE positions SET leverage=?, margin_scaled=?, liq_scaled=? WHERE id=?"),
 };
 
+/**
+ * Last known price for a symbol, however old. Correct for *display* — showing
+ * the last print beats showing a blank cell — and wrong for anything that
+ * moves money, which must use tradeableMark() instead.
+ */
 export const markPrice = async (symbol: string): Promise<bigint | null> => {
   const row = (await q.markOf.get(symbol)) as { price_scaled: bigint } | undefined;
   return row ? asBig(row.price_scaled) : null;
 };
+
+/**
+ * What the platform does when the quote upstream is unreachable — the one
+ * decision this whole file turns on, stated once, here:
+ *
+ *   No quote at all, or a quote older than config.maxQuoteAgeMs, means the
+ *   symbol is HALTED. Nothing opens, nothing closes, nothing fills and nothing
+ *   liquidates on it until a fresh price arrives.
+ *
+ * The alternative — carrying on against the last known number — is worse in
+ * both directions at once: traders get filled at prices the market left behind
+ * minutes ago, and, far more seriously, positions get *liquidated* against a
+ * price that never happened. Refusing to act is the only behaviour that cannot
+ * take money from someone on the strength of a number the platform has no
+ * current evidence for. It is also what a real venue does: it halts the market.
+ *
+ * The halt is symmetric on purpose. Blocking closes while still allowing
+ * liquidations would be indefensible, so neither runs; a trader cannot exit
+ * during a halt, but neither can the house take the position away.
+ * `/api/instruments` exposes `tradeable` and the feed's health so the UI can
+ * say which it is rather than surfacing a bare error.
+ */
+export async function tradeableMark(symbol: string): Promise<bigint> {
+  const row = (await q.markOf.get(symbol)) as { price_scaled: bigint; updated_at: string } | undefined;
+  if (!row) throw conflict("NO_PRICE", "Нет котировки по инструменту");
+  if (!quoteIsFresh(row.updated_at)) {
+    throw conflict("STALE_PRICE",
+      "Котировка устарела — торговля по инструменту приостановлена до восстановления фида");
+  }
+  return asBig(row.price_scaled);
+}
 
 export interface OpenRequest {
   userId: string; symbol: string; side: Side;
@@ -82,6 +119,13 @@ export async function placeOrder(req: OpenRequest) {
       `Плечо выше ${safeLev}x приводит к мгновенной ликвидации при текущих требованиях к марже`);
   }
   if (ins.price_scaled == null) throw conflict("NO_PRICE", "Нет котировки по инструменту");
+  // Applies to LIMIT and STOP too, not just MARKET: a resting order placed now
+  // is filled later by matching.ts against the mark, so accepting one while the
+  // symbol is halted just defers the same bad fill.
+  if (!quoteIsFresh(ins.price_updated_at)) {
+    throw conflict("STALE_PRICE",
+      "Котировка устарела — торговля по инструменту приостановлена до восстановления фида");
+  }
 
   const mark = asBig(ins.price_scaled);
   const fillPrice = req.type === "MARKET" ? mark : req.priceScaled;
@@ -249,9 +293,7 @@ export async function closePositionById(
   return tx(async () => {
     const position = (await q.getUserPosition.get(positionId, userId)) as PositionRow | undefined;
     if (!position) throw notFound("Открытая позиция не найдена");
-    const mark = await markPrice(position.symbol);
-    if (mark === null) throw conflict("NO_PRICE", "Нет котировки для закрытия");
-    return closePositionRow(position, mark, reason, actorUserId);
+    return closePositionRow(position, await tradeableMark(position.symbol), reason, actorUserId);
   });
 }
 
