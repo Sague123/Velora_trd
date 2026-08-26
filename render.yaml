@@ -1,17 +1,14 @@
-# Render Blueprint — deploys Velora as two services + a database.
+# Render Blueprint — deploys Velora as two services (API + static frontend).
 # In the Render dashboard: New → Blueprint → point at this repo → Apply.
-# See DEPLOY.md at the repo root for the two manual steps this can't do for
-# you (CORS_ORIGIN and VITE_API_URL — each needs the other service's actual
+# See DEPLOY.md at the repo root for the three manual steps this can't do for
+# you (DATABASE_URL, CORS_ORIGIN and VITE_API_URL — the first is an external
+# database's connection string, the other two each need the *other* service's
 # assigned URL, which only exists after the first deploy).
-
-databases:
-  # Render's own free Postgres. Free instances are deleted 30 days after
-  # creation — fine to start on, but before that deadline either upgrade
-  # this database's plan in the dashboard, or repoint the web service's
-  # DATABASE_URL at an external always-free Postgres (Neon/Supabase) instead.
-  - name: velora-db
-    plan: free
-    databaseName: velora
+#
+# There is deliberately no `databases:` block here any more. Render's own free
+# Postgres is deleted 30 days after creation, which would take production's
+# ledger with it; Velora's database of record is a Supabase Postgres project
+# (always-free tier, no expiry) supplied through DATABASE_URL instead.
 
 services:
   - name: velora-api
@@ -25,17 +22,38 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # Supabase Postgres connection string — Supabase dashboard → Project
+      # Settings → Database → Connection string → "Transaction pooler"
+      # (port 6543; IPv4-reachable, which Render's free tier needs).
+      # Set by hand in the dashboard; never committed. See DEPLOY.md §1.
       - key: DATABASE_URL
-        fromDatabase:
-          name: velora-db
-          property: connectionString
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_REFRESH_SECRET
         generateValue: true
+      # Encrypts TOTP secrets at rest (see server/src/lib/crypto.ts). Rotating
+      # this invalidates every enrolled authenticator, so generate once.
+      - key: ENCRYPTION_KEY
+        generateValue: true
       # Set after the frontend's first deploy — its exact URL isn't known
       # until then. See DEPLOY.md.
       - key: CORS_ORIGIN
+        sync: false
+      # Optional. Empty = error reporting off, everything else works.
+      - key: SENTRY_DSN
+        sync: false
+      # Optional. Empty = KYC document upload is disabled and reports why.
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      # Optional. Empty = verification/reset emails are logged, not sent.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: PUBLIC_APP_URL
         sync: false
 
   - name: velora-frontend
@@ -52,4 +70,6 @@ services:
       # Set to velora-api's assigned URL (e.g. https://velora-api.onrender.com)
       # after its first deploy. See DEPLOY.md.
       - key: VITE_API_URL
+        sync: false
+      - key: VITE_SENTRY_DSN
         sync: false

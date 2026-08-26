@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# A newer push to the same branch makes the older run pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  server:
+    name: server (typecheck, unit, smoke)
+    runs-on: ubuntu-latest
+
+    # The smoke test drives a real API against a real Postgres — the same
+    # engine, ledger and transaction semantics production runs on. Mocking the
+    # database here would test something the platform never does.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: velora
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/velora
+      JWT_SECRET: ci-only-access-secret-not-a-real-one
+      JWT_REFRESH_SECRET: ci-only-refresh-secret-not-a-real-one
+      ENCRYPTION_KEY: Y2ktb25seS1lbmNyeXB0aW9uLWtleS0zMi1ieXRlcw==
+      NODE_ENV: development
+      PORT: 4000
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install
+        working-directory: server
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: server
+        run: npm run typecheck
+
+      - name: Unit tests (money + risk)
+        working-directory: server
+        run: npm test
+
+      - name: Seed database
+        working-directory: server
+        run: npm run seed
+
+      - name: Start API
+        working-directory: server
+        run: |
+          npm run start > /tmp/velora-api.log 2>&1 &
+          echo $! > /tmp/velora-api.pid
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:4000/api/health > /dev/null; then
+              echo "API up after ${i}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "API failed to start"; cat /tmp/velora-api.log; exit 1
+
+      - name: Smoke test
+        working-directory: server
+        run: npm run smoke
+
+      - name: API log on failure
+        if: failure()
+        run: cat /tmp/velora-api.log || true
+
+      - name: Stop API
+        if: always()
+        run: kill "$(cat /tmp/velora-api.pid)" 2>/dev/null || true
+
+  frontend:
+    name: frontend (typecheck, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        working-directory: frontend
+        run: npm ci
+
+      # `npm run lint` is `tsc --noEmit` in this project.
+      - name: Typecheck
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
