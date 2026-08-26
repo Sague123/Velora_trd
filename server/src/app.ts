@@ -18,6 +18,7 @@ import strategyRoutes from "./routes/strategies.js";
 import kycRoutes from "./routes/kyc.js";
 import savingsRoutes from "./routes/savings.js";
 import crmRoutes from "./routes/crm.js";
+import crmViewRoutes from "./routes/crmView.js";
 import { onPriceUpdate, allPrices, feedStatus } from "./engine/prices.js";
 
 export async function buildApp() {
@@ -140,6 +141,9 @@ export async function buildApp() {
   await app.register(kycRoutes, { prefix: "/api/kyc" });
   await app.register(savingsRoutes, { prefix: "/api/savings" });
   await app.register(crmRoutes, { prefix: "/api/crm" });
+  // Public: consuming a one-time support link needs no manager session — see
+  // routes/crmView.ts for why this sits outside the /api/crm plugin.
+  await app.register(crmViewRoutes, { prefix: "/api/crm-view" });
   await app.register(adminRoutes, { prefix: "/api/admin" });
 
   // One server-side price feed fans out to every connected client.

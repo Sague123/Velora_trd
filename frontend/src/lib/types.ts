@@ -21,11 +21,18 @@ export interface AuthUser {
   backupCodesRemaining?: number;
 }
 
-/** /login answers one of two ways: a finished session, or a five-minute
- * window in which to prove the second factor. */
+/** /login answers one of three ways: a finished session, a five-minute window
+ * to prove the second factor, or — for an account the CRM created on
+ * someone's behalf — a window to set a real password before anything else
+ * works. */
 export interface MfaChallenge {
   mfaRequired: true;
   mfaToken: string;
+}
+
+export interface PasswordChangeChallenge {
+  passwordChangeRequired: true;
+  passwordChangeToken: string;
 }
 
 export interface SavingsPlan {
@@ -315,6 +322,7 @@ export interface AdminUsersResponse {
 export interface AdminUserDetail {
   user: {
     id: string; email: string; name: string; role: Role; status: UserStatus;
+    kycStatus: KycStatus; emailVerified: boolean; crmPermissions: CrmPermission[];
     createdAt: string; lastLoginAt: string | null;
   };
   account: {
@@ -490,10 +498,68 @@ export interface LeadsResponse {
   leads: Lead[];
 }
 
+/**
+ * Powers beyond the base pipeline (read the board, move a lead through the
+ * funnel, comment, edit its data) that every MANAGER already has. Each of
+ * these reaches into a real account and real money, so an admin grants them
+ * one at a time — see server/src/lib/crmPermissions.ts for the reasoning.
+ */
+export type CrmPermission = "IMPERSONATE" | "MANAGE_ACCOUNT" | "MANAGE_BALANCE" | "MANAGE_TRADES";
+
 export interface CrmMeta {
   statuses: LeadStatus[];
   verificationStatuses: LeadVerificationStatus[];
+  allPermissions: CrmPermission[];
+  /** The calling manager's own grants — server re-checks every mutation
+   * regardless, this is only for the UI to know which buttons to show. */
+  myPermissions: CrmPermission[];
   managers: CrmManager[];
+}
+
+export interface EditLeadInput {
+  fullName?: string;
+  phone?: string | null;
+  email?: string | null;
+  country?: string | null;
+  source?: string | null;
+}
+
+export interface LeadCommentsResponse {
+  total: number;
+  page: number;
+  pageSize: number;
+  comments: LeadComment[];
+}
+
+/** The numbers half of an account snapshot — everything Account carries
+ * except the trade-count/win-rate fields, which this endpoint has no reason
+ * to compute for a support view. */
+export type CrmAccountSummary = Omit<Account, "openPositions" | "openOrders" | "totalTrades" | "winRatePct">;
+
+export interface CrmAccountSnapshot {
+  summary: CrmAccountSummary;
+  positions: Position[];
+  openOrders: Order[];
+  trades: Trade[];
+  ledger: LedgerEntry[];
+}
+
+export interface CrmViewTokenResponse {
+  token: string;
+  expiresInMinutes: number;
+}
+
+/** What opening a one-time support link returns — a snapshot, not a session. */
+export interface CrmViewSnapshot {
+  leadName: string | null;
+  viewedBy: string | null;
+  account: CrmAccountSnapshot;
+}
+
+export interface ConvertLeadResponse {
+  lead: LeadDetail;
+  /** Shown exactly once — the server never stores or logs this value again. */
+  temporaryPassword: string;
 }
 
 export interface ImportLeadInput {

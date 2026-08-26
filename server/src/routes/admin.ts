@@ -9,6 +9,7 @@ import { closePositionById, cancelOrder, markPrice } from "../engine/execution.j
 import { revokeAllForUser, hashPassword } from "../lib/auth.js";
 import { badRequest, notFound, forbidden, conflict } from "../lib/errors.js";
 import { signedUrlFor, storageConfigured } from "../lib/storage.js";
+import { CRM_PERMISSIONS, type CrmPermission } from "../lib/crmPermissions.js";
 import { sOrder, sPosition, sTrade, sLedger } from "./serialize.js";
 
 const money = z.string().regex(/^-?\d+(\.\d{1,8})?$/, "Ожидается десятичное число");
@@ -49,6 +50,7 @@ const q = {
   trades: db.prepare("SELECT * FROM trades WHERE user_id = ? ORDER BY closed_at DESC LIMIT 50"),
   ledger: db.prepare("SELECT * FROM ledger_entries WHERE user_id = ? ORDER BY created_at DESC LIMIT 100"),
   updUser: db.prepare("UPDATE users SET name = ?, status = ?, role = ?, updated_at = ? WHERE id = ?"),
+  setCrmPermissions: db.prepare("UPDATE users SET crm_permissions = ?, updated_at = ? WHERE id = ?"),
   setPassword: db.prepare("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?"),
   audit: db.prepare(`
     SELECT a.*, actor.email AS actor_email, target.email AS target_email
@@ -153,6 +155,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       user: { id: user.id, email: user.email, name: user.name, role: user.role,
         status: user.status, kycStatus: user.kyc_status ?? "NONE",
         emailVerified: user.email_verified === true,
+        crmPermissions: (user.crm_permissions ?? []) as string[],
         createdAt: user.created_at, lastLoginAt: user.last_login_at },
       account: {
         cash: out(cash, 2), usedMargin: out(usedMargin, 2),
@@ -199,6 +202,34 @@ export default async function adminRoutes(app: FastifyInstance) {
     if (next.status === "SUSPENDED") await revokeAllForUser(id);
     await audit({ actorId: req.user.sub, targetUserId: id, action: "USER_UPDATED", meta: body, ip: req.ip });
     return { user: { id, ...next, email: user.email } };
+  });
+
+  /**
+   * Grants or revokes the sensitive CRM powers — never a side effect of
+   * setting someone's role to MANAGER, always its own explicit, audited act.
+   * Meaningless (and refused) for anyone who isn't a MANAGER: a USER has no
+   * CRM to act in, and ADMIN already holds every one of these unconditionally.
+   */
+  app.patch("/users/:id/crm-permissions", async (req) => {
+    const { id } = z.object({ id: z.string() }).parse(req.params);
+    const body = z.object({ permissions: z.array(z.enum(CRM_PERMISSIONS as [CrmPermission, ...CrmPermission[]])) })
+      .parse(req.body);
+
+    const user = (await q.user.get(id)) as any;
+    if (!user) throw notFound("Пользователь не найден");
+    if (user.role !== "MANAGER") {
+      throw badRequest("NOT_A_MANAGER", "Права CRM можно выдать только пользователю с ролью MANAGER");
+    }
+
+    // De-duplicated and stored in the fixed canonical order, so the audit
+    // trail and the admin UI don't disagree about what "the same set" looks
+    // like just because of the order they arrived in the request body.
+    const unique = CRM_PERMISSIONS.filter((p) => body.permissions.includes(p));
+    await q.setCrmPermissions.run(JSON.stringify(unique), now(), id);
+    await audit({ actorId: req.user.sub, targetUserId: id, action: "CRM_PERMISSIONS_CHANGED",
+      meta: { from: user.crm_permissions ?? [], to: unique }, ip: req.ip });
+
+    return { crmPermissions: unique };
   });
 
   app.post("/users/:id/reset-password", async (req) => {

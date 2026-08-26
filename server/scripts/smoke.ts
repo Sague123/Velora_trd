@@ -671,6 +671,178 @@ async function main() {
   const missing = await api("/api/crm/leads/does-not-exist", { token: managerToken });
   check("an unknown lead is a 404", missing.status === 404, missing.status);
 
+  /* ------------------- CRM v2: edit, permissions, conversion ---------------- */
+  console.log("\nCRM v2 — card editing, permissions, account actions, conversion");
+
+  // The manager from the section above starts with no CRM permissions at all.
+  const metaBefore = await api("/api/crm/meta", { token: managerToken });
+  check("a manager starts with no extra CRM permissions", (metaBefore.body?.myPermissions ?? []).length === 0,
+    metaBefore.body?.myPermissions);
+
+  const cardEmail = `smoke-card-${Date.now()}@velora.test`;
+  const cardPhone = `+7901${Date.now() % 10_000_000}`;
+  const cardLead = await api("/api/crm/leads/import", {
+    token: managerToken, method: "POST", body: { fullName: "Edit Me", phone: cardPhone },
+  });
+  const cardLeadId = cardLead.body.lead.id as string;
+
+  const badEdit = await api(`/api/crm/leads/${cardLeadId}`, {
+    token: managerToken, method: "PATCH", body: { phone: null, email: null },
+  });
+  check("clearing both contact fields is refused", badEdit.status === 400, badEdit.body?.error);
+
+  // Before the card has an email at all — this is the one point in the run
+  // where a "no email" conversion attempt is actually testing that rule and
+  // not accidentally succeeding on a lead that already has one.
+  const noEmailConvert = await api(`/api/crm/leads/${cardLeadId}/convert`, { token: managerToken, method: "POST" });
+  check("conversion without an email on the card is refused", noEmailConvert.status === 400, noEmailConvert.body?.error);
+
+  const edited = await api(`/api/crm/leads/${cardLeadId}`, {
+    token: managerToken, method: "PATCH", body: { email: cardEmail, country: "DE", source: "smoke-edit" },
+  });
+  check("card fields edited", edited.body?.lead?.email === cardEmail && edited.body?.lead?.country === "DE",
+    edited.body?.lead);
+
+  const dupEdit = await api(`/api/crm/leads/${cardLeadId}`, {
+    token: managerToken, method: "PATCH", body: { phone },
+  });
+  check("editing into another lead's phone is refused", dupEdit.status === 400, dupEdit.body?.error);
+
+  // Every gated action refuses a manager with no permissions — checked before
+  // conversion even exists, so a 403 here can only be the permission gate.
+  const noPermBalance = await api(`/api/crm/leads/${cardLeadId}/account/balance`, {
+    token: managerToken, method: "POST", body: { amount: "10" },
+  });
+  check("balance adjustment refused without MANAGE_BALANCE", noPermBalance.status === 403, noPermBalance.body?.error);
+  const noPermAccount = await api(`/api/crm/leads/${cardLeadId}/account/status`, {
+    token: managerToken, method: "PATCH", body: { status: "SUSPENDED" },
+  });
+  check("account status change refused without MANAGE_ACCOUNT", noPermAccount.status === 403, noPermAccount.body?.error);
+  const noPermView = await api(`/api/crm/leads/${cardLeadId}/view-token`, { token: managerToken, method: "POST" });
+  check("view-token issuance refused without IMPERSONATE", noPermView.status === 403, noPermView.body?.error);
+
+  // A manager cannot grant themselves permissions — only the admin route can,
+  // and it is already gated by requireAdmin.
+  const selfGrant = await api(`/api/admin/users/${managerId}/crm-permissions`, {
+    token: managerToken, method: "PATCH", body: { permissions: ["MANAGE_BALANCE"] },
+  });
+  check("a manager cannot grant their own CRM permissions", selfGrant.status === 403, selfGrant.status);
+
+  const grant = await api(`/api/admin/users/${managerId}/crm-permissions`, {
+    token: adminToken, method: "PATCH",
+    body: { permissions: ["MANAGE_BALANCE", "MANAGE_ACCOUNT", "MANAGE_TRADES", "IMPERSONATE"] },
+  });
+  check("admin grants all four CRM permissions", (grant.body?.crmPermissions ?? []).length === 4, grant.body);
+
+  const grantedOnNonManager = await api(`/api/admin/users/${target.id}/crm-permissions`, {
+    token: adminToken, method: "PATCH", body: { permissions: ["MANAGE_BALANCE"] },
+  });
+  check("CRM permissions refused for a non-MANAGER account", grantedOnNonManager.status === 400,
+    grantedOnNonManager.body?.error);
+
+  const metaAfter = await api("/api/crm/meta", { token: managerToken });
+  check("granted permissions show up on the manager's own session",
+    (metaAfter.body?.myPermissions ?? []).sort().join(",") === "IMPERSONATE,MANAGE_ACCOUNT,MANAGE_BALANCE,MANAGE_TRADES",
+    metaAfter.body?.myPermissions);
+
+  // Conversion: refuses a duplicate, issues a one-time password.
+
+  const convert = await api(`/api/crm/leads/${cardLeadId}/convert`, { token: managerToken, method: "POST" });
+  check("lead converted to a platform account", convert.status === 201, convert.body);
+  check("conversion issues a temporary password satisfying the password policy",
+    typeof convert.body?.temporaryPassword === "string" &&
+    convert.body.temporaryPassword.length >= 10 &&
+    /[a-zA-Z]/.test(convert.body.temporaryPassword) &&
+    /[0-9]/.test(convert.body.temporaryPassword),
+    convert.body?.temporaryPassword?.length);
+  const platformUserId = convert.body?.lead?.platformUserId as string;
+  check("the card links to the freshly created platform account", typeof platformUserId === "string" && platformUserId.length > 0,
+    platformUserId);
+  const tempPassword = convert.body?.temporaryPassword as string;
+
+  const reconvert = await api(`/api/crm/leads/${cardLeadId}/convert`, { token: managerToken, method: "POST" });
+  check("converting an already-converted lead is refused", reconvert.status === 409, reconvert.body?.error);
+
+  // The new account cannot log in normally — it must set its own password first.
+  const tempLogin = await api("/api/auth/login", { method: "POST", body: { email: cardEmail, password: tempPassword } });
+  check("logging in with the temp password demands a real one",
+    tempLogin.body?.passwordChangeRequired === true && !tempLogin.body?.accessToken, tempLogin.body);
+  const changeToken = tempLogin.body?.passwordChangeToken as string;
+
+  const changeChallengeAsAccess = await api("/api/auth/me", { token: changeToken });
+  check("the password-change challenge is not usable as an access token", changeChallengeAsAccess.status === 401,
+    changeChallengeAsAccess.status);
+
+  const badNewPassword = await api("/api/auth/complete-password-change", {
+    method: "POST", body: { passwordChangeToken: changeToken, newPassword: "short" },
+  });
+  check("the new password still has to pass the policy", badNewPassword.status === 400, badNewPassword.body?.error);
+
+  const completed = await api("/api/auth/complete-password-change", {
+    method: "POST", body: { passwordChangeToken: changeToken, newPassword: "BrandNewClientPass2026" },
+  });
+  check("password change completes and logs the client in", !!completed.body?.accessToken, completed.body);
+  const clientToken = completed.body?.accessToken as string;
+
+  const oldPwLogin = await api("/api/auth/login", { method: "POST", body: { email: cardEmail, password: tempPassword } });
+  check("the spent temp password no longer works", oldPwLogin.status === 401, oldPwLogin.status);
+  const newPwLogin = await api("/api/auth/login", { method: "POST", body: { email: cardEmail, password: "BrandNewClientPass2026" } });
+  check("the client's own new password works, no challenge this time", !!newPwLogin.body?.accessToken, newPwLogin.body);
+
+  // Gated actions now succeed with the granted permissions.
+  const credit = await api(`/api/crm/leads/${cardLeadId}/account/balance`, {
+    token: managerToken, method: "POST", body: { amount: "500", note: "smoke credit" },
+  });
+  check("balance credited with MANAGE_BALANCE granted", credit.body?.balance === "10500.00", credit.body);
+  const cardDebit = await api(`/api/crm/leads/${cardLeadId}/account/balance`, {
+    token: managerToken, method: "POST", body: { amount: "-200" },
+  });
+  check("balance debited", cardDebit.body?.balance === "10300.00", debit.body);
+  const zeroAmount = await api(`/api/crm/leads/${cardLeadId}/account/balance`, {
+    token: managerToken, method: "POST", body: { amount: "0" },
+  });
+  check("a zero-amount adjustment is refused", zeroAmount.status === 400, zeroAmount.body?.error);
+
+  const accountSnap = await api(`/api/crm/leads/${cardLeadId}/account`, { token: managerToken });
+  check("account snapshot reflects the adjustments", accountSnap.body?.summary?.cash === "10300.00", accountSnap.body?.summary);
+  check("account snapshot carries positions/orders/trades/ledger arrays",
+    Array.isArray(accountSnap.body?.positions) && Array.isArray(accountSnap.body?.openOrders) &&
+    Array.isArray(accountSnap.body?.trades) && Array.isArray(accountSnap.body?.ledger), accountSnap.body);
+
+  const cardSuspend = await api(`/api/crm/leads/${cardLeadId}/account/status`, {
+    token: managerToken, method: "PATCH", body: { status: "SUSPENDED" },
+  });
+  check("account suspended with MANAGE_ACCOUNT granted", cardSuspend.body?.status === "SUSPENDED", cardSuspend.body);
+  const suspendedLogin = await api("/api/auth/login", { method: "POST", body: { email: cardEmail, password: "BrandNewClientPass2026" } });
+  check("a suspended account cannot log in", suspendedLogin.status === 401, suspendedLogin.status);
+  // The still-live access token is not itself revoked (revoking only touches
+  // refresh tokens) — what actually blocks it is authenticate.ts re-reading
+  // status from the database on every request, which is why this is 403
+  // FORBIDDEN ("account blocked"), not 401 ("bad token").
+  const clientAfterSuspend = await api("/api/auth/me", { token: clientToken });
+  check("a suspended account's still-live access token is blocked immediately",
+    clientAfterSuspend.status === 403, clientAfterSuspend.status);
+
+  const reactivate = await api(`/api/crm/leads/${cardLeadId}/account/status`, {
+    token: managerToken, method: "PATCH", body: { status: "ACTIVE" },
+  });
+  check("account reactivated", reactivate.body?.status === "ACTIVE", reactivate.body);
+
+  // View token: one-time, read-only, works without any Velora session.
+  const viewToken = await api(`/api/crm/leads/${cardLeadId}/view-token`, { token: managerToken, method: "POST" });
+  check("view token issued with IMPERSONATE granted", typeof viewToken.body?.token === "string", viewToken.body);
+  const snapshot = await api("/api/crm-view", { method: "POST", body: { token: viewToken.body.token } });
+  check("view token opens a read-only account snapshot with no auth header",
+    snapshot.status === 200 && snapshot.body?.account?.summary?.cash === "10300.00", snapshot.body);
+  const replay = await api("/api/crm-view", { method: "POST", body: { token: viewToken.body.token } });
+  check("a view token cannot be reused", replay.status === 400, replay.body?.error);
+  const viewTokenAsAccess = await api("/api/auth/me", { token: viewToken.body.token });
+  check("a view token is not an access token", viewTokenAsAccess.status === 401, viewTokenAsAccess.status);
+
+  const missingPlatformUser = leadId; // never converted in the section above
+  const noAccountYet = await api(`/api/crm/leads/${missingPlatformUser}/account`, { token: managerToken });
+  check("an unconverted lead has no account to view", noAccountYet.status === 409, noAccountYet.body?.error);
+
   console.log(`\n${passed} passed, ${failed} failed\n`);
   process.exit(failed === 0 ? 0 : 1);
 }

@@ -1,4 +1,4 @@
-import type { LeadStatus, LeadVerificationStatus } from "../../lib/types";
+import type { CrmPermission, LeadStatus, LeadVerificationStatus } from "../../lib/types";
 
 /**
  * Human labels and the colour each status carries.
@@ -57,4 +57,20 @@ export const TONE_CLASS: Record<Tone, string> = {
   warn: "bg-warn/10 text-warn",
   muted: "bg-bg-3 text-txt-2",
   neutral: "bg-bg-3 text-txt-1",
+};
+
+/** Each power an admin can grant a manager beyond the base CRM pipeline —
+ * see server/src/lib/crmPermissions.ts for why these four specifically. */
+export const CRM_PERMISSION_LABEL: Record<CrmPermission, string> = {
+  IMPERSONATE: "Просмотр аккаунта клиента (read-only)",
+  MANAGE_ACCOUNT: "Блокировка / разблокировка аккаунта",
+  MANAGE_BALANCE: "Корректировка баланса",
+  MANAGE_TRADES: "Закрытие позиций и отмена ордеров",
+};
+
+export const CRM_PERMISSION_HINT: Record<CrmPermission, string> = {
+  IMPERSONATE: "Одноразовая ссылка на снимок баланса, позиций и ордеров клиента — без входа в его сессию.",
+  MANAGE_ACCOUNT: "Может заблокировать или разблокировать аккаунт клиента.",
+  MANAGE_BALANCE: "Может зачислять и списывать средства с баланса клиента.",
+  MANAGE_TRADES: "Может закрывать позиции и отменять ордера клиента.",
 };

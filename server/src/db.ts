@@ -384,6 +384,26 @@ CREATE TABLE IF NOT EXISTS lead_status_history (
 );
 CREATE INDEX IF NOT EXISTS idx_lead_history_lead ON lead_status_history(lead_id, created_at DESC);
 
+-- One-time, read-only "view as" tokens for the CRM support flow: a manager
+-- who holds the IMPERSONATE permission can mint a link that shows a lead's
+-- platform account — balance, positions, orders, trades — exactly as the
+-- client sees it, without ever creating a session for that account. Consuming
+-- one is a data snapshot, not a login: nothing about the platform user's own
+-- session, refresh cookie or password is touched. Single-use, like every other
+-- token table in this schema, enforced the same way: an atomic
+-- UPDATE ... WHERE used_at IS NULL RETURNING at consume time.
+CREATE TABLE IF NOT EXISTS crm_view_tokens (
+  id               TEXT PRIMARY KEY,
+  token_hash       TEXT NOT NULL UNIQUE,
+  lead_id          TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+  platform_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  issued_by        TEXT NOT NULL REFERENCES users(id),
+  expires_at       TEXT NOT NULL,
+  used_at          TEXT,
+  created_at       TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_crm_view_tokens_lead ON crm_view_tokens(lead_id);
+
 -- Savings accounts. The principal lives here; the *cash* balance it came from
 -- lives in accounts.cash_scaled as always, and every move between the two is a
 -- ledger_entries row, so neither side can drift.
@@ -524,6 +544,19 @@ export async function migrate(): Promise<void> {
   // on identity is one column read rather than a subquery on every order.
   // NONE | PENDING | APPROVED | REJECTED.
   await addColumnIfMissing("users", "kyc_status", "kyc_status TEXT NOT NULL DEFAULT 'NONE'");
+  // Per-manager CRM powers beyond the base pipeline (edit a card, change its
+  // funnel stage): a JSON array of permission strings, e.g.
+  // ["IMPERSONATE","MANAGE_BALANCE"]. Empty for everyone but MANAGER accounts
+  // an admin has explicitly extended; ADMIN itself ignores this column
+  // entirely (see lib/crmPermissions.ts) since an admin already holds every
+  // power a manager permission could grant.
+  await addColumnIfMissing("users", "crm_permissions", "crm_permissions JSONB NOT NULL DEFAULT '[]'::jsonb");
+  // Set on an account the desk created on someone's behalf (see
+  // routes/crm.ts's lead-conversion endpoint): the temporary password a
+  // manager was shown is usable for exactly one login, after which the owner
+  // must set their own before anything else works. See the login flow in
+  // routes/auth.ts.
+  await addColumnIfMissing("users", "password_change_required", "password_change_required BOOLEAN NOT NULL DEFAULT FALSE");
   await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_account_number ON users(account_number)");
   await backfillAccountNumbers();
 }

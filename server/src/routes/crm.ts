@@ -1,9 +1,17 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { db, newId, now, tx, asNum } from "../db.js";
-import { audit } from "../lib/ledger.js";
-import { badRequest, notFound } from "../lib/errors.js";
-import { sLead, sLeadDetail, sLeadComment, sLeadHistory } from "./serialize.js";
+import { db, newId, now, tx, asNum, newAccountNumber } from "../db.js";
+import { config } from "../config.js";
+import { postLedger, audit } from "../lib/ledger.js";
+import { badRequest, notFound, conflict } from "../lib/errors.js";
+import { toScaled, out } from "../lib/money.js";
+import { hashPassword, revokeAllForUser } from "../lib/auth.js";
+import { closePositionById, cancelOrder } from "../engine/execution.js";
+import { requireCrmPermission, getCrmPermissions, CRM_PERMISSIONS } from "../lib/crmPermissions.js";
+import { issueViewToken } from "../lib/crmViewTokens.js";
+import { accountSnapshot } from "../lib/accountSummary.js";
+import { generateTempPassword } from "../lib/tempPassword.js";
+import { sLead, sLeadDetail, sLeadComment, sLeadHistory, sOrder, sTrade } from "./serialize.js";
 
 /**
  * CRM for the sales desk: the affiliate lead pipeline, one card per lead, and
@@ -115,11 +123,6 @@ const q = {
     LEFT JOIN users u ON u.id = h.manager_id
     WHERE h.lead_id = ? ORDER BY h.created_at DESC LIMIT 100
   `),
-  comments: db.prepare(`
-    SELECT c.*, u.name AS manager_name, u.email AS manager_email
-    FROM lead_comments c JOIN users u ON u.id = c.manager_id
-    WHERE c.lead_id = ? ORDER BY c.created_at DESC LIMIT 200
-  `),
   insComment: db.prepare(`
     INSERT INTO lead_comments (id, lead_id, manager_id, text, created_at)
     VALUES (@id, @leadId, @managerId, @text, @ts)
@@ -142,7 +145,60 @@ const q = {
     LIMIT 1
   `),
   userByEmail: db.prepare("SELECT id FROM users WHERE email = ?"),
+
+  update: db.prepare(`
+    UPDATE leads SET full_name = @fullName, phone = @phone, email = @email,
+                     country = @country, source = @source, updated_at = @ts
+    WHERE id = @id
+  `),
+  // Same duplicate check as import, but excluding the row being edited —
+  // otherwise saving a lead's own unchanged phone would flag itself.
+  byContactExcluding: db.prepare(`
+    SELECT id FROM leads
+    WHERE id != @id
+      AND ((@phone::text IS NOT NULL AND phone = @phone)
+        OR (@email::text IS NOT NULL AND LOWER(email) = @email))
+    LIMIT 1
+  `),
+
+  commentsPage: db.prepare(`
+    SELECT c.*, u.name AS manager_name, u.email AS manager_email
+    FROM lead_comments c JOIN users u ON u.id = c.manager_id
+    WHERE c.lead_id = @leadId ORDER BY c.created_at DESC LIMIT @limit OFFSET @offset
+  `),
+  commentsCount: db.prepare("SELECT COUNT(*) AS n FROM lead_comments WHERE lead_id = ?"),
+
+  setPlatformStatus: db.prepare("UPDATE users SET status = ?, updated_at = ? WHERE id = ?"),
+
+  // Lead conversion: a normal registration in every respect except that the
+  // desk, not the person, filled the form in. Mirrors routes/auth.ts's own
+  // /register insert exactly (same columns, same starting deposit) so a
+  // converted account is indistinguishable from a self-registered one, other
+  // than the temp-password flag below.
+  insUser: db.prepare(`
+    INSERT INTO users (id, email, password_hash, name, role, status, account_number,
+                       password_change_required, created_at, updated_at)
+    VALUES (@id, @email, @hash, @name, 'USER', 'ACTIVE', @accountNumber, TRUE, @ts, @ts)
+  `),
+  insAccount: db.prepare("INSERT INTO accounts (user_id, cash_scaled, updated_at) VALUES (?, ?, ?)"),
+  insLedgerDeposit: db.prepare(`
+    INSERT INTO ledger_entries (id, user_id, type, amount_scaled, balance_after_scaled, note, created_at)
+    VALUES (@id, @userId, 'DEPOSIT', @amt, @amt, 'Стартовый баланс (регистрация из CRM)', @ts)
+  `),
+  linkLead: db.prepare("UPDATE leads SET platform_user_id = ?, updated_at = ? WHERE id = ?"),
 };
+
+/** Resolves a lead to the platform account every account/balance/trades
+ * action below operates on — never the lead row itself, which has no money
+ * and nothing to trade. */
+async function requirePlatformUser(leadId: string): Promise<string> {
+  const row = (await q.bare.get(leadId)) as any;
+  if (!row) throw notFound("Лид не найден");
+  if (!row.platform_user_id) {
+    throw conflict("NOT_CONVERTED", "Лид ещё не зарегистрирован на платформе — сначала переведите его в пользователя");
+  }
+  return row.platform_user_id as string;
+}
 
 /** Records a transition. Called inside the same transaction as the update, so
  * a status can never move without the history row that explains it. */
@@ -160,10 +216,15 @@ export default async function crmRoutes(app: FastifyInstance) {
   app.addHook("preHandler", app.requireManager);
 
   /** The enums, so the UI builds its selects from the server's list rather
-   * than a copy that quietly drifts when a funnel stage is added. */
-  app.get("/meta", async () => ({
+   * than a copy that quietly drifts when a funnel stage is added. Also the
+   * caller's own permission set — every mutation is still re-checked
+   * server-side on the actual request, but the UI needs this to know which
+   * buttons to show in the first place. */
+  app.get("/meta", async (req) => ({
     statuses: LEAD_STATUSES,
     verificationStatuses: VERIFICATION_STATUSES,
+    allPermissions: CRM_PERMISSIONS,
+    myPermissions: await getCrmPermissions(req.user.sub),
     managers: ((await q.managers.all()) as any[]).map((m) => ({
       id: m.id, name: m.name, email: m.email, role: m.role,
     })),
@@ -204,6 +265,50 @@ export default async function crmRoutes(app: FastifyInstance) {
       lead: sLeadDetail(lead),
       history: ((await q.history.all(id)) as any[]).map(sLeadHistory),
     };
+  });
+
+  /**
+   * Edits the card itself — the fields an affiliate got wrong, or that
+   * change as the desk actually talks to the person (a corrected phone
+   * number, a country filled in after a call). Every field is optional so a
+   * manager can fix one thing without resending the rest; `null` clears an
+   * optional field, `undefined` (the key simply absent) leaves it alone.
+   */
+  app.patch("/leads/:id", async (req) => {
+    const { id } = z.object({ id: z.string() }).parse(req.params);
+    const body = z.object({
+      fullName: z.string().trim().min(2).max(120).optional(),
+      phone: z.string().trim().min(5).max(32).nullable().optional(),
+      email: z.string().trim().email().max(254).nullable().optional(),
+      country: z.string().trim().min(2).max(64).nullable().optional(),
+      source: z.string().trim().max(120).nullable().optional(),
+    }).parse(req.body);
+
+    const lead = (await q.bare.get(id)) as any;
+    if (!lead) throw notFound("Лид не найден");
+
+    const next = {
+      fullName: body.fullName ?? lead.full_name,
+      phone: body.phone === undefined ? lead.phone : body.phone,
+      email: body.email === undefined ? lead.email : (body.email ? body.email.toLowerCase() : null),
+      country: body.country === undefined ? lead.country : body.country,
+      source: body.source === undefined ? lead.source : body.source,
+    };
+    if (!next.phone && !next.email) {
+      throw badRequest("CONTACT_REQUIRED", "Нужен телефон или email — иначе с лидом нельзя работать");
+    }
+
+    const contactChanged = next.phone !== lead.phone || next.email !== lead.email;
+    if (contactChanged) {
+      const duplicate = await q.byContactExcluding.get({ id, phone: next.phone, email: next.email });
+      if (duplicate) throw badRequest("DUPLICATE_LEAD", "Лид с таким телефоном или email уже есть в базе");
+    }
+
+    await q.update.run({ id, ...next, ts: now() });
+    await audit({ actorId: req.user.sub, action: "CRM_LEAD_EDITED",
+      meta: { leadId: id, fields: Object.keys(body) }, ip: req.ip });
+
+    return { lead: sLeadDetail((await q.one.get(id)) as any) };
   });
 
   app.patch("/leads/:id/status", async (req) => {
@@ -276,10 +381,26 @@ export default async function crmRoutes(app: FastifyInstance) {
     return { lead: sLeadDetail((await q.one.get(id)) as any) };
   });
 
+  /**
+   * Paginated on purpose: a lead worked for months accumulates a long thread,
+   * and the card used to render the whole thing inline, growing the modal
+   * without bound. Comments now live in their own scrollable page instead.
+   */
   app.get("/leads/:id/comments", async (req) => {
     const { id } = z.object({ id: z.string() }).parse(req.params);
+    const p = z.object({
+      page: z.coerce.number().int().min(1).default(1),
+      pageSize: z.coerce.number().int().min(1).max(50).default(10),
+    }).parse(req.query);
     if (!(await q.bare.get(id))) throw notFound("Лид не найден");
-    return { comments: ((await q.comments.all(id)) as any[]).map(sLeadComment) };
+
+    const args = { leadId: id, limit: p.pageSize, offset: (p.page - 1) * p.pageSize };
+    return {
+      total: asNum(((await q.commentsCount.get(id)) as any).n),
+      page: p.page,
+      pageSize: p.pageSize,
+      comments: ((await q.commentsPage.all(args)) as any[]).map(sLeadComment),
+    };
   });
 
   app.post("/leads/:id/comments", async (req, reply) => {
@@ -290,6 +411,155 @@ export default async function crmRoutes(app: FastifyInstance) {
     const commentId = newId();
     await q.insComment.run({ id: commentId, leadId: id, managerId: req.user.sub, text, ts: now() });
     return reply.code(201).send({ comment: sLeadComment((await q.comment.get(commentId)) as any) });
+  });
+
+  /* --------------------------- account, balance, trades -------------------- *
+   * Everything below reaches past the CRM's own tables into a real account and
+   * real money, so — unlike the pipeline fields above, which any manager can
+   * work — each mutation here is gated on its own admin-granted permission
+   * (lib/crmPermissions.ts). Reading the account is not gated: the card
+   * already shows a balance figure to any manager (sLeadDetail), and refusing
+   * to show the positions and orders behind that figure would just make the
+   * number unexplainable, not safer.
+   */
+
+  app.get("/leads/:id/account", async (req) => {
+    const { id } = z.object({ id: z.string() }).parse(req.params);
+    const userId = await requirePlatformUser(id);
+    return accountSnapshot(userId);
+  });
+
+  app.post("/leads/:id/account/balance", async (req) => {
+    const { id } = z.object({ id: z.string() }).parse(req.params);
+    await requireCrmPermission(req.user.sub, "MANAGE_BALANCE");
+    const userId = await requirePlatformUser(id);
+
+    const body = z.object({
+      amount: z.string().regex(/^-?\d+(\.\d{1,8})?$/, "Ожидается десятичное число"),
+      note: z.string().max(200).optional(),
+    }).parse(req.body);
+    const amount = toScaled(body.amount); // signed: "500" credits, "-500" debits
+    if (amount === 0n) throw badRequest("ZERO_AMOUNT", "Сумма не может быть нулевой");
+
+    const balanceAfter = await tx(async () => {
+      const b = await postLedger({
+        userId, type: "ADMIN_ADJUSTMENT", amountScaled: amount,
+        note: body.note ?? "Корректировка баланса из CRM", actorUserId: req.user.sub,
+      });
+      await audit({ actorId: req.user.sub, targetUserId: userId, action: "CRM_BALANCE_ADJUSTED",
+        meta: { leadId: id, amount: body.amount, note: body.note }, ip: req.ip });
+      return b;
+    });
+
+    return { balance: out(balanceAfter, 2) };
+  });
+
+  app.patch("/leads/:id/account/status", async (req) => {
+    const { id } = z.object({ id: z.string() }).parse(req.params);
+    await requireCrmPermission(req.user.sub, "MANAGE_ACCOUNT");
+    const userId = await requirePlatformUser(id);
+    const { status } = z.object({ status: z.enum(["ACTIVE", "SUSPENDED"]) }).parse(req.body);
+
+    await q.setPlatformStatus.run(status, now(), userId);
+    // Suspending must not leave a live session behind — the same reasoning as
+    // the admin console's own suspend action.
+    if (status === "SUSPENDED") await revokeAllForUser(userId);
+    await audit({ actorId: req.user.sub, targetUserId: userId, action: "CRM_ACCOUNT_STATUS_CHANGED",
+      meta: { leadId: id, status }, ip: req.ip });
+
+    return { status };
+  });
+
+  app.post("/leads/:id/trades/positions/:positionId/close", async (req) => {
+    const { id, positionId } = z.object({ id: z.string(), positionId: z.string() }).parse(req.params);
+    await requireCrmPermission(req.user.sub, "MANAGE_TRADES");
+    const userId = await requirePlatformUser(id);
+
+    const trade = await closePositionById(userId, positionId, "ADMIN", req.user.sub);
+    await audit({ actorId: req.user.sub, targetUserId: userId, action: "CRM_POSITION_CLOSED",
+      meta: { leadId: id, positionId, pnl: out(trade.pnl_scaled, 2) }, ip: req.ip });
+
+    return { trade: sTrade(trade) };
+  });
+
+  app.delete("/leads/:id/trades/orders/:orderId", async (req) => {
+    const { id, orderId } = z.object({ id: z.string(), orderId: z.string() }).parse(req.params);
+    await requireCrmPermission(req.user.sub, "MANAGE_TRADES");
+    const userId = await requirePlatformUser(id);
+
+    const order = await cancelOrder(userId, orderId, req.user.sub);
+    await audit({ actorId: req.user.sub, targetUserId: userId, action: "CRM_ORDER_CANCELLED",
+      meta: { leadId: id, orderId }, ip: req.ip });
+
+    return { order: sOrder(order) };
+  });
+
+  /**
+   * Mints a one-time, read-only support link (see lib/crmViewTokens.ts). The
+   * token itself is the only thing handed back — the frontend builds the
+   * actual URL from its own origin, so this never has to guess which host the
+   * manager is browsing from.
+   */
+  app.post("/leads/:id/view-token", async (req) => {
+    const { id } = z.object({ id: z.string() }).parse(req.params);
+    await requireCrmPermission(req.user.sub, "IMPERSONATE");
+    const userId = await requirePlatformUser(id);
+
+    const token = await issueViewToken({ leadId: id, platformUserId: userId, issuedBy: req.user.sub });
+    await audit({ actorId: req.user.sub, targetUserId: userId, action: "CRM_LEAD_VIEW_TOKEN_ISSUED",
+      meta: { leadId: id }, ip: req.ip });
+
+    return { token, expiresInMinutes: 10 };
+  });
+
+  /**
+   * Converts a lead into a real platform account: everything a self-service
+   * /register does (same columns, same starting deposit), except the desk
+   * filled the form in instead of the person. The account is created with a
+   * random password shown to the caller exactly once and never stored or
+   * logged in plaintext — only its bcrypt hash — and flagged so the very
+   * first login demands the owner set their own before anything else works
+   * (routes/auth.ts's login handler and /complete-password-change).
+   *
+   * Not gated behind a CRM permission: registering someone is not a power
+   * beyond what they could grant themselves by signing up directly, and the
+   * account starts exactly where a self-registration would.
+   */
+  app.post("/leads/:id/convert", async (req, reply) => {
+    const { id } = z.object({ id: z.string() }).parse(req.params);
+    const lead = (await q.bare.get(id)) as any;
+    if (!lead) throw notFound("Лид не найден");
+    if (lead.platform_user_id) throw conflict("ALREADY_CONVERTED", "Лид уже зарегистрирован на платформе");
+    if (!lead.email) {
+      throw badRequest("EMAIL_REQUIRED", "Нужен email — добавьте его в карточке перед переводом в пользователя");
+    }
+    if (await q.userByEmail.get(lead.email)) {
+      throw conflict("EMAIL_TAKEN", "Пользователь с таким email уже зарегистрирован на платформе");
+    }
+
+    const tempPassword = generateTempPassword();
+    const hash = await hashPassword(tempPassword);
+    const userId = newId();
+    const ts = now();
+    const accountNumber = await newAccountNumber();
+    const starting = toScaled(config.startingBalance);
+
+    await tx(async () => {
+      await q.insUser.run({ id: userId, email: lead.email, hash, name: lead.full_name, accountNumber, ts });
+      await q.insAccount.run(userId, starting, ts);
+      await q.insLedgerDeposit.run({ id: newId(), userId, amt: starting, ts });
+      await q.linkLead.run(userId, ts, id);
+      await audit({ actorId: req.user.sub, targetUserId: userId, action: "CRM_LEAD_CONVERTED",
+        meta: { leadId: id }, ip: req.ip });
+    });
+
+    return reply.code(201).send({
+      lead: sLeadDetail((await q.one.get(id)) as any),
+      // Shown exactly once. Relay it to the client through whatever channel
+      // the affiliate relationship uses (phone, the same messenger) — the
+      // account demands its own password on first login regardless.
+      temporaryPassword: tempPassword,
+    });
   });
 
   /**

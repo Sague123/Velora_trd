@@ -47,6 +47,9 @@ const q = {
   account: db.prepare("SELECT cash_scaled FROM accounts WHERE user_id = ?"),
   touchLogin: db.prepare("UPDATE users SET last_login_at = ? WHERE id = ?"),
   setPassword: db.prepare("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?"),
+  clearPasswordChangeRequired: db.prepare(
+    "UPDATE users SET password_change_required = FALSE, updated_at = ? WHERE id = ?"
+  ),
   setName: db.prepare("UPDATE users SET name = ?, updated_at = ? WHERE id = ?"),
   setDob: db.prepare("UPDATE users SET date_of_birth = ?, updated_at = ? WHERE id = ?"),
   setAvatar: db.prepare("UPDATE users SET avatar = ?, updated_at = ? WHERE id = ?"),
@@ -121,6 +124,23 @@ export default async function authRoutes(app: FastifyInstance) {
     }
     if (user.status !== "ACTIVE") throw unauthorized("Аккаунт заблокирован");
 
+    // An account the CRM created on someone's behalf (routes/crm.ts's lead
+    // conversion) starts with a password only the manager who ran it has ever
+    // seen. The temp password gets them exactly this far — a short window to
+    // set their own — and no further; same shape as the 2FA challenge below,
+    // including the same "this token can never be a real access token" guard
+    // in plugins/authenticate.ts.
+    if ((user as any).password_change_required === true) {
+      await audit({ actorId: user.id, targetUserId: user.id, action: "LOGIN_PASSWORD_CHANGE_REQUIRED", ip: req.ip });
+      return {
+        passwordChangeRequired: true,
+        passwordChangeToken: app.jwt.sign(
+          { sub: user.id, pwd: true } as any,
+          { expiresIn: `${config.mfaChallengeTtlMinutes}m` }
+        ),
+      };
+    }
+
     // With 2FA on, the password alone buys nothing but a five-minute window in
     // which to prove the second factor: no access token, no refresh cookie, and
     // the challenge token is explicitly marked so it can never be replayed as
@@ -173,6 +193,36 @@ export default async function authRoutes(app: FastifyInstance) {
       await audit({ actorId: user.id, targetUserId: user.id, action: "LOGIN_MFA_BACKUP_CODE_USED",
         meta: { remaining: remaining.length }, ip: req.ip });
     }
+
+    return finishLogin(app, req, reply, user);
+  });
+
+  /**
+   * Completes the mandatory reset for an account the CRM created (see
+   * routes/crm.ts's lead conversion): spends the challenge issued at login,
+   * sets the owner's own password, and logs them in exactly the way a normal
+   * login would. Revokes any other sessions first — paranoia, since nothing
+   * should exist yet, but the same rule `/change-password` already follows
+   * for any password change.
+   */
+  app.post("/complete-password-change", { config: { rateLimit: { max: 10, timeWindow: "10 minutes" } } }, async (req, reply) => {
+    const body = z.object({ passwordChangeToken: z.string(), newPassword: password }).parse(req.body);
+
+    let claims: { sub: string; pwd?: boolean };
+    try {
+      claims = app.jwt.verify(body.passwordChangeToken) as any;
+    } catch {
+      throw unauthorized("Срок действия ссылки истёк — войдите заново");
+    }
+    if (!claims.pwd) throw unauthorized("Некорректный токен подтверждения");
+
+    const user = (await q.byId.get(claims.sub)) as UserRow | undefined;
+    if (!user || user.status !== "ACTIVE") throw unauthorized("Аккаунт недоступен");
+
+    await q.setPassword.run(await hashPassword(body.newPassword), now(), user.id);
+    await q.clearPasswordChangeRequired.run(now(), user.id);
+    await revokeAllForUser(user.id);
+    await audit({ actorId: user.id, targetUserId: user.id, action: "PASSWORD_CHANGE_COMPLETED", ip: req.ip });
 
     return finishLogin(app, req, reply, user);
   });

@@ -16,6 +16,7 @@ import { LegalPage } from "./pages/LegalPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { VerifyEmailPage } from "./pages/VerifyEmailPage";
+import { CrmViewPage } from "./pages/CrmViewPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { TerminalPage } from "./pages/TerminalPage";
 import { MarketsPage } from "./pages/MarketsPage";
@@ -91,6 +92,10 @@ export default function App() {
             and cannot sit behind GuestRoute or ProtectedRoute. */}
         <Route path="/verify-email" element={<VerifyEmailPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        {/* A one-time CRM support link opens in a fresh tab that may have no
+            Velora session at all — the token itself is the only credential,
+            so this also cannot sit behind ManagerRoute or ProtectedRoute. */}
+        <Route path="/crm/view" element={<CrmViewPage />} />
 
         <Route element={<GuestRoute />}>
           <Route path="/login" element={<LoginPage />} />

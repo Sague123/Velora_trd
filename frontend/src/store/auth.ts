@@ -1,25 +1,28 @@
 import { create } from "zustand";
 import { api, apiPost, apiGet, setAccessToken, setUnauthorizedHandler } from "../lib/api";
 import { identifyUser } from "../lib/monitoring";
-import type { AuthUser, MfaChallenge } from "../lib/types";
+import type { AuthUser, MfaChallenge, PasswordChangeChallenge } from "../lib/types";
 
 interface AuthResponse {
   accessToken: string;
   user: AuthUser;
 }
 
-type LoginResult = AuthResponse | MfaChallenge;
-const isChallenge = (r: LoginResult): r is MfaChallenge => (r as MfaChallenge).mfaRequired === true;
+type LoginResult = AuthResponse | MfaChallenge | PasswordChangeChallenge;
+const isMfaChallenge = (r: LoginResult): r is MfaChallenge => (r as MfaChallenge).mfaRequired === true;
+const isPasswordChallenge = (r: LoginResult): r is PasswordChangeChallenge =>
+  (r as PasswordChangeChallenge).passwordChangeRequired === true;
 
 interface AuthState {
   user: AuthUser | null;
   booting: boolean;
   busy: boolean;
   error: string | null;
-  /** Resolves to a challenge when the account has 2FA on — the caller then
-   * collects a code and calls completeMfa(). No session exists until then. */
-  login: (email: string, password: string) => Promise<MfaChallenge | null>;
+  /** Resolves to one of two challenges — 2FA, or a mandatory password reset
+   * for a CRM-created account — or null once a real session exists. */
+  login: (email: string, password: string) => Promise<MfaChallenge | PasswordChangeChallenge | null>;
   completeMfa: (mfaToken: string, code: string) => Promise<void>;
+  completePasswordChange: (passwordChangeToken: string, newPassword: string) => Promise<void>;
   register: (email: string, password: string, name?: string) => Promise<void>;
   logout: () => Promise<void>;
   bootstrap: () => Promise<void>;
@@ -41,7 +44,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ busy: true, error: null });
     try {
       const res = await apiPost<LoginResult>("/api/auth/login", { email, password });
-      if (isChallenge(res)) {
+      if (isMfaChallenge(res) || isPasswordChallenge(res)) {
         set({ busy: false });
         return res;
       }
@@ -64,6 +67,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ user: res.user, busy: false });
     } catch (e: any) {
       set({ busy: false, error: e?.message ?? "Не удалось подтвердить код" });
+      throw e;
+    }
+  },
+
+  completePasswordChange: async (passwordChangeToken, newPassword) => {
+    set({ busy: true, error: null });
+    try {
+      const res = await apiPost<AuthResponse>("/api/auth/complete-password-change", { passwordChangeToken, newPassword });
+      setAccessToken(res.accessToken);
+      identifyUser(res.user.id);
+      set({ user: res.user, busy: false });
+    } catch (e: any) {
+      set({ busy: false, error: e?.message ?? "Не удалось установить пароль" });
       throw e;
     }
   },

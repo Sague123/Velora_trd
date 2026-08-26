@@ -1,8 +1,9 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import {
   useAdminAdjustBalance, useAdminCancelOrder, useAdminClosePosition,
   useAdminResetPassword, useAdminUpdateUser, useAdminUserDetail,
 } from "../../hooks/useAdmin";
+import { useSetCrmPermissions } from "../../hooks/useCrm";
 import { TradesTable } from "../terminal/TradesTable";
 import { LedgerTable } from "../terminal/LedgerTable";
 import { LoadingRow, ErrorRow } from "../common/States";
@@ -11,6 +12,10 @@ import { toast } from "../../store/toast";
 import { ApiError } from "../../lib/api";
 import { useAuthStore } from "../../store/auth";
 import { IconClose } from "../icons/Icon";
+import { CRM_PERMISSION_HINT, CRM_PERMISSION_LABEL } from "../crm/leadLabels";
+import type { CrmPermission, Role } from "../../lib/types";
+
+const ALL_CRM_PERMISSIONS = Object.keys(CRM_PERMISSION_LABEL) as CrmPermission[];
 
 type Tab = "positions" | "orders" | "history" | "ledger";
 
@@ -22,13 +27,39 @@ export function UserDetailDrawer({ userId, onClose }: { userId: string; onClose:
   const resetPassword = useAdminResetPassword();
   const closePosition = useAdminClosePosition();
   const cancelOrder = useAdminCancelOrder();
+  const setCrmPermissions = useSetCrmPermissions();
 
   const [tab, setTab] = useState<Tab>("positions");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [permDraft, setPermDraft] = useState<CrmPermission[]>([]);
 
   const isSelf = userId === me?.id;
+
+  // Seeds the checklist from the server's current grants whenever a different
+  // user's drawer opens (or their permissions change under us) — never while
+  // this admin is mid-edit, which would blow away an unsaved toggle.
+  useEffect(() => {
+    setPermDraft(data?.user.crmPermissions ?? []);
+  }, [data?.user.id, data?.user.crmPermissions]);
+
+  const permissionsDirty =
+    data && (permDraft.length !== data.user.crmPermissions.length ||
+      permDraft.some((p) => !data.user.crmPermissions.includes(p)));
+
+  function togglePermission(p: CrmPermission) {
+    setPermDraft((cur) => (cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]));
+  }
+
+  async function savePermissions() {
+    try {
+      await setCrmPermissions.mutateAsync({ userId, permissions: permDraft });
+      toast.success("Права CRM обновлены");
+    } catch (e) {
+      toast.error("Не удалось сохранить права", e instanceof ApiError ? e.message : undefined);
+    }
+  }
 
   async function onAdjust(e: FormEvent) {
     e.preventDefault();
@@ -66,9 +97,8 @@ export function UserDetailDrawer({ userId, onClose }: { userId: string; onClose:
     }
   }
 
-  async function onToggleRole() {
-    if (!data) return;
-    const next = data.user.role === "ADMIN" ? "USER" : "ADMIN";
+  async function onChangeRole(next: Role) {
+    if (!data || next === data.user.role) return;
     try {
       await updateUser.mutateAsync({ id: userId, role: next });
       toast.success(`Роль изменена на ${next}`);
@@ -188,16 +218,53 @@ export function UserDetailDrawer({ userId, onClose }: { userId: string; onClose:
                   >
                     {data.user.status === "ACTIVE" ? "Suspend account" : "Reactivate account"}
                   </button>
-                  <button
-                    onClick={onToggleRole}
-                    disabled={isSelf || updateUser.isPending}
-                    className="w-full rounded border border-line py-1 text-2xs font-medium text-txt-1 hover:border-accent hover:text-accent disabled:opacity-40"
-                  >
-                    {data.user.role === "ADMIN" ? "Demote to USER" : "Promote to ADMIN"}
-                  </button>
+                  <label className="block">
+                    <span className="mb-1 block text-2xs text-txt-2">Роль</span>
+                    <select
+                      value={data.user.role}
+                      disabled={isSelf || updateUser.isPending}
+                      onChange={(e) => onChangeRole(e.target.value as Role)}
+                      className="w-full rounded border border-line bg-bg-3 px-2 py-1 text-2xs outline-none focus:border-accent disabled:opacity-40"
+                    >
+                      <option value="USER">USER</option>
+                      <option value="MANAGER">MANAGER</option>
+                      <option value="ADMIN">ADMIN</option>
+                    </select>
+                  </label>
                   {isSelf && <div className="mt-1 text-2xs text-txt-3">Нельзя изменить собственный аккаунт</div>}
                 </div>
               </div>
+
+              {/* Sensitive CRM powers (server/src/lib/crmPermissions.ts) — only
+                  meaningful for a MANAGER, and only an admin grants them. */}
+              {data.user.role === "MANAGER" && (
+                <div className="border-b border-line px-4 py-3">
+                  <div className="mb-2 text-2xs font-semibold text-txt-1">CRM Permissions</div>
+                  <div className="space-y-2">
+                    {ALL_CRM_PERMISSIONS.map((p) => (
+                      <label key={p} className="flex items-start gap-2 rounded border border-line-soft bg-bg-2/40 p-2">
+                        <input
+                          type="checkbox"
+                          checked={permDraft.includes(p)}
+                          onChange={() => togglePermission(p)}
+                          className="mt-0.5 accent-accent"
+                        />
+                        <span className="min-w-0">
+                          <span className="block text-2xs font-medium text-txt-1">{CRM_PERMISSION_LABEL[p]}</span>
+                          <span className="block text-2xs text-txt-3">{CRM_PERMISSION_HINT[p]}</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <button
+                    onClick={savePermissions}
+                    disabled={!permissionsDirty || setCrmPermissions.isPending}
+                    className="mt-2 rounded bg-accent-fill px-3 py-1.5 text-2xs font-semibold text-white hover:bg-accent-dim disabled:opacity-40"
+                  >
+                    {setCrmPermissions.isPending ? "Сохранение…" : "Сохранить права"}
+                  </button>
+                </div>
+              )}
 
               <div className="flex gap-0.5 border-b border-line px-2 pt-1">
                 {(

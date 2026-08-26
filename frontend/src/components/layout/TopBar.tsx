@@ -172,15 +172,21 @@ export function TopBar() {
       <div className="ml-auto flex items-center gap-3">
         <LanguageSwitcher />
         <ThemeToggle />
-        <div className="flex items-center gap-1.5 text-2xs text-txt-2" title={health?.feed.lastFetch ?? undefined}>
-          <span className={classNames("h-1.5 w-1.5 rounded-full", live ? "bg-buy" : wsStatus === "connecting" ? "bg-warn animate-pulse" : "bg-sell")} />
-          <span>{live ? t("topbar.live") : wsStatus === "connecting" ? t("topbar.connecting") : t("topbar.offline")}</span>
-          {health && !health.feed.healthy && (
-            <span className="rounded border border-warn/40 bg-warn/10 px-1 py-px text-warn">{t("topbar.feedStale")}</span>
-          )}
-        </div>
+        {/* A manager's own account is never real trading activity — it's a
+            crew login, always $0, forever. Showing a live feed dot and a
+            permanent $0.00/$0.00 uPnL on the one screen they actually work in
+            is noise, not information, so both are hidden for that role. */}
+        {user?.role !== "MANAGER" && (
+          <div className="flex items-center gap-1.5 text-2xs text-txt-2" title={health?.feed.lastFetch ?? undefined}>
+            <span className={classNames("h-1.5 w-1.5 rounded-full", live ? "bg-buy" : wsStatus === "connecting" ? "bg-warn animate-pulse" : "bg-sell")} />
+            <span>{live ? t("topbar.live") : wsStatus === "connecting" ? t("topbar.connecting") : t("topbar.offline")}</span>
+            {health && !health.feed.healthy && (
+              <span className="rounded border border-warn/40 bg-warn/10 px-1 py-px text-warn">{t("topbar.feedStale")}</span>
+            )}
+          </div>
+        )}
 
-        {account && (
+        {account && user?.role !== "MANAGER" && (
           <div className="flex items-center gap-3 border-l border-line pl-3 tabular">
             <div className="text-right leading-tight">
               <div className="text-2xs text-txt-2">{t("overview.equity")}</div>

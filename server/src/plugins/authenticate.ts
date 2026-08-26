@@ -37,6 +37,12 @@ export default fp(async function authPlugin(app: FastifyInstance) {
     if ((req.user as unknown as { mfa?: boolean }).mfa === true) {
       throw unauthorized("Требуется подтверждение второго фактора");
     }
+    // Same reasoning, for the challenge issued to an account the CRM created
+    // on someone's behalf: it proves nothing but possession of a temporary
+    // password, and must not reach anywhere a real session could.
+    if ((req.user as unknown as { pwd?: boolean }).pwd === true) {
+      throw unauthorized("Требуется установить постоянный пароль");
+    }
     // A suspended account loses access immediately, not at token expiry.
     const row = (await getUser.get(req.user.sub)) as { status: string; role: string } | undefined;
     if (!row) throw unauthorized("Пользователь не найден");
