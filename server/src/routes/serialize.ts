@@ -59,6 +59,11 @@ export const sLead = (l: any) => ({
   /** Set once the lead registered on the platform — the list shows it as a
    * badge, because "already a user" changes how the desk works the lead. */
   platformUserId: l.platform_user_id ?? null,
+  /** The platform account's number — the human-readable ID a converted lead
+   * has, since the lead's own UUID is not something anyone reads aloud on a
+   * call. Null until conversion; a prospect who hasn't registered yet has no
+   * account to number. */
+  accountNumber: l.platform_account_number ?? null,
   createdAt: l.created_at,
   updatedAt: l.updated_at,
 });
@@ -87,6 +92,15 @@ export const sLeadDetail = (l: any) => ({
         lastLoginAt: l.platform_last_login_at ?? null,
         lastActionAt: l.platform_last_action_at ?? null,
         balance: out(asBigOrNull(l.platform_cash_scaled), 2),
+        // Latest KYC submission's metadata only — never the document links
+        // themselves. A manager sees this much (it's the same figure the
+        // account summary already shows); the images require the admin-only
+        // /api/admin/kyc/:id, which this id is just enough to call.
+        kycSubmissionId: l.kyc_submission_id ?? null,
+        kycDocumentType: l.kyc_document_type ?? null,
+        kycRejectionReason: l.kyc_rejection_reason ?? null,
+        kycReviewedAt: l.kyc_reviewed_at ?? null,
+        kycSubmittedAt: l.kyc_submitted_at ?? null,
       }
     : null,
 });

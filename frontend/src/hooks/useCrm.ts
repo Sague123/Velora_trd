@@ -6,10 +6,25 @@ import type {
   LeadDetail, LeadHistoryEntry, LeadStatus, LeadVerificationStatus, LeadsResponse, Order, Trade,
 } from "../lib/types";
 
+export type LeadSortColumn =
+  | "accountNumber" | "fullName" | "phone" | "email" | "status"
+  | "verificationStatus" | "country" | "manager" | "createdAt";
+
 export interface LeadFilters {
   status: LeadStatus | "";
   managerId: string;
+  kycStatus: "" | "NONE" | "PENDING" | "APPROVED" | "REJECTED";
   search: string;
+  // Per-column filters — ANDed with `search` and with each other, so a
+  // manager can narrow by exactly one field instead of only the broad OR
+  // match `search` does across name/phone/email.
+  fullName: string;
+  phone: string;
+  email: string;
+  country: string;
+  accountNumber: string;
+  sortBy: LeadSortColumn;
+  sortDir: "asc" | "desc";
   page: number;
   pageSize: number;
 }
@@ -26,10 +41,19 @@ export function useCrmMeta(enabled = true) {
 }
 
 export function useLeads(filters: LeadFilters, enabled = true) {
-  const qs = new URLSearchParams({ page: String(filters.page), pageSize: String(filters.pageSize) });
+  const qs = new URLSearchParams({
+    page: String(filters.page), pageSize: String(filters.pageSize),
+    sortBy: filters.sortBy, sortDir: filters.sortDir,
+  });
   if (filters.status) qs.set("status", filters.status);
   if (filters.managerId) qs.set("managerId", filters.managerId);
+  if (filters.kycStatus) qs.set("kycStatus", filters.kycStatus);
   if (filters.search.trim()) qs.set("search", filters.search.trim());
+  if (filters.fullName.trim()) qs.set("fullName", filters.fullName.trim());
+  if (filters.phone.trim()) qs.set("phone", filters.phone.trim());
+  if (filters.email.trim()) qs.set("email", filters.email.trim());
+  if (filters.country.trim()) qs.set("country", filters.country.trim());
+  if (filters.accountNumber.trim()) qs.set("accountNumber", filters.accountNumber.trim());
 
   return useQuery({
     queryKey: ["crm", "leads", filters],

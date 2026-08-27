@@ -7,13 +7,21 @@ import type { UserStatus } from "../../lib/types";
 
 const PAGE_SIZE = 20;
 
+/**
+ * Staff accounts only — MANAGER and ADMIN — never USER. Customers have their
+ * own home now: every USER-role account is a CRM lead (see
+ * server/src/lib/leadIntake.ts), so listing them here too would be exactly
+ * the duplicate, drifting-apart view this merge was meant to remove. What
+ * stays here is what the CRM has no reason to show: role changes, CRM
+ * permission grants, and password resets for the desk's own team.
+ */
 export function UsersTab() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<UserStatus | "ALL">("ALL");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string | null>(null);
 
-  const { data, isLoading, isError, refetch } = useAdminUsers({ search, status, page, pageSize: PAGE_SIZE }, true);
+  const { data, isLoading, isError, refetch } = useAdminUsers({ search, status, role: "STAFF", page, pageSize: PAGE_SIZE }, true);
   const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
 
   return (
@@ -39,7 +47,7 @@ export function UsersTab() {
             </button>
           ))}
         </div>
-        {data && <span className="ml-auto text-2xs text-txt-3">{data.total} пользователей</span>}
+        {data && <span className="ml-auto text-2xs text-txt-3">{data.total} сотрудников</span>}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">

@@ -559,6 +559,27 @@ export async function migrate(): Promise<void> {
   await addColumnIfMissing("users", "password_change_required", "password_change_required BOOLEAN NOT NULL DEFAULT FALSE");
   await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_account_number ON users(account_number)");
   await backfillAccountNumbers();
+  await backfillLeadsForUsers();
+}
+
+/** Every USER-role account that predates the CRM's auto-lead behaviour
+ * (lib/leadIntake.ts) gets one filed retroactively, so "every customer is in
+ * the CRM" holds for accounts created before this existed too, not just new
+ * signups. Skips MANAGER/ADMIN — a CRM lists customers, not staff. */
+async function backfillLeadsForUsers(): Promise<void> {
+  const missing = (await pool.query(`
+    SELECT u.id, u.email, u.name, u.created_at FROM users u
+    WHERE u.role = 'USER' AND NOT EXISTS (SELECT 1 FROM leads l WHERE l.platform_user_id = u.id)
+  `)).rows as { id: string; email: string; name: string; created_at: string }[];
+  for (const u of missing) {
+    await pool.query(`
+      INSERT INTO leads (id, full_name, phone, email, country, source, status,
+                         verification_status, assigned_manager_id, platform_user_id,
+                         created_at, updated_at)
+      VALUES ($1, $2, NULL, $3, NULL, 'Регистрация до внедрения CRM', 'NEW',
+              'NOT_SUBMITTED', NULL, $4, $5, $5)
+    `, [newId(), u.name, u.email, u.id, u.created_at]);
+  }
 }
 
 export async function newAccountNumber(): Promise<string> {

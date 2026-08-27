@@ -41,36 +41,6 @@ const leadStatus = z.enum(LEAD_STATUSES);
 const verificationStatus = z.enum(VERIFICATION_STATUSES);
 
 const q = {
-  // Filters are all optional and applied with the same "@x IS NULL OR …"
-  // shape the admin routes already use, so one prepared statement serves
-  // every combination instead of the SQL being assembled per request.
-  list: db.prepare(`
-    SELECT l.*,
-           m.name  AS manager_name,
-           m.email AS manager_email,
-           u.email AS platform_email,
-           u.kyc_status AS platform_kyc_status
-    FROM leads l
-    LEFT JOIN users m ON m.id = l.assigned_manager_id
-    LEFT JOIN users u ON u.id = l.platform_user_id
-    WHERE (@status::text IS NULL OR l.status = @status)
-      AND (@managerId::text IS NULL OR l.assigned_manager_id = @managerId)
-      AND (@search::text IS NULL
-           OR LOWER(l.full_name) LIKE @like
-           OR LOWER(COALESCE(l.email, '')) LIKE @like
-           OR COALESCE(l.phone, '') LIKE @like)
-    ORDER BY l.created_at DESC
-    LIMIT @limit OFFSET @offset
-  `),
-  count: db.prepare(`
-    SELECT COUNT(*) AS n FROM leads l
-    WHERE (@status::text IS NULL OR l.status = @status)
-      AND (@managerId::text IS NULL OR l.assigned_manager_id = @managerId)
-      AND (@search::text IS NULL
-           OR LOWER(l.full_name) LIKE @like
-           OR LOWER(COALESCE(l.email, '')) LIKE @like
-           OR COALESCE(l.phone, '') LIKE @like)
-  `),
   // The card: the lead itself, plus whatever the platform knows if this lead
   // has since registered. account/last_login are read live, never copied.
   one: db.prepare(`
@@ -82,14 +52,26 @@ const q = {
            u.status       AS platform_status,
            u.kyc_status   AS platform_kyc_status,
            u.email_verified AS platform_email_verified,
+           u.account_number AS platform_account_number,
            u.created_at   AS platform_registered_at,
            u.last_login_at AS platform_last_login_at,
            a.cash_scaled  AS platform_cash_scaled,
-           (SELECT MAX(created_at) FROM audit_logs al WHERE al.actor_id = u.id) AS platform_last_action_at
+           (SELECT MAX(created_at) FROM audit_logs al WHERE al.actor_id = u.id) AS platform_last_action_at,
+           k.id             AS kyc_submission_id,
+           k.document_type  AS kyc_document_type,
+           k.rejection_reason AS kyc_rejection_reason,
+           k.reviewed_at    AS kyc_reviewed_at,
+           k.created_at     AS kyc_submitted_at
     FROM leads l
     LEFT JOIN users m ON m.id = l.assigned_manager_id
     LEFT JOIN users u ON u.id = l.platform_user_id
     LEFT JOIN accounts a ON a.user_id = u.id
+    -- Latest submission only: the card shows current standing, not history —
+    -- see routes/kyc.ts's own "latest" query for the same rule.
+    LEFT JOIN LATERAL (
+      SELECT id, document_type, rejection_reason, reviewed_at, created_at
+      FROM kyc_submissions WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1
+    ) k ON true
     WHERE l.id = ?
   `),
   bare: db.prepare("SELECT * FROM leads WHERE id = ?"),
@@ -188,6 +170,104 @@ const q = {
   linkLead: db.prepare("UPDATE leads SET platform_user_id = ?, updated_at = ? WHERE id = ?"),
 };
 
+/** Pipeline order, not alphabetical — sorting the status column should walk
+ * the funnel the way the desk works it, not the raw enum text. Interpolated
+ * directly into the SQL text below (never from user input — LEAD_STATUSES and
+ * VERIFICATION_STATUSES are the fixed module-level consts above), because a
+ * CASE branch list can't be passed as a bind parameter. */
+const STATUS_ORDER_SQL = `CASE l.status ${LEAD_STATUSES.map((s, i) => `WHEN '${s}' THEN ${i}`).join(" ")} END`;
+const VERIFICATION_ORDER_SQL = `CASE l.verification_status ${VERIFICATION_STATUSES.map((s, i) => `WHEN '${s}' THEN ${i}`).join(" ")} END`;
+
+/** Column a sort request may target, and the SQL it actually sorts by.
+ * Whitelisted rather than taking the column name from the request directly —
+ * an identifier can't be a bind parameter, so this is what stands between a
+ * sort request and building a query out of arbitrary client text. */
+const SORT_COLUMNS: Record<string, string> = {
+  accountNumber: "u.account_number",
+  fullName: "l.full_name",
+  phone: "l.phone",
+  email: "l.email",
+  status: STATUS_ORDER_SQL,
+  verificationStatus: VERIFICATION_ORDER_SQL,
+  country: "l.country",
+  manager: "m.name",
+  createdAt: "l.created_at",
+};
+
+interface LeadsQueryInput {
+  status?: string; managerId?: string; kycStatus?: string; search?: string;
+  fullName?: string; phone?: string; email?: string; country?: string; accountNumber?: string;
+  sortBy: string; sortDir: "asc" | "desc";
+  page: number; pageSize: number;
+}
+
+/**
+ * Builds the leads list/count SQL for one request. This runs per-request
+ * rather than being a module-level prepared statement like everything else in
+ * `q` — db.ts's `prepare()` is a cheap regex rewrite, not a server-side
+ * PREPARE, so there is no cost to that — because the sort column and the
+ * per-column filters both vary by request in ways bind parameters can't
+ * express (you cannot bind an ORDER BY column name, or a WHERE clause that
+ * may or may not be present). Every actual value is still a bound
+ * parameter; only the whitelisted column/clause *shape* is interpolated.
+ */
+function buildLeadsQuery(p: LeadsQueryInput): { sql: { list: string; count: string }; args: Record<string, unknown> } {
+  const clauses: string[] = [];
+  const args: Record<string, unknown> = {};
+
+  if (p.status) { clauses.push("l.status = @status"); args.status = p.status; }
+  if (p.managerId) { clauses.push("l.assigned_manager_id = @managerId"); args.managerId = p.managerId; }
+  if (p.kycStatus) { clauses.push("COALESCE(u.kyc_status, 'NONE') = @kycStatus"); args.kycStatus = p.kycStatus; }
+
+  const term = p.search?.trim().toLowerCase();
+  if (term) {
+    clauses.push(`(LOWER(l.full_name) LIKE @search
+      OR LOWER(COALESCE(l.email, '')) LIKE @search
+      OR COALESCE(l.phone, '') LIKE @search)`);
+    args.search = `%${term}%`;
+  }
+
+  const contains = (col: string, key: keyof LeadsQueryInput, sqlCol: string) => {
+    const v = (p[key] as string | undefined)?.trim();
+    if (!v) return;
+    clauses.push(`LOWER(COALESCE(${sqlCol}, '')) LIKE @${col}`);
+    args[col] = `%${v.toLowerCase()}%`;
+  };
+  contains("colFullName", "fullName", "l.full_name");
+  contains("colPhone", "phone", "l.phone");
+  contains("colEmail", "email", "l.email");
+  contains("colCountry", "country", "l.country");
+  contains("colAccountNumber", "accountNumber", "u.account_number");
+
+  const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+  const orderCol = SORT_COLUMNS[p.sortBy] ?? SORT_COLUMNS.createdAt;
+  const dir = p.sortDir === "asc" ? "ASC" : "DESC";
+  // A secondary key breaks ties deterministically — without it, two rows
+  // sorted equal on a nullable column (country, phone…) can swap places
+  // between page loads, which reads as the list randomly reordering itself.
+  const orderBy = `ORDER BY ${orderCol} ${dir} NULLS LAST, l.created_at DESC`;
+
+  args.limit = p.pageSize;
+  args.offset = (p.page - 1) * p.pageSize;
+
+  const fromJoin = `
+    FROM leads l
+    LEFT JOIN users m ON m.id = l.assigned_manager_id
+    LEFT JOIN users u ON u.id = l.platform_user_id
+  `;
+
+  return {
+    sql: {
+      list: `SELECT l.*, m.name AS manager_name, m.email AS manager_email,
+                    u.email AS platform_email, u.kyc_status AS platform_kyc_status,
+                    u.account_number AS platform_account_number
+             ${fromJoin} ${where} ${orderBy} LIMIT @limit OFFSET @offset`,
+      count: `SELECT COUNT(*) AS n ${fromJoin} ${where}`,
+    },
+    args,
+  };
+}
+
 /** Resolves a lead to the platform account every account/balance/trades
  * action below operates on — never the lead row itself, which has no money
  * and nothing to trade. */
@@ -234,26 +314,31 @@ export default async function crmRoutes(app: FastifyInstance) {
     const p = z.object({
       status: leadStatus.optional(),
       managerId: z.string().optional(),
+      kycStatus: z.enum(["NONE", "PENDING", "APPROVED", "REJECTED"]).optional(),
       search: z.string().max(120).optional(),
+      // Per-column filters, additional to (and ANDed with) the general
+      // `search` above — "find the Ивановs" vs "find this exact phone
+      // number" are different questions and the desk asks both.
+      fullName: z.string().max(120).optional(),
+      phone: z.string().max(32).optional(),
+      email: z.string().max(254).optional(),
+      country: z.string().max(64).optional(),
+      accountNumber: z.string().max(20).optional(),
+      sortBy: z.enum([
+        "accountNumber", "fullName", "phone", "email", "status",
+        "verificationStatus", "country", "manager", "createdAt",
+      ]).default("createdAt"),
+      sortDir: z.enum(["asc", "desc"]).default("desc"),
       page: z.coerce.number().int().min(1).default(1),
       pageSize: z.coerce.number().int().min(1).max(100).default(25),
     }).parse(req.query);
 
-    const term = p.search?.trim().toLowerCase();
-    const args = {
-      status: p.status ?? null,
-      managerId: p.managerId ?? null,
-      search: term || null,
-      like: term ? `%${term}%` : null,
-      limit: p.pageSize,
-      offset: (p.page - 1) * p.pageSize,
-    };
-
+    const { sql, args } = buildLeadsQuery(p);
     return {
-      total: asNum(((await q.count.get(args)) as any).n),
+      total: asNum(((await db.prepare(sql.count).get(args)) as any).n),
       page: p.page,
       pageSize: p.pageSize,
-      leads: ((await q.list.all(args)) as any[]).map(sLead),
+      leads: ((await db.prepare(sql.list).all(args)) as any[]).map(sLead),
     };
   });
 

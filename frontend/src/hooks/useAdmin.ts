@@ -14,9 +14,13 @@ export function useAdminStats(enabled: boolean) {
   });
 }
 
-export function useAdminUsers(params: { search: string; status: UserStatus | "ALL"; page: number; pageSize: number }, enabled: boolean) {
+export function useAdminUsers(
+  params: { search: string; status: UserStatus | "ALL"; role?: Role | "ALL" | "STAFF"; page: number; pageSize: number },
+  enabled: boolean
+) {
   const qs = new URLSearchParams({
-    status: params.status, page: String(params.page), pageSize: String(params.pageSize),
+    status: params.status, role: params.role ?? "ALL",
+    page: String(params.page), pageSize: String(params.pageSize),
     ...(params.search ? { search: params.search } : {}),
   });
   return useQuery({
