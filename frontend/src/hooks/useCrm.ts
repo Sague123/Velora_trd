@@ -10,6 +10,14 @@ export interface LeadFilters {
   status: LeadStatus | "";
   managerId: string;
   search: string;
+  verificationStatus: LeadVerificationStatus | "";
+  /** "" = any, "true" = already a platform client, "false" = still just a lead. */
+  converted: "" | "true" | "false";
+  source: string;
+  /** <input type="date"> values (YYYY-MM-DD) or "" — the server widens
+   * createdTo to the end of that day. */
+  createdFrom: string;
+  createdTo: string;
   page: number;
   pageSize: number;
 }
@@ -30,6 +38,11 @@ export function useLeads(filters: LeadFilters, enabled = true) {
   if (filters.status) qs.set("status", filters.status);
   if (filters.managerId) qs.set("managerId", filters.managerId);
   if (filters.search.trim()) qs.set("search", filters.search.trim());
+  if (filters.verificationStatus) qs.set("verificationStatus", filters.verificationStatus);
+  if (filters.converted) qs.set("converted", filters.converted);
+  if (filters.source.trim()) qs.set("source", filters.source.trim());
+  if (filters.createdFrom) qs.set("createdFrom", filters.createdFrom);
+  if (filters.createdTo) qs.set("createdTo", filters.createdTo);
 
   return useQuery({
     queryKey: ["crm", "leads", filters],

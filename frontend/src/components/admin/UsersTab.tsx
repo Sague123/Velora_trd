@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAdminUsers } from "../../hooks/useAdmin";
 import { UserDetailDrawer } from "./UserDetailDrawer";
-import { LoadingRow, ErrorRow, EmptyRow } from "../common/States";
+import { ErrorRow, EmptyRow, SkeletonTableRows } from "../common/States";
 import { classNames, fmtDateTime, fmtUsd } from "../../lib/format";
 import type { UserStatus } from "../../lib/types";
 
@@ -23,9 +23,9 @@ export function UsersTab() {
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           placeholder="Поиск по email или имени…"
-          className="w-64 rounded border border-line bg-bg-2 px-2.5 py-1.5 text-xs outline-none focus:border-accent"
+          className="w-64 rounded-lg border border-line bg-bg-2 px-2.5 py-1.5 text-xs outline-none focus:border-accent"
         />
-        <div className="flex gap-0.5 rounded border border-line p-0.5">
+        <div className="flex gap-0.5 rounded-lg border border-line p-0.5">
           {(["ALL", "ACTIVE", "SUSPENDED"] as const).map((s) => (
             <button
               key={s}
@@ -43,10 +43,9 @@ export function UsersTab() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {isLoading && <LoadingRow label="Загрузка пользователей…" />}
         {isError && <ErrorRow label="Не удалось загрузить пользователей" onRetry={() => refetch()} />}
-        {!isLoading && !isError && data && data.users.length === 0 && <EmptyRow label="Ничего не найдено" />}
-        {!isLoading && !isError && data && data.users.length > 0 && (
+        {!isError && !isLoading && data && data.users.length === 0 && <EmptyRow label="Ничего не найдено" />}
+        {!isError && (isLoading || (data && data.users.length > 0)) && (
           <table className="w-full min-w-[820px] text-xs">
             <thead className="sticky top-0 bg-bg-1">
               <tr className="border-b border-line text-left text-txt-3">
@@ -61,7 +60,8 @@ export function UsersTab() {
               </tr>
             </thead>
             <tbody>
-              {data.users.map((u) => (
+              {isLoading && <SkeletonTableRows columns={8} />}
+              {!isLoading && data?.users.map((u) => (
                 <tr
                   key={u.id}
                   onClick={() => setSelected(u.id)}
@@ -95,7 +95,7 @@ export function UsersTab() {
           <button
             disabled={page <= 1}
             onClick={() => setPage((p) => p - 1)}
-            className="rounded border border-line px-2 py-1 text-txt-2 hover:text-txt-0 disabled:opacity-30"
+            className="rounded-lg border border-line px-2 py-1 text-txt-2 hover:text-txt-0 disabled:opacity-30"
           >
             ← Prev
           </button>
@@ -105,7 +105,7 @@ export function UsersTab() {
           <button
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
-            className="rounded border border-line px-2 py-1 text-txt-2 hover:text-txt-0 disabled:opacity-30"
+            className="rounded-lg border border-line px-2 py-1 text-txt-2 hover:text-txt-0 disabled:opacity-30"
           >
             Next →
           </button>

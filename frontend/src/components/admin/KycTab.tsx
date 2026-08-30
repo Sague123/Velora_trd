@@ -60,7 +60,7 @@ function ReviewDrawer({ id, onClose }: { id: string; onClose: () => void }) {
             <div className="truncate text-sm font-semibold text-txt-0">{s?.fullName ?? "…"}</div>
             <div className="truncate text-2xs text-txt-2">{s?.email}</div>
           </div>
-          <button onClick={onClose} className="btn-fx flex items-center gap-1 rounded border border-line px-2 py-1 text-xs text-txt-2 hover:text-txt-0">
+          <button onClick={onClose} className="btn-fx flex items-center gap-1 rounded-lg border border-line px-2 py-1 text-xs text-txt-2 hover:text-txt-0">
             <IconClose size={12} /> Close
           </button>
         </div>
@@ -106,7 +106,7 @@ function ReviewDrawer({ id, onClose }: { id: string; onClose: () => void }) {
                       <span className="mb-1 block text-2xs text-txt-2">Причина отклонения (увидит пользователь)</span>
                       <textarea
                         rows={2} value={reason} onChange={(e) => setReason(e.target.value)}
-                        className="w-full resize-none rounded border border-line bg-bg-2 px-2.5 py-2 text-xs text-txt-0 outline-none focus:border-accent"
+                        className="w-full resize-none rounded-lg border border-line bg-bg-2 px-2.5 py-2 text-xs text-txt-0 outline-none focus:border-accent"
                         placeholder="Например: номер документа не читается на фото"
                       />
                     </label>
@@ -115,7 +115,7 @@ function ReviewDrawer({ id, onClose }: { id: string; onClose: () => void }) {
                     <button
                       onClick={() => decide("APPROVE")}
                       disabled={review.isPending || rejecting}
-                      className="btn-fx rounded border border-buy/40 bg-buy-soft px-3 py-1.5 text-2xs font-semibold text-buy hover:bg-buy/20 disabled:opacity-40"
+                      className="btn-fx rounded-lg border border-buy/40 bg-buy-soft px-3 py-1.5 text-2xs font-semibold text-buy hover:bg-buy/20 disabled:opacity-40"
                     >
                       Одобрить
                     </button>
@@ -124,11 +124,11 @@ function ReviewDrawer({ id, onClose }: { id: string; onClose: () => void }) {
                         <button
                           onClick={() => decide("REJECT")}
                           disabled={review.isPending}
-                          className="btn-fx rounded border border-sell/40 bg-sell-soft px-3 py-1.5 text-2xs font-semibold text-sell hover:bg-sell/20 disabled:opacity-40"
+                          className="btn-fx rounded-lg border border-sell/40 bg-sell-soft px-3 py-1.5 text-2xs font-semibold text-sell hover:bg-sell/20 disabled:opacity-40"
                         >
                           Подтвердить отклонение
                         </button>
-                        <button onClick={() => { setRejecting(false); setReason(""); }} className="btn-fx rounded border border-line px-3 py-1.5 text-2xs text-txt-2 hover:text-txt-0">
+                        <button onClick={() => { setRejecting(false); setReason(""); }} className="btn-fx rounded-lg border border-line px-3 py-1.5 text-2xs text-txt-2 hover:text-txt-0">
                           Отмена
                         </button>
                       </>
@@ -136,7 +136,7 @@ function ReviewDrawer({ id, onClose }: { id: string; onClose: () => void }) {
                       <button
                         onClick={() => setRejecting(true)}
                         disabled={review.isPending}
-                        className="btn-fx rounded border border-line px-3 py-1.5 text-2xs text-txt-2 hover:border-sell hover:text-sell disabled:opacity-40"
+                        className="btn-fx rounded-lg border border-line px-3 py-1.5 text-2xs text-txt-2 hover:border-sell hover:text-sell disabled:opacity-40"
                       >
                         Отклонить
                       </button>
@@ -167,7 +167,7 @@ export function KycTab() {
       {openId && <ReviewDrawer id={openId} onClose={() => setOpenId(null)} />}
 
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-line-soft px-3 py-2">
-        <div className="flex gap-0.5 rounded border border-line p-0.5">
+        <div className="flex gap-0.5 rounded-lg border border-line p-0.5">
           {FILTERS.map((f) => (
             <button
               key={f}
@@ -180,7 +180,7 @@ export function KycTab() {
         </div>
         <span className="text-2xs text-txt-3">Всего: {queue.data?.total ?? 0}</span>
         {queue.data?.storageConfigured === false && (
-          <span className="rounded border border-warn/40 bg-warn/10 px-2 py-0.5 text-2xs text-warn">
+          <span className="rounded-lg border border-warn/40 bg-warn/10 px-2 py-0.5 text-2xs text-warn">
             Хранилище документов не настроено — новые заявки подать нельзя
           </span>
         )}
@@ -215,7 +215,7 @@ export function KycTab() {
                     <span className={classNames("rounded px-1.5 py-0.5 font-medium", STATUS_CLS[row.status])}>{row.status}</span>
                   </td>
                   <td className="px-3 py-1.5 text-right">
-                    <button onClick={() => setOpenId(row.id)} className="btn-fx rounded border border-line px-2 py-1 text-2xs text-accent hover:bg-accent-soft">
+                    <button onClick={() => setOpenId(row.id)} className="btn-fx rounded-lg border border-line px-2 py-1 text-2xs text-accent hover:bg-accent-soft">
                       Открыть
                     </button>
                   </td>

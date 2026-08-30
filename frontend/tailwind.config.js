@@ -79,6 +79,9 @@ export default {
         btn: "var(--shadow-btn)",
         // A larger lift, for a page's single primary action.
         lift: "var(--shadow-lift)",
+        // A smaller lift than `lift`, for CRM/Admin/Overview cards that float
+        // above their section on hover — never used in the dense terminal.
+        float: "var(--shadow-float)",
       },
     },
   },

@@ -148,7 +148,7 @@ export function UserDetailDrawer({ userId, onClose }: { userId: string; onClose:
                   Зарегистрирован {fmtDateTime(data.user.createdAt)} · вход {fmtDateTime(data.user.lastLoginAt)}
                 </div>
               </div>
-              <button onClick={onClose} className="flex items-center gap-1 rounded border border-line px-2 py-1 text-xs text-txt-2 hover:text-txt-0">
+              <button onClick={onClose} className="flex items-center gap-1 rounded-lg border border-line px-2 py-1 text-xs text-txt-2 hover:text-txt-0">
                 <IconClose size={12} /> Close
               </button>
             </div>
@@ -176,45 +176,45 @@ export function UserDetailDrawer({ userId, onClose }: { userId: string; onClose:
               </div>
 
               <div className="grid gap-3 border-b border-line px-4 py-3 sm:grid-cols-3">
-                <form onSubmit={onAdjust} className="rounded border border-line-soft bg-bg-2/40 p-2.5">
+                <form onSubmit={onAdjust} className="rounded-lg border border-line-soft bg-bg-2/40 p-2.5">
                   <div className="mb-1.5 text-2xs font-semibold text-txt-1">Balance Adjustment</div>
                   <input
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     placeholder="500 или -500"
-                    className="mb-1.5 w-full rounded border border-line bg-bg-3 px-2 py-1 text-2xs tabular outline-none focus:border-accent"
+                    className="mb-1.5 w-full rounded-lg border border-line bg-bg-3 px-2 py-1 text-2xs tabular outline-none focus:border-accent"
                   />
                   <input
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                     placeholder="Примечание (опц.)"
-                    className="mb-1.5 w-full rounded border border-line bg-bg-3 px-2 py-1 text-2xs outline-none focus:border-accent"
+                    className="mb-1.5 w-full rounded-lg border border-line bg-bg-3 px-2 py-1 text-2xs outline-none focus:border-accent"
                   />
-                  <button type="submit" disabled={adjustBalance.isPending} className="w-full rounded bg-accent-fill py-1 text-2xs font-medium text-white hover:bg-accent-dim disabled:opacity-50">
+                  <button type="submit" disabled={adjustBalance.isPending} className="w-full rounded-lg bg-accent-fill py-1 text-2xs font-medium text-white hover:bg-accent-dim disabled:opacity-50">
                     Apply
                   </button>
                 </form>
 
-                <form onSubmit={onResetPassword} className="rounded border border-line-soft bg-bg-2/40 p-2.5">
+                <form onSubmit={onResetPassword} className="rounded-lg border border-line-soft bg-bg-2/40 p-2.5">
                   <div className="mb-1.5 text-2xs font-semibold text-txt-1">Reset Password</div>
                   <input
                     type="text"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Новый пароль (мин. 10)"
-                    className="mb-1.5 w-full rounded border border-line bg-bg-3 px-2 py-1 text-2xs outline-none focus:border-accent"
+                    className="mb-1.5 w-full rounded-lg border border-line bg-bg-3 px-2 py-1 text-2xs outline-none focus:border-accent"
                   />
-                  <button type="submit" disabled={resetPassword.isPending} className="w-full rounded border border-line py-1 text-2xs font-medium text-txt-1 hover:border-accent hover:text-accent disabled:opacity-50">
+                  <button type="submit" disabled={resetPassword.isPending} className="w-full rounded-lg border border-line py-1 text-2xs font-medium text-txt-1 hover:border-accent hover:text-accent disabled:opacity-50">
                     Reset
                   </button>
                 </form>
 
-                <div className="rounded border border-line-soft bg-bg-2/40 p-2.5">
+                <div className="rounded-lg border border-line-soft bg-bg-2/40 p-2.5">
                   <div className="mb-1.5 text-2xs font-semibold text-txt-1">Account Controls</div>
                   <button
                     onClick={onToggleStatus}
                     disabled={isSelf || updateUser.isPending}
-                    className="mb-1.5 w-full rounded border border-line py-1 text-2xs font-medium text-txt-1 hover:border-warn hover:text-warn disabled:opacity-40"
+                    className="mb-1.5 w-full rounded-lg border border-line py-1 text-2xs font-medium text-txt-1 hover:border-warn hover:text-warn disabled:opacity-40"
                   >
                     {data.user.status === "ACTIVE" ? "Suspend account" : "Reactivate account"}
                   </button>
@@ -224,7 +224,7 @@ export function UserDetailDrawer({ userId, onClose }: { userId: string; onClose:
                       value={data.user.role}
                       disabled={isSelf || updateUser.isPending}
                       onChange={(e) => onChangeRole(e.target.value as Role)}
-                      className="w-full rounded border border-line bg-bg-3 px-2 py-1 text-2xs outline-none focus:border-accent disabled:opacity-40"
+                      className="w-full rounded-lg border border-line bg-bg-3 px-2 py-1 text-2xs outline-none focus:border-accent disabled:opacity-40"
                     >
                       <option value="USER">USER</option>
                       <option value="MANAGER">MANAGER</option>
@@ -242,7 +242,7 @@ export function UserDetailDrawer({ userId, onClose }: { userId: string; onClose:
                   <div className="mb-2 text-2xs font-semibold text-txt-1">CRM Permissions</div>
                   <div className="space-y-2">
                     {ALL_CRM_PERMISSIONS.map((p) => (
-                      <label key={p} className="flex items-start gap-2 rounded border border-line-soft bg-bg-2/40 p-2">
+                      <label key={p} className="flex items-start gap-2 rounded-lg border border-line-soft bg-bg-2/40 p-2">
                         <input
                           type="checkbox"
                           checked={permDraft.includes(p)}
@@ -259,7 +259,7 @@ export function UserDetailDrawer({ userId, onClose }: { userId: string; onClose:
                   <button
                     onClick={savePermissions}
                     disabled={!permissionsDirty || setCrmPermissions.isPending}
-                    className="mt-2 rounded bg-accent-fill px-3 py-1.5 text-2xs font-semibold text-white hover:bg-accent-dim disabled:opacity-40"
+                    className="mt-2 rounded-lg bg-accent-fill px-3 py-1.5 text-2xs font-semibold text-white hover:bg-accent-dim disabled:opacity-40"
                   >
                     {setCrmPermissions.isPending ? "Сохранение…" : "Сохранить права"}
                   </button>
@@ -320,7 +320,7 @@ export function UserDetailDrawer({ userId, onClose }: { userId: string; onClose:
                             {fmtSigned(p.unrealisedPnl)}
                           </td>
                           <td className="px-3 py-1.5 text-right">
-                            <button onClick={() => onAdminClose(p.id)} className="rounded border border-line px-2 py-0.5 text-2xs text-txt-1 hover:border-sell hover:text-sell">
+                            <button onClick={() => onAdminClose(p.id)} className="rounded-lg border border-line px-2 py-0.5 text-2xs text-txt-1 hover:border-sell hover:text-sell">
                               Force Close
                             </button>
                           </td>
@@ -358,7 +358,7 @@ export function UserDetailDrawer({ userId, onClose }: { userId: string; onClose:
                           <td className="px-3 py-1.5 text-right">{fmtQty(o.qty)}</td>
                           <td className="px-3 py-1.5 text-right">{fmtPrice(o.price, 4)}</td>
                           <td className="px-3 py-1.5 text-right">
-                            <button onClick={() => onAdminCancel(o.id)} className="rounded border border-line px-2 py-0.5 text-2xs text-txt-1 hover:border-sell hover:text-sell">
+                            <button onClick={() => onAdminCancel(o.id)} className="rounded-lg border border-line px-2 py-0.5 text-2xs text-txt-1 hover:border-sell hover:text-sell">
                               Force Cancel
                             </button>
                           </td>

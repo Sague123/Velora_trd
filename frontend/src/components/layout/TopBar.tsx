@@ -5,7 +5,8 @@ import { useConnStatus } from "../../hooks/useLivePrices";
 import { useServerHealth } from "../../hooks/useHealth";
 import { useAccount } from "../../hooks/useTrading";
 import { useIsMobile } from "../../hooks/useIsMobile";
-import { classNames, fmtUsd } from "../../lib/format";
+import { classNames, fmtUsd, n } from "../../lib/format";
+import { AnimatedNumber } from "../common/AnimatedNumber";
 import type { AuthUser } from "../../lib/types";
 import { IconBot, IconClipboard, IconGear, IconHome, IconMarkets, IconTrade, IconVault } from "../icons/Icon";
 import { LanguageSwitcher } from "./LanguageSwitcher";
@@ -190,7 +191,7 @@ export function TopBar() {
           <div className="flex items-center gap-3 border-l border-line pl-3 tabular">
             <div className="text-right leading-tight">
               <div className="text-2xs text-txt-2">{t("overview.equity")}</div>
-              <div className="font-semibold text-txt-0">{fmtUsd(account.equity)}</div>
+              <AnimatedNumber value={n(account.equity)} format={fmtUsd} className="font-semibold text-txt-0" />
             </div>
             <div
               className={classNames(
@@ -199,7 +200,7 @@ export function TopBar() {
               )}
             >
               <div className="text-2xs text-txt-2">uPnL</div>
-              <div className="font-semibold">{fmtUsd(account.unrealisedPnl)}</div>
+              <AnimatedNumber value={n(account.unrealisedPnl)} format={fmtUsd} className="font-semibold" />
             </div>
           </div>
         )}

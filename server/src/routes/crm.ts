@@ -59,6 +59,13 @@ const q = {
            OR LOWER(l.full_name) LIKE @like
            OR LOWER(COALESCE(l.email, '')) LIKE @like
            OR COALESCE(l.phone, '') LIKE @like)
+      AND (@verificationStatus::text IS NULL OR l.verification_status = @verificationStatus)
+      AND (@converted::text IS NULL
+           OR (@converted = 'true' AND l.platform_user_id IS NOT NULL)
+           OR (@converted = 'false' AND l.platform_user_id IS NULL))
+      AND (@source::text IS NULL OR LOWER(COALESCE(l.source, '')) LIKE @sourceLike)
+      AND (@createdFrom::text IS NULL OR l.created_at >= @createdFrom)
+      AND (@createdTo::text IS NULL OR l.created_at <= @createdTo)
     ORDER BY l.created_at DESC
     LIMIT @limit OFFSET @offset
   `),
@@ -70,6 +77,13 @@ const q = {
            OR LOWER(l.full_name) LIKE @like
            OR LOWER(COALESCE(l.email, '')) LIKE @like
            OR COALESCE(l.phone, '') LIKE @like)
+      AND (@verificationStatus::text IS NULL OR l.verification_status = @verificationStatus)
+      AND (@converted::text IS NULL
+           OR (@converted = 'true' AND l.platform_user_id IS NOT NULL)
+           OR (@converted = 'false' AND l.platform_user_id IS NULL))
+      AND (@source::text IS NULL OR LOWER(COALESCE(l.source, '')) LIKE @sourceLike)
+      AND (@createdFrom::text IS NULL OR l.created_at >= @createdFrom)
+      AND (@createdTo::text IS NULL OR l.created_at <= @createdTo)
   `),
   // The card: the lead itself, plus whatever the platform knows if this lead
   // has since registered. account/last_login are read live, never copied.
@@ -135,6 +149,12 @@ const q = {
     SELECT id, name, email, role FROM users
     WHERE role IN ('MANAGER', 'ADMIN') AND status = 'ACTIVE'
     ORDER BY name
+  `),
+  // Distinct source tags already in use, for the filter dropdown — source is
+  // freeform text entered per import, not a fixed enum, so this is the only
+  // way to offer real options instead of guessing a list.
+  sources: db.prepare(`
+    SELECT DISTINCT source FROM leads WHERE source IS NOT NULL AND source <> '' ORDER BY source LIMIT 200
   `),
   // An affiliate re-sending the same person must not create a second card for
   // them; the desk would then work one and comment on the other.
@@ -228,6 +248,7 @@ export default async function crmRoutes(app: FastifyInstance) {
     managers: ((await q.managers.all()) as any[]).map((m) => ({
       id: m.id, name: m.name, email: m.email, role: m.role,
     })),
+    sources: ((await q.sources.all()) as { source: string }[]).map((r) => r.source),
   }));
 
   app.get("/leads", async (req) => {
@@ -235,16 +256,34 @@ export default async function crmRoutes(app: FastifyInstance) {
       status: leadStatus.optional(),
       managerId: z.string().optional(),
       search: z.string().max(120).optional(),
+      verificationStatus: verificationStatus.optional(),
+      // "true"/"false" rather than z.coerce.boolean(): a query string "false"
+      // would otherwise coerce to true (any non-empty string is truthy), and
+      // the frontend just needs the tri-state select the string already gives.
+      converted: z.enum(["true", "false"]).optional(),
+      source: z.string().max(120).optional(),
+      createdFrom: z.string().optional(),
+      createdTo: z.string().optional(),
       page: z.coerce.number().int().min(1).default(1),
       pageSize: z.coerce.number().int().min(1).max(100).default(25),
     }).parse(req.query);
 
     const term = p.search?.trim().toLowerCase();
+    const sourceTerm = p.source?.trim().toLowerCase();
     const args = {
       status: p.status ?? null,
       managerId: p.managerId ?? null,
       search: term || null,
       like: term ? `%${term}%` : null,
+      verificationStatus: p.verificationStatus ?? null,
+      converted: p.converted ?? null,
+      source: sourceTerm || null,
+      sourceLike: sourceTerm ? `%${sourceTerm}%` : null,
+      // Day-granularity inputs (<input type="date">) widened to cover the
+      // whole day on the "to" end, so filtering "created to 2026-08-30"
+      // includes leads created at any time that day, not just at midnight.
+      createdFrom: p.createdFrom ? `${p.createdFrom}T00:00:00.000Z` : null,
+      createdTo: p.createdTo ? `${p.createdTo}T23:59:59.999Z` : null,
       limit: p.pageSize,
       offset: (p.page - 1) * p.pageSize,
     };

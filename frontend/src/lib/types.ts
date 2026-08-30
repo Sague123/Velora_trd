@@ -514,6 +514,9 @@ export interface CrmMeta {
    * regardless, this is only for the UI to know which buttons to show. */
   myPermissions: CrmPermission[];
   managers: CrmManager[];
+  /** Distinct source tags already in use, for the filter dropdown — source
+   * is freeform text entered per import, not a fixed enum. */
+  sources: string[];
 }
 
 export interface EditLeadInput {

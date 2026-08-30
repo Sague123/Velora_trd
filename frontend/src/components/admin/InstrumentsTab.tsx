@@ -78,11 +78,11 @@ export function InstrumentsTab() {
                       <input
                         value={editing[i.symbol] ?? String(i.maxLeverage)}
                         onChange={(e) => setEditing((s) => ({ ...s, [i.symbol]: e.target.value }))}
-                        className="w-16 rounded border border-line bg-bg-2 px-1.5 py-1 text-2xs tabular outline-none focus:border-accent"
+                        className="w-16 rounded-lg border border-line bg-bg-2 px-1.5 py-1 text-2xs tabular outline-none focus:border-accent"
                       />
                       <button
                         onClick={() => saveMaxLeverage(i.symbol)}
-                        className="rounded border border-line px-2 py-1 text-2xs text-txt-1 hover:border-accent hover:text-accent"
+                        className="rounded-lg border border-line px-2 py-1 text-2xs text-txt-1 hover:border-accent hover:text-accent"
                       >
                         Save
                       </button>

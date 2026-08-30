@@ -5,7 +5,7 @@ import { StatusChip } from "../components/crm/StatusChip";
 import {
   LEAD_STATUS_LABEL, LEAD_STATUS_TONE, VERIFICATION_LABEL, VERIFICATION_TONE,
 } from "../components/crm/leadLabels";
-import { EmptyRow, LoadingRow } from "../components/common/States";
+import { EmptyRow, SkeletonTableRows } from "../components/common/States";
 import { SiteFooter } from "../components/layout/SiteFooter";
 import { classNames, fmtDateTime } from "../lib/format";
 import { toast } from "../store/toast";
@@ -14,7 +14,7 @@ import type { LeadStatus } from "../lib/types";
 import { IconClipboard } from "../components/icons/Icon";
 
 const inputCls =
-  "w-full rounded border border-line bg-bg-2 px-2.5 py-1.5 text-xs text-txt-0 outline-none placeholder:text-txt-3 focus:border-accent";
+  "w-full rounded-lg border border-line bg-bg-2 px-2.5 py-1.5 text-xs text-txt-0 outline-none placeholder:text-txt-3 focus:border-accent";
 
 /**
  * Manual intake. Affiliate webhooks are out of scope for this milestone, so
@@ -64,11 +64,11 @@ function ImportForm({ onClose }: { onClose: () => void }) {
         <button
           type="submit"
           disabled={!hasContact || fullName.trim().length < 2 || importLead.isPending}
-          className="btn-fx rounded bg-accent-fill px-3 py-1.5 text-2xs font-semibold text-white hover:brightness-110 disabled:opacity-40"
+          className="btn-fx rounded-lg bg-accent-fill px-3 py-1.5 text-2xs font-semibold text-white hover:brightness-110 disabled:opacity-40"
         >
           {importLead.isPending ? "Добавление…" : "Добавить"}
         </button>
-        <button type="button" onClick={onClose} className="btn-fx rounded border border-line px-3 py-1.5 text-2xs text-txt-2 hover:text-txt-0">
+        <button type="button" onClick={onClose} className="btn-fx rounded-lg border border-line px-3 py-1.5 text-2xs text-txt-2 hover:text-txt-0">
           Отмена
         </button>
         {!hasContact && <span className="text-2xs text-txt-3">Нужен телефон или email</span>}
@@ -80,7 +80,8 @@ function ImportForm({ onClose }: { onClose: () => void }) {
 export function CrmPage() {
   const meta = useCrmMeta();
   const [filters, setFilters] = useState<LeadFilters>({
-    status: "", managerId: "", search: "", page: 1, pageSize: 25,
+    status: "", managerId: "", search: "", verificationStatus: "", converted: "", source: "",
+    createdFrom: "", createdTo: "", page: 1, pageSize: 25,
   });
   // Typed separately from the applied filter so the list isn't refetched on
   // every keystroke of a phone number.
@@ -96,17 +97,21 @@ export function CrmPage() {
     <div className="mx-auto flex h-full w-full max-w-[1500px] flex-col overflow-y-auto p-3">
       {openId && <LeadCard leadId={openId} onClose={() => setOpenId(null)} />}
 
-      <div className="anim-rise mb-3 flex flex-wrap items-center gap-2">
-        <h1 className="flex items-center gap-1.5 text-sm font-semibold text-txt-0">
-          <IconClipboard size={15} /> CRM — лиды
-        </h1>
-        <span className="text-2xs text-txt-3">Всего: {data?.total ?? 0}</span>
-        <button
-          onClick={() => setImporting((v) => !v)}
-          className="btn-fx ml-auto rounded border border-accent/40 px-3 py-1.5 text-2xs font-medium text-accent hover:bg-accent-soft"
-        >
-          {importing ? "Скрыть форму" : "Добавить лида"}
-        </button>
+      <div className="anim-rise relative mb-3 overflow-hidden rounded-xl border border-line bg-bg-1 px-4 py-3">
+        <div className="section-glow" aria-hidden />
+        <div className="neon-strip" aria-hidden />
+        <div className="relative flex flex-wrap items-center gap-2">
+          <h1 className="flex items-center gap-1.5 text-sm font-semibold text-txt-0">
+            <IconClipboard size={15} /> CRM — лиды
+          </h1>
+          <span className="text-2xs text-txt-3">Всего: {data?.total ?? 0}</span>
+          <button
+            onClick={() => setImporting((v) => !v)}
+            className="btn-fx ml-auto rounded-lg border border-accent/40 px-3 py-1.5 text-2xs font-medium text-accent hover:bg-accent-soft"
+          >
+            {importing ? "Скрыть форму" : "Добавить лида"}
+          </button>
+        </div>
       </div>
 
       {importing && <ImportForm onClose={() => setImporting(false)} />}
@@ -127,7 +132,7 @@ export function CrmPage() {
           </form>
         </label>
 
-        <label className="min-w-[170px]">
+        <label className="min-w-[150px]">
           <span className="mb-1 block text-2xs font-medium text-txt-2">Статус</span>
           <select
             value={filters.status}
@@ -141,8 +146,45 @@ export function CrmPage() {
           </select>
         </label>
 
+        <label className="min-w-[150px]">
+          <span className="mb-1 block text-2xs font-medium text-txt-2">Верификация</span>
+          <select
+            value={filters.verificationStatus}
+            onChange={(e) => patch({ verificationStatus: e.target.value as LeadFilters["verificationStatus"] })}
+            className={inputCls}
+          >
+            <option value="">Все</option>
+            {(meta.data?.verificationStatuses ?? []).map((s) => (
+              <option key={s} value={s}>{VERIFICATION_LABEL[s] ?? s}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="min-w-[150px]">
+          <span className="mb-1 block text-2xs font-medium text-txt-2">Клиент</span>
+          <select
+            value={filters.converted}
+            onChange={(e) => patch({ converted: e.target.value as LeadFilters["converted"] })}
+            className={inputCls}
+          >
+            <option value="">Все</option>
+            <option value="true">Уже клиент</option>
+            <option value="false">Ещё лид</option>
+          </select>
+        </label>
+
+        <label className="min-w-[150px]">
+          <span className="mb-1 block text-2xs font-medium text-txt-2">Источник</span>
+          <select value={filters.source} onChange={(e) => patch({ source: e.target.value })} className={inputCls}>
+            <option value="">Все</option>
+            {(meta.data?.sources ?? []).map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </label>
+
         <label className="min-w-[170px]">
-          <span className="mb-1 block text-2xs font-medium text-txt-2">Ответственный</span>
+          <span className="mb-1 block text-2xs font-medium text-txt-2">Отв.</span>
           <select value={filters.managerId} onChange={(e) => patch({ managerId: e.target.value })} className={inputCls}>
             <option value="">Все</option>
             {(meta.data?.managers ?? []).map((m) => (
@@ -151,10 +193,27 @@ export function CrmPage() {
           </select>
         </label>
 
-        {(filters.status || filters.managerId || filters.search) && (
+        <label className="min-w-[130px]">
+          <span className="mb-1 block text-2xs font-medium text-txt-2">Создан с</span>
+          <input type="date" value={filters.createdFrom} onChange={(e) => patch({ createdFrom: e.target.value })} className={inputCls} />
+        </label>
+
+        <label className="min-w-[130px]">
+          <span className="mb-1 block text-2xs font-medium text-txt-2">по</span>
+          <input type="date" value={filters.createdTo} onChange={(e) => patch({ createdTo: e.target.value })} className={inputCls} />
+        </label>
+
+        {(filters.status || filters.managerId || filters.search || filters.verificationStatus
+          || filters.converted || filters.source || filters.createdFrom || filters.createdTo) && (
           <button
-            onClick={() => { setSearchDraft(""); setFilters((f) => ({ ...f, status: "", managerId: "", search: "", page: 1 })); }}
-            className="btn-fx rounded border border-line px-3 py-1.5 text-2xs text-txt-2 hover:text-txt-0"
+            onClick={() => {
+              setSearchDraft("");
+              setFilters((f) => ({
+                ...f, status: "", managerId: "", search: "", verificationStatus: "",
+                converted: "", source: "", createdFrom: "", createdTo: "", page: 1,
+              }));
+            }}
+            className="btn-fx rounded-lg border border-line px-3 py-1.5 text-2xs text-txt-2 hover:text-txt-0"
           >
             Сбросить
           </button>
@@ -162,14 +221,13 @@ export function CrmPage() {
       </div>
 
       <div className="anim-rise-3 min-h-0 flex-1 overflow-x-auto rounded-lg border border-line bg-bg-1">
-        {isLoading && <LoadingRow />}
         {!isLoading && (data?.leads.length ?? 0) === 0 && (
           <EmptyRow label={filters.search || filters.status || filters.managerId
             ? "Под фильтры ничего не подошло"
             : "Лидов пока нет — добавьте первого кнопкой выше"} />
         )}
 
-        {(data?.leads.length ?? 0) > 0 && (
+        {(isLoading || (data?.leads.length ?? 0) > 0) && (
           <table className="w-full min-w-[900px] text-2xs">
             <thead>
               <tr className="border-b border-line-soft text-left text-txt-3">
@@ -184,7 +242,8 @@ export function CrmPage() {
               </tr>
             </thead>
             <tbody>
-              {data!.leads.map((l) => (
+              {isLoading && <SkeletonTableRows columns={8} />}
+              {!isLoading && data!.leads.map((l) => (
                 <tr
                   key={l.id}
                   onClick={() => setOpenId(l.id)}
@@ -221,7 +280,7 @@ export function CrmPage() {
           <button
             disabled={filters.page <= 1}
             onClick={() => setFilters((f) => ({ ...f, page: f.page - 1 }))}
-            className={classNames("btn-fx rounded border border-line px-2.5 py-1", filters.page <= 1 && "opacity-40")}
+            className={classNames("btn-fx rounded-lg border border-line px-2.5 py-1", filters.page <= 1 && "opacity-40")}
           >
             Назад
           </button>
@@ -229,7 +288,7 @@ export function CrmPage() {
           <button
             disabled={filters.page >= totalPages}
             onClick={() => setFilters((f) => ({ ...f, page: f.page + 1 }))}
-            className={classNames("btn-fx rounded border border-line px-2.5 py-1", filters.page >= totalPages && "opacity-40")}
+            className={classNames("btn-fx rounded-lg border border-line px-2.5 py-1", filters.page >= totalPages && "opacity-40")}
           >
             Вперёд
           </button>

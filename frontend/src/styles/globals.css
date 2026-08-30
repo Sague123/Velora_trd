@@ -55,6 +55,10 @@
    * on a page that has room for it (the auth screens). Never used inside the
    * terminal, where a raised control would fight the flat, bordered density. */
   --shadow-lift: 0 6px 20px -6px rgba(0, 0, 0, 0.65);
+  /* A third, smaller lift for cards/panels that float above their own
+   * section on hover — CRM/Admin/Overview surfaces, never the dense
+   * terminal panels, which stay flat and bordered per --shadow-panel. */
+  --shadow-float: 0 4px 16px -4px rgba(0, 0, 0, 0.45);
 }
 
 [data-theme="light"] {
@@ -94,6 +98,7 @@
   --shadow-btn: 0 1px 3px rgba(20, 24, 33, 0.12);
   --shadow-panel: 0 0 0 1px rgba(15, 23, 42, 0.06);
   --shadow-lift: 0 8px 22px -8px rgba(15, 23, 42, 0.28);
+  --shadow-float: 0 4px 14px -4px rgba(15, 23, 42, 0.16);
 }
 
 * { box-sizing: border-box; }
@@ -330,4 +335,88 @@ button:disabled { cursor: not-allowed; }
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+
+/* ------------------------------- skeletons ------------------------------- */
+/* Content-shaped loading placeholders (see SkeletonBar/SkeletonTableRows/
+ * SkeletonLines in components/common/States.tsx). A left-to-right shimmer
+ * over a flat tint — cheaper than pulsing opacity and reads more like
+ * "content is arriving" than a generic pulse does. */
+@keyframes skeleton-shimmer {
+  0% { background-position: -120% 0; }
+  100% { background-position: 120% 0; }
+}
+.skeleton {
+  background-color: rgb(var(--c-bg-3));
+  background-image: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+[data-theme="light"] .skeleton {
+  background-image: linear-gradient(90deg, transparent, rgba(15, 23, 42, 0.05), transparent);
+}
+
+/* --------------------------- directional swipe --------------------------- */
+/* AppLayout picks -left/-right by comparing the outgoing and incoming tab's
+ * position in the nav order, so moving from Overview to Trade always slides
+ * the same direction a finger-swipe would produce — motion-only (transform),
+ * per the rise-in rule above: nothing may animate from opacity:0. */
+@keyframes page-in-from-right {
+  from { transform: translateX(18px); }
+  to { transform: translateX(0); }
+}
+@keyframes page-in-from-left {
+  from { transform: translateX(-18px); }
+  to { transform: translateX(0); }
+}
+.page-slide-right { animation: page-in-from-right 260ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.page-slide-left { animation: page-in-from-left 260ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* ------------------------- section glow / neon strip ---------------------- */
+/* The authenticated shell is deliberately flat and bordered (see the top of
+ * this file), but three screens are dashboards/consoles rather than the
+ * dense trading ticket — Overview, CRM, Admin. Their headers get the same
+ * ambient-light treatment `.hero-glow` already gives the public marketing
+ * pages, just tuned down; the order book, chart and order ticket never use
+ * either of these. */
+.section-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at top left, rgba(61, 124, 255, 0.10), transparent 55%),
+    radial-gradient(ellipse at top right, rgba(23, 200, 133, 0.07), transparent 50%);
+  pointer-events: none;
+}
+[data-theme="light"] .section-glow {
+  background: radial-gradient(ellipse at top left, rgba(61, 124, 255, 0.06), transparent 55%),
+    radial-gradient(ellipse at top right, rgba(23, 200, 133, 0.05), transparent 50%);
+}
+.neon-strip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #3d7cff, #a78bfa, #17c885, transparent);
+  opacity: 0.55;
+  filter: blur(0.5px);
+  pointer-events: none;
+}
+
+/* ------------------------------ chart watermark --------------------------- */
+/* A faint, unmistakably-behind-the-candles wordmark — never opaque enough to
+ * compete with the data it sits under. pointer-events:none so it can never
+ * intercept a click meant for the chart underneath it. */
+.chart-watermark {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 0;
+  font-size: clamp(28px, 6vw, 64px);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: rgb(var(--c-txt-0) / 0.035);
+  user-select: none;
 }

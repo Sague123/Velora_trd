@@ -9,7 +9,8 @@ import { useTerminalStore } from "../store/terminal";
 import { SignalCard } from "../components/overview/SignalCard";
 import { QuickDepositModal } from "../components/profile/QuickDepositModal";
 import { LoadingRow, ErrorRow } from "../components/common/States";
-import { classNames, fmtPct, fmtSigned, fmtUsd } from "../lib/format";
+import { classNames, fmtPct, fmtSigned, fmtUsd, n } from "../lib/format";
+import { AnimatedNumber } from "../components/common/AnimatedNumber";
 import { IconArrowRight, IconBolt, IconTrendDown, IconTrendUp, IconWalletPlus } from "../components/icons/Icon";
 import { SiteFooter } from "../components/layout/SiteFooter";
 
@@ -87,10 +88,10 @@ export function OverviewPage() {
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
           {/* Account snapshot */}
           {user && account.data && (
-            <div className="anim-rise-1 grid grid-cols-2 gap-2 rounded border border-line bg-bg-1 p-3 sm:grid-cols-4 lg:col-span-4">
-              <div><div className="text-2xs text-txt-2">{t("overview.equity")}</div><div className="tabular text-sm font-semibold text-txt-0">{fmtUsd(account.data.equity)}</div></div>
-              <div><div className="text-2xs text-txt-2">{t("overview.freeMargin")}</div><div className="tabular text-sm font-semibold text-txt-0">{fmtUsd(account.data.cash)}</div></div>
-              <div><div className="text-2xs text-txt-2">{t("overview.unrealisedPnl")}</div><div className={classNames("tabular text-sm font-semibold", Number(account.data.unrealisedPnl) >= 0 ? "text-buy" : "text-sell")}>{fmtSigned(account.data.unrealisedPnl)}</div></div>
+            <div className="anim-rise-1 grid grid-cols-2 gap-2 rounded-lg border border-line bg-bg-1 p-3 shadow-none transition-shadow hover:shadow-float sm:grid-cols-4 lg:col-span-4">
+              <div><div className="text-2xs text-txt-2">{t("overview.equity")}</div><AnimatedNumber value={n(account.data.equity)} format={fmtUsd} className="tabular text-sm font-semibold text-txt-0" /></div>
+              <div><div className="text-2xs text-txt-2">{t("overview.freeMargin")}</div><AnimatedNumber value={n(account.data.cash)} format={fmtUsd} className="tabular text-sm font-semibold text-txt-0" /></div>
+              <div><div className="text-2xs text-txt-2">{t("overview.unrealisedPnl")}</div><AnimatedNumber value={n(account.data.unrealisedPnl)} format={fmtSigned} className={classNames("tabular text-sm font-semibold", Number(account.data.unrealisedPnl) >= 0 ? "text-buy" : "text-sell")} /></div>
               <div><div className="text-2xs text-txt-2">{t("overview.openPositions")}</div><div className="tabular text-sm font-semibold text-txt-0">{account.data.openPositions}</div></div>
             </div>
           )}

@@ -413,6 +413,11 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
       <div className="relative min-h-0 flex-1">
         <div ref={containerRef} className="absolute inset-0" />
 
+        {/* Faint enough (3.5% opacity, see .chart-watermark) that it never
+            competes with a candle or the legend sitting on top of it —
+            purely a "this came from Velora" mark for a screenshotted chart. */}
+        <div className="chart-watermark" aria-hidden>VELORA</div>
+
         {/* Always-visible exit affordance while fullscreen — on top of the
             toolbar's own toggle button, since a stray click elsewhere or an
             unfamiliar layout in true fullscreen shouldn't leave anyone

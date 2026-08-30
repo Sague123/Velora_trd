@@ -18,7 +18,7 @@ import type { LeadStatus, LeadVerificationStatus } from "../../lib/types";
 import { IconClose, IconPencil } from "../icons/Icon";
 
 const selectCls =
-  "w-full rounded border border-line bg-bg-2 px-2 py-1.5 text-xs text-txt-0 outline-none focus:border-accent";
+  "w-full rounded-lg border border-line bg-bg-2 px-2 py-1.5 text-xs text-txt-0 outline-none focus:border-accent";
 const inputCls = selectCls;
 
 /** History rows store the raw enum value; the timeline should read the same
@@ -143,7 +143,7 @@ export function LeadCard({ leadId, onClose }: { leadId: string; onClose: () => v
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div
-        className="anim-rise flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-line bg-bg-1 shadow-panel"
+        className="anim-rise flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-line bg-bg-1 shadow-lift"
         onClick={(e) => e.stopPropagation()}
       >
         {showComments && lead && (
@@ -163,7 +163,7 @@ export function LeadCard({ leadId, onClose }: { leadId: string; onClose: () => v
               </div>
             )}
           </div>
-          <button onClick={onClose} className="btn-fx flex shrink-0 items-center gap-1 rounded border border-line px-2 py-1 text-xs text-txt-2 hover:text-txt-0">
+          <button onClick={onClose} className="btn-fx flex shrink-0 items-center gap-1 rounded-lg border border-line px-2 py-1 text-xs text-txt-2 hover:text-txt-0">
             <IconClose size={12} /> Закрыть
           </button>
         </div>
@@ -213,11 +213,11 @@ export function LeadCard({ leadId, onClose }: { leadId: string; onClose: () => v
                     <button
                       type="submit"
                       disabled={editLead.isPending || (!form.phone.trim() && !form.email.trim()) || form.fullName.trim().length < 2}
-                      className="btn-fx rounded bg-accent-fill px-3 py-1.5 text-2xs font-semibold text-white hover:brightness-110 disabled:opacity-40"
+                      className="btn-fx rounded-lg bg-accent-fill px-3 py-1.5 text-2xs font-semibold text-white hover:brightness-110 disabled:opacity-40"
                     >
                       {editLead.isPending ? "Сохранение…" : "Сохранить"}
                     </button>
-                    <button type="button" onClick={cancelEdit} className="btn-fx rounded border border-line px-3 py-1.5 text-2xs text-txt-2 hover:text-txt-0">
+                    <button type="button" onClick={cancelEdit} className="btn-fx rounded-lg border border-line px-3 py-1.5 text-2xs text-txt-2 hover:text-txt-0">
                       Отмена
                     </button>
                   </div>

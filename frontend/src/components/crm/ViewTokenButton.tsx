@@ -25,7 +25,7 @@ export function ViewTokenButton({ leadId }: { leadId: string }) {
     <button
       onClick={open}
       disabled={issue.isPending}
-      className="btn-fx rounded border border-accent/40 px-3 py-1.5 text-2xs font-medium text-accent hover:bg-accent-soft disabled:opacity-40"
+      className="btn-fx rounded-lg border border-accent/40 px-3 py-1.5 text-2xs font-medium text-accent hover:bg-accent-soft disabled:opacity-40"
     >
       {issue.isPending ? "Открытие…" : "Просмотреть аккаунт клиента"}
     </button>

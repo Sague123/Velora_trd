@@ -36,7 +36,7 @@ export function ConvertLeadButton({
         onClick={run}
         disabled={!hasEmail || convert.isPending}
         title={!hasEmail ? "Нужен email — добавьте его в карточке" : undefined}
-        className="btn-fx rounded bg-accent-fill px-3 py-1.5 text-2xs font-semibold text-white hover:brightness-110 disabled:opacity-40"
+        className="btn-fx rounded-lg bg-accent-fill px-3 py-1.5 text-2xs font-semibold text-white hover:brightness-110 disabled:opacity-40"
       >
         {convert.isPending ? "Создание…" : "Перевести в пользователя платформы"}
       </button>
@@ -62,10 +62,10 @@ export function RevealedPasswordBanner({ password, onDismiss }: { password: stri
         <IconWarning size={13} /> Сохраните пароль — он больше нигде не будет показан
       </div>
       <div className="mb-2 flex items-center gap-2">
-        <code className="mono flex-1 rounded border border-line bg-bg-2 px-2 py-1.5 text-xs text-txt-0">{password}</code>
+        <code className="mono flex-1 rounded-lg border border-line bg-bg-2 px-2 py-1.5 text-xs text-txt-0">{password}</code>
         <button
           onClick={() => { void navigator.clipboard?.writeText(password); toast.info("Пароль скопирован"); }}
-          className="btn-fx rounded border border-line px-2.5 py-1.5 text-2xs text-txt-1 hover:border-accent hover:text-accent"
+          className="btn-fx rounded-lg border border-line px-2.5 py-1.5 text-2xs text-txt-1 hover:border-accent hover:text-accent"
         >
           Копировать
         </button>
@@ -74,7 +74,7 @@ export function RevealedPasswordBanner({ password, onDismiss }: { password: stri
         Передайте пароль клиенту тем же каналом, что и связь с ним. При первом входе система потребует
         заменить его на собственный.
       </p>
-      <button onClick={onDismiss} className="btn-fx rounded border border-line px-2.5 py-1 text-2xs text-txt-1 hover:text-txt-0">
+      <button onClick={onDismiss} className="btn-fx rounded-lg border border-line px-2.5 py-1 text-2xs text-txt-1 hover:text-txt-0">
         Я сохранил пароль
       </button>
     </div>
