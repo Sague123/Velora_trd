@@ -35,12 +35,14 @@ const q = {
            (SELECT COUNT(*) FROM trades t WHERE t.user_id = u.id) AS trade_count
     FROM users u LEFT JOIN accounts a ON a.user_id = u.id
     WHERE (@status::text = 'ALL' OR u.status = @status)
+      AND (@role::text = 'ALL' OR (@role::text = 'STAFF' AND u.role IN ('MANAGER','ADMIN')) OR u.role = @role)
       AND (@search::text IS NULL OR u.email LIKE @like OR u.name LIKE @like)
     ORDER BY u.created_at DESC LIMIT @limit OFFSET @offset
   `),
   countUsers: db.prepare(`
     SELECT COUNT(*) AS n FROM users u
     WHERE (@status::text = 'ALL' OR u.status = @status)
+      AND (@role::text = 'ALL' OR (@role::text = 'STAFF' AND u.role IN ('MANAGER','ADMIN')) OR u.role = @role)
       AND (@search::text IS NULL OR u.email LIKE @like OR u.name LIKE @like)
   `),
   user: db.prepare("SELECT * FROM users WHERE id = ?"),
@@ -108,12 +110,17 @@ export default async function adminRoutes(app: FastifyInstance) {
     const p = z.object({
       search: z.string().optional(),
       status: z.enum(["ACTIVE", "SUSPENDED", "ALL"]).default("ALL"),
+      // STAFF is MANAGER+ADMIN combined — what the admin console's Team tab
+      // asks for, since customers are the CRM's job now (see
+      // lib/leadIntake.ts) and this endpoint should not be a second place to
+      // browse them.
+      role: z.enum(["ALL", "USER", "MANAGER", "ADMIN", "STAFF"]).default("ALL"),
       page: z.coerce.number().int().min(1).default(1),
       pageSize: z.coerce.number().int().min(1).max(100).default(25),
     }).parse(req.query);
 
     const args = {
-      status: p.status, search: p.search ?? null, like: p.search ? `%${p.search}%` : null,
+      status: p.status, role: p.role, search: p.search ?? null, like: p.search ? `%${p.search}%` : null,
       limit: p.pageSize, offset: (p.page - 1) * p.pageSize,
     };
     const total = asNum((await q.countUsers.get(args) as any).n);

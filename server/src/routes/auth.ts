@@ -13,6 +13,7 @@ import { encryptSecret, decryptSecret } from "../lib/crypto.js";
 import { consumeBackupCode, newBackupCodes, newTotpSecret, totpQrDataUrl, totpUri, verifyTotp } from "../lib/totp.js";
 import { consumeAuthToken, issueAuthToken } from "../lib/authTokens.js";
 import { passwordChangedEmail, passwordResetEmail, sendMail, verificationEmail } from "../lib/mailer.js";
+import { createLeadForUser } from "../lib/leadIntake.js";
 
 const password = z.string().min(10, "Пароль должен быть не короче 10 символов").max(200)
   .regex(/[a-zA-Z]/, "Пароль должен содержать буквы")
@@ -98,10 +99,14 @@ export default async function authRoutes(app: FastifyInstance) {
     const starting = toScaled(config.startingBalance);
 
     const accountNumber = await newAccountNumber();
+    const name = body.name ?? email.split("@")[0];
     await tx(async () => {
-      await q.insUser.run({ id, email, hash, name: body.name ?? email.split("@")[0], role: "USER", accountNumber, ts });
+      await q.insUser.run({ id, email, hash, name, role: "USER", accountNumber, ts });
       await q.insAccount.run(id, starting, ts);
       await q.insLedger.run({ id: newId(), userId: id, amt: starting, note: "Стартовый баланс", ts });
+      // Every customer belongs in the CRM from the moment they exist, not
+      // only once a manager happens to import them — see lib/leadIntake.ts.
+      await createLeadForUser({ userId: id, email, fullName: name, ts });
       await audit({ actorId: id, targetUserId: id, action: "USER_REGISTERED", ip: req.ip });
     });
 

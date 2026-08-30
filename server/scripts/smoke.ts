@@ -598,14 +598,15 @@ async function main() {
   });
   check("the same phone cannot create a second card", duplicate.status === 400, duplicate.body?.error);
 
-  // A lead whose email already belongs to a platform account links to it on
-  // import, so the desk sees the real balance instead of a blank card.
-  const linked = await api("/api/crm/leads/import", {
-    token: managerToken, method: "POST",
-    body: { fullName: "Existing Trader", email, country: "PL", source: "smoke-affiliate" },
-  });
-  check("an already-registered lead links to their account", !!linked.body?.lead?.platform?.userId, linked.body?.lead);
-  check("the card reads the live platform balance", !!linked.body?.lead?.platform?.balance, linked.body?.lead?.platform);
+  // Every self-registered account gets a CRM lead automatically the moment it
+  // exists (see lib/leadIntake.ts) — that account was registered at the very
+  // top of this script, so by now the desk should already see it, already
+  // linked to the real platform account, real balance and all.
+  const autoLead = await api(`/api/crm/leads?search=${encodeURIComponent(email)}`, { token: managerToken });
+  const autoLeadRow = autoLead.body?.leads?.[0];
+  check("self-registration files its own CRM lead", autoLeadRow?.platformUserId != null, autoLeadRow);
+  const autoLeadDetail = autoLeadRow ? await api(`/api/crm/leads/${autoLeadRow.id}`, { token: managerToken }) : null;
+  check("the card reads the live platform balance", !!autoLeadDetail?.body?.lead?.platform?.balance, autoLeadDetail?.body?.lead?.platform);
 
   const badStatus = await api(`/api/crm/leads/${leadId}/status`, {
     token: managerToken, method: "PATCH", body: { status: "NOT_A_STAGE" },

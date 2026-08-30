@@ -49,6 +49,28 @@
   --c-sell-dim: 156 47 61;
   --c-sell-soft: 42 18 22;
   --c-warn: 224 165 60;
+  /* Categorical palette for the CRM lead pipeline only — ten funnel stages
+   * need to be told apart at a glance, and the four semantic tones above
+   * (accent/buy/sell/warn) can't stretch to cover that without recruiting
+   * buy's green or sell's red for a meaning that has nothing to do with
+   * market direction (see leadLabels.ts's LEAD_STATUS_TONE comment). Each
+   * hue here was chosen and measured to stay clearly outside both buy's and
+   * sell's hue range, and every one clears 4.5:1 as text on bg-1, on bg-3,
+   * and on its own -soft tint. Scope: CRM status/verification chips and the
+   * lead-name highlight only — never the trading terminal.
+   */
+  --c-cat-gold: 233 239 57;
+  --c-cat-gold-soft: 49 51 20;
+  --c-cat-teal: 62 216 234;
+  --c-cat-teal-soft: 15 48 54;
+  --c-cat-indigo: 127 109 243;
+  --c-cat-indigo-soft: 20 17 54;
+  --c-cat-violet: 173 90 237;
+  --c-cat-violet-soft: 35 17 54;
+  --c-cat-magenta: 234 62 234;
+  --c-cat-magenta-soft: 50 17 54;
+  --c-cat-rose: 228 68 169;
+  --c-cat-rose-soft: 50 17 42;
   --shadow-btn: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-panel: 0 0 0 1px rgba(255, 255, 255, 0.03);
   /* A deliberately larger lift than --shadow-btn, for the one primary action
@@ -95,6 +117,20 @@
   --c-sell-dim: 163 26 39;
   --c-sell-soft: 251 223 226;
   --c-warn: 168 105 22;
+  /* Same six categorical hues, redarkened for a white surface — same rule as
+   * the rest of the ramp: 4.5:1 on bg-1, on bg-3, and on their own -soft tint. */
+  --c-cat-gold: 105 109 9;
+  --c-cat-gold-soft: 247 248 229;
+  --c-cat-teal: 14 113 124;
+  --c-cat-teal-soft: 229 246 248;
+  --c-cat-indigo: 36 15 179;
+  --c-cat-indigo-soft: 232 229 248;
+  --c-cat-violet: 107 19 174;
+  --c-cat-violet-soft: 239 229 248;
+  --c-cat-magenta: 174 19 174;
+  --c-cat-magenta-soft: 248 229 248;
+  --c-cat-rose: 170 24 116;
+  --c-cat-rose-soft: 248 229 241;
   --shadow-btn: 0 1px 3px rgba(20, 24, 33, 0.12);
   --shadow-panel: 0 0 0 1px rgba(15, 23, 42, 0.06);
   --shadow-lift: 0 8px 22px -8px rgba(15, 23, 42, 0.28);

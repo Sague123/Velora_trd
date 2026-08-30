@@ -53,6 +53,17 @@ state). Each has `-dim` (hover/pressed) and `-soft` (tinted background) forms.
 **Never** use `buy`/`sell` for anything but market direction or P&L sign. A
 green "Save" button is wrong here — it reads as "long".
 
+### Categorical — `cat-gold`, `cat-teal`, `cat-indigo`, `cat-violet`, `cat-magenta`, `cat-rose`
+Scoped to exactly one use: colour-coding the CRM lead pipeline's ten funnel
+statuses (`frontend/src/components/crm/leadLabels.ts`), where the four
+semantic tones can't stretch far enough without borrowing buy's green or
+sell's red for a meaning that has nothing to do with money. Each hue is
+measured to sit clearly outside both buy's and sell's hue range and clears
+4.5:1 as text on `bg-1`, on `bg-3`, and on its own `-soft` tint (same rule as
+everything else on this page). **Do not use these in the trading terminal** —
+they exist to solve "ten CRM statuses need to be told apart," not as a general
+extra accent palette.
+
 ---
 
 ## The accessibility floor (non-negotiable)

@@ -59,39 +59,55 @@ function currentClient(): pg.PoolClient | pg.Pool {
 /** Rewrites `@name` / `?` placeholders to `$1..$n` and returns how to build
  * the positional values array from a call's arguments — object-with-named-
  * keys for `@name` queries (matching better-sqlite3's `.run({...})` call
- * shape), spread positional args otherwise. */
-function compile(sql: string): { text: string; named: string[] } {
+ * shape), spread positional args otherwise.
+ *
+ * `placeholderCount` is tracked separately from `named.length` because a
+ * fully dynamic query (see routes/crm.ts's buildLeadsQuery) can legitimately
+ * compile down to zero `@name` refs at all — an unfiltered "give me every
+ * lead" WHERE clause has nothing to bind — while still being called the
+ * `@name` way, `.get(argsObject)`. `named.length === 0` used to be read as
+ * "this must be a positional `?` call", which passed the caller's whole args
+ * array (here, `[argsObject]`, length 1) straight to pg as the bind values
+ * for a statement pg had already compiled with zero `$n` placeholders —
+ * "bind message supplies 1 parameters, but prepared statement requires 0".
+ * Counting the actual placeholders left in `text` (from either syntax)
+ * disambiguates it: zero placeholders always means zero bind values, no
+ * matter which calling convention produced that query. */
+function compile(sql: string): { text: string; named: string[]; placeholderCount: number } {
   const named: string[] = [];
   let text = sql.replace(/@(\w+)/g, (_, name: string) => {
     named.push(name);
     return `$${named.length}`;
   });
+  let placeholderCount = named.length;
   if (named.length === 0) {
     let i = 0;
     text = text.replace(/\?/g, () => `$${++i}`);
+    placeholderCount = i;
   }
-  return { text, named };
+  return { text, named, placeholderCount };
 }
 
-function toParams(named: string[], args: unknown[]): unknown[] {
+function toParams(named: string[], placeholderCount: number, args: unknown[]): unknown[] {
+  if (placeholderCount === 0) return [];
   if (named.length === 0) return args;
   const obj = (args[0] ?? {}) as Record<string, unknown>;
   return named.map((n) => (n in obj ? obj[n] : null));
 }
 
 export function prepare(sql: string) {
-  const { text, named } = compile(sql);
+  const { text, named, placeholderCount } = compile(sql);
   return {
     async get(...args: unknown[]): Promise<any> {
-      const res = await currentClient().query(text, toParams(named, args));
+      const res = await currentClient().query(text, toParams(named, placeholderCount, args));
       return res.rows[0];
     },
     async all(...args: unknown[]): Promise<any[]> {
-      const res = await currentClient().query(text, toParams(named, args));
+      const res = await currentClient().query(text, toParams(named, placeholderCount, args));
       return res.rows;
     },
     async run(...args: unknown[]): Promise<{ changes: number }> {
-      const res = await currentClient().query(text, toParams(named, args));
+      const res = await currentClient().query(text, toParams(named, placeholderCount, args));
       return { changes: res.rowCount ?? 0 };
     },
   };
@@ -559,6 +575,27 @@ export async function migrate(): Promise<void> {
   await addColumnIfMissing("users", "password_change_required", "password_change_required BOOLEAN NOT NULL DEFAULT FALSE");
   await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_account_number ON users(account_number)");
   await backfillAccountNumbers();
+  await backfillLeadsForUsers();
+}
+
+/** Every USER-role account that predates the CRM's auto-lead behaviour
+ * (lib/leadIntake.ts) gets one filed retroactively, so "every customer is in
+ * the CRM" holds for accounts created before this existed too, not just new
+ * signups. Skips MANAGER/ADMIN — a CRM lists customers, not staff. */
+async function backfillLeadsForUsers(): Promise<void> {
+  const missing = (await pool.query(`
+    SELECT u.id, u.email, u.name, u.created_at FROM users u
+    WHERE u.role = 'USER' AND NOT EXISTS (SELECT 1 FROM leads l WHERE l.platform_user_id = u.id)
+  `)).rows as { id: string; email: string; name: string; created_at: string }[];
+  for (const u of missing) {
+    await pool.query(`
+      INSERT INTO leads (id, full_name, phone, email, country, source, status,
+                         verification_status, assigned_manager_id, platform_user_id,
+                         created_at, updated_at)
+      VALUES ($1, $2, NULL, $3, NULL, 'Регистрация до внедрения CRM', 'NEW',
+              'NOT_SUBMITTED', NULL, $4, $5, $5)
+    `, [newId(), u.name, u.email, u.id, u.created_at]);
+  }
 }
 
 export async function newAccountNumber(): Promise<string> {

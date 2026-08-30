@@ -30,6 +30,10 @@ export const feedStatus = () => ({
   /** True once the outage is long enough to be an incident rather than a blip. */
   degraded: unhealthySince !== null && Date.now() - unhealthySince >= config.feedUnhealthyAlertMs,
   maxQuoteAgeMs: config.maxQuoteAgeMs,
+  /** Which upstream last refused, and how. Without this a halted market is
+   * indistinguishable from a bug, because the browser's own Binance feed keeps
+   * the UI looking live. Carries no secrets — host and status only. */
+  failures: feedFailures(),
 });
 
 /**
@@ -131,14 +135,53 @@ async function setPrice(symbol: string, priceScaled: bigint, extra: {
   });
 }
 
+/**
+ * Why the last upstream failure is remembered rather than swallowed:
+ * a dead feed halts trading (see engine/execution.ts), and "trading is halted
+ * but the chart looks live" is impossible to diagnose without knowing *which*
+ * host refused and with what status. The browser gets its prices straight from
+ * Binance, so the UI can look perfectly healthy while the server is being
+ * refused — most notably HTTP 451, which is how Binance geo-blocks datacenter
+ * regions it does not serve.
+ */
+export interface UpstreamFailure { host: string; status: number | null; detail: string; at: string }
+// Keyed by host, not a single "last failure": the refresh talks to several
+// upstreams per cycle, so one host's error would otherwise overwrite another's
+// and hide it. Distinguishing "futures is refused" from "CoinGecko is rate
+// limited" is the whole point, since they need different fixes.
+const upstreamFailures = new Map<string, UpstreamFailure>();
+export const feedFailures = (): UpstreamFailure[] =>
+  [...upstreamFailures.values()].sort((a, b) => (a.at < b.at ? 1 : -1));
+
+function noteFailure(url: string, status: number | null, detail: string): void {
+  let host = url;
+  try { host = new URL(url).host; } catch { /* keep the raw string */ }
+  upstreamFailures.set(host, { host, status, detail, at: now() });
+}
+
+/** Cleared on a host's next success, so the list only ever shows what is
+ * currently broken rather than everything that has ever hiccuped. */
+function noteSuccess(url: string): void {
+  try { upstreamFailures.delete(new URL(url).host); } catch { /* ignore */ }
+}
+
 async function fetchJson(url: string, timeoutMs = 8000): Promise<any | null> {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), timeoutMs);
   try {
     const res = await fetch(url, { signal: ctl.signal, headers: { accept: "application/json" } });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      // 451 in particular is not a transient outage — it is a hard refusal
+      // that will never clear by retrying from the same region.
+      noteFailure(url, res.status, res.status === 451
+        ? "Unavailable For Legal Reasons — this host geo-blocks the server's region"
+        : res.statusText || `HTTP ${res.status}`);
+      return null;
+    }
+    noteSuccess(url);
     return await res.json();
-  } catch {
+  } catch (e) {
+    noteFailure(url, null, e instanceof Error ? e.message : "request failed");
     return null; // upstream down — callers keep the last known price
   } finally {
     clearTimeout(timer);
@@ -187,15 +230,27 @@ export async function refreshUpstream(): Promise<string[]> {
   const spotWanted = withMapping.filter((x) => x.mapping!.market === "spot");
   const futuresWanted = withMapping.filter((x) => x.mapping!.market === "futures");
   const binanceOk = new Set<string>();
+  const spotSeen = new Map<string, BinanceTicker24h>();
 
   if (spotWanted.length) {
     const symbolsParam = encodeURIComponent(JSON.stringify(spotWanted.map((x) => x.mapping!.binanceSymbol)));
-    const rows = await fetchJson(`https://api.binance.com/api/v3/ticker/24hr?symbols=${symbolsParam}`);
+    // api.binance.com is geo-blocked in some datacenter regions (it answers 451
+    // there), which silently halted trading on a deploy whose browser clients
+    // were meanwhile getting live prices straight from Binance. data-api.
+    // binance.vision is Binance's own public market-data host, serves the same
+    // payload shape, and is not region-restricted — so it is tried whenever the
+    // primary returns nothing, whatever the reason.
+    const rows =
+      (await fetchJson(`https://api.binance.com/api/v3/ticker/24hr?symbols=${symbolsParam}`)) ??
+      (await fetchJson(`https://data-api.binance.vision/api/v3/ticker/24hr?symbols=${symbolsParam}`));
     if (Array.isArray(rows)) {
       const byBinanceSymbol = new Map((rows as BinanceTicker24h[]).map((r) => [r.symbol, r]));
       for (const { ins, mapping } of spotWanted) {
         const row = byBinanceSymbol.get(mapping!.binanceSymbol);
         if (!row) continue;
+        // Kept so a perpetual can fall back to its own underlying's spot mark
+        // below when the futures host is unreachable.
+        spotSeen.set(mapping!.binanceSymbol, row);
         await setPrice(ins.symbol, toScaled(Number(row.lastPrice)), {
           change: Number(row.priceChangePercent) || 0,
           high: toScaled(Number(row.highPrice)),
@@ -231,6 +286,35 @@ export async function refreshUpstream(): Promise<string[]> {
       }
       ok = ok || touched.length > 0;
     }
+  }
+
+  // Perpetuals whose futures quote didn't arrive fall back to their own
+  // underlying's spot mark, which this same cycle already fetched.
+  //
+  // Binance's futures host has no unrestricted mirror the way spot does, so in
+  // a geo-blocked region PERP would otherwise depend entirely on CoinGecko —
+  // which rate-limits (429) and would halt those symbols for two minutes at a
+  // time. A perpetual tracks its underlying closely, so spot is a far better
+  // mark than a stale one, and it is real exchange data rather than a guess.
+  //
+  // No synthetic basis is applied on purpose: inventing a spread would be
+  // fabricating price movement the market never made. The number is labelled
+  // DERIVED so the API and UI can say plainly that this is the underlying's
+  // price, not a real futures quote.
+  for (const { ins, mapping } of futuresWanted) {
+    if (binanceOk.has(ins.symbol)) continue;
+    const row = spotSeen.get(mapping!.binanceSymbol);
+    if (!row) continue;
+    await setPrice(ins.symbol, toScaled(Number(row.lastPrice)), {
+      change: Number(row.priceChangePercent) || 0,
+      high: toScaled(Number(row.highPrice)),
+      low: toScaled(Number(row.lowPrice)),
+      volume: toScaled(Math.round(Number(row.quoteVolume))),
+      source: "DERIVED",
+    });
+    touched.push(ins.symbol);
+    binanceOk.add(ins.symbol);
+    ok = true;
   }
 
   // CoinGecko fallback: only for instruments that have a cg_id but Binance

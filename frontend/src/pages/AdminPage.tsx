@@ -3,13 +3,20 @@ import { StatsCards } from "../components/admin/StatsCards";
 import { UsersTab } from "../components/admin/UsersTab";
 import { AuditTab } from "../components/admin/AuditTab";
 import { InstrumentsTab } from "../components/admin/InstrumentsTab";
-import { KycTab } from "../components/admin/KycTab";
 import { classNames } from "../lib/format";
 
-type Tab = "users" | "kyc" | "audit" | "instruments";
+type Tab = "team" | "audit" | "instruments";
 
+/**
+ * What's left of the admin console after the CRM merge: staff accounts,
+ * the platform-wide action log, and market instruments. Client management —
+ * the desk's day-to-day work, and identity verification with it — moved to
+ * /crm entirely, which is now the one place every customer (self-registered
+ * or brought in by the desk) shows up. Keeping a second "Users" tab here
+ * pointed at the same people would be exactly the drift this merge removed.
+ */
 export function AdminPage() {
-  const [tab, setTab] = useState<Tab>("users");
+  const [tab, setTab] = useState<Tab>("team");
 
   return (
     <div className="flex h-full flex-col overflow-hidden p-3">
@@ -30,8 +37,7 @@ export function AdminPage() {
         <div className="flex shrink-0 gap-0.5 border-b border-line px-1">
           {(
             [
-              ["users", "Users"],
-              ["kyc", "KYC"],
+              ["team", "Команда"],
               ["audit", "Audit Log"],
               ["instruments", "Instruments"],
             ] as [Tab, string][]
@@ -49,8 +55,7 @@ export function AdminPage() {
           ))}
         </div>
         <div className="min-h-0 flex-1">
-          {tab === "users" && <UsersTab />}
-          {tab === "kyc" && <KycTab />}
+          {tab === "team" && <UsersTab />}
           {tab === "audit" && <AuditTab />}
           {tab === "instruments" && <InstrumentsTab />}
         </div>

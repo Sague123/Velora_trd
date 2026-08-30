@@ -136,7 +136,7 @@ export interface TotpSetup {
 }
 
 export type Category = "SPOT" | "PERP" | "COMMODITY" | "FX" | "CFD";
-export type PriceSource = "BINANCE" | "COINGECKO" | "ECB" | "SYNTHETIC" | "NONE";
+export type PriceSource = "BINANCE" | "DERIVED" | "COINGECKO" | "ECB" | "SYNTHETIC" | "NONE";
 
 export interface Instrument {
   symbol: string;
@@ -452,6 +452,9 @@ export interface Lead {
   assignedManager: CrmManager | null;
   /** Non-null once this lead registered on the platform. */
   platformUserId: string | null;
+  /** The platform account's number — null until conversion. This is the "ID"
+   * a manager reads on a call; the lead's own database id never is. */
+  accountNumber: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -469,6 +472,14 @@ export interface LeadPlatformInfo {
   lastLoginAt: string | null;
   lastActionAt: string | null;
   balance: string | null;
+  /** Latest KYC submission's metadata — never the document links themselves.
+   * Present only once one exists; the actual images need
+   * AdminKycDetail via this id, which only ADMIN can fetch. */
+  kycSubmissionId: string | null;
+  kycDocumentType: KycDocumentType | null;
+  kycRejectionReason: string | null;
+  kycReviewedAt: string | null;
+  kycSubmittedAt: string | null;
 }
 
 export interface LeadDetail extends Lead {

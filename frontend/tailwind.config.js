@@ -46,6 +46,16 @@ export default {
           soft: rgbVar("--c-sell-soft"),
         },
         warn: rgbVar("--c-warn"),
+        // CRM-only categorical palette — see globals.css for why these six
+        // exist and the scope note restricting them to lead-status chips.
+        cat: {
+          gold: { DEFAULT: rgbVar("--c-cat-gold"), soft: rgbVar("--c-cat-gold-soft") },
+          teal: { DEFAULT: rgbVar("--c-cat-teal"), soft: rgbVar("--c-cat-teal-soft") },
+          indigo: { DEFAULT: rgbVar("--c-cat-indigo"), soft: rgbVar("--c-cat-indigo-soft") },
+          violet: { DEFAULT: rgbVar("--c-cat-violet"), soft: rgbVar("--c-cat-violet-soft") },
+          magenta: { DEFAULT: rgbVar("--c-cat-magenta"), soft: rgbVar("--c-cat-magenta-soft") },
+          rose: { DEFAULT: rgbVar("--c-cat-rose"), soft: rgbVar("--c-cat-rose-soft") },
+        },
       },
       fontFamily: {
         sans: [

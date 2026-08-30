@@ -7,6 +7,7 @@ import { toast } from "../../store/toast";
 import { ApiError } from "../../lib/api";
 import { SkeletonLines } from "../common/States";
 import { AnimatedNumber } from "../common/AnimatedNumber";
+import { LedgerTable } from "../terminal/LedgerTable";
 import type { CrmPermission } from "../../lib/types";
 
 const inputCls = "w-full rounded-lg border border-line bg-bg-2 px-2 py-1.5 text-xs tabular outline-none focus:border-accent";
@@ -96,7 +97,7 @@ export function AccountPanel({
   }
   if (!data) return null;
 
-  const { summary, positions, openOrders, trades } = data;
+  const { summary, positions, openOrders, trades, ledger } = data;
 
   return (
     <div className="space-y-3">
@@ -242,6 +243,15 @@ export function AccountPanel({
           </table>
         </div>
       )}
+
+      <div>
+        <div className="mb-1 text-2xs font-semibold uppercase tracking-wide text-txt-2">Журнал счёта</div>
+        {ledger.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-line px-3 py-3 text-center text-2xs text-txt-3">Записей нет.</div>
+        ) : (
+          <LedgerTable entries={ledger} />
+        )}
+      </div>
     </div>
   );
 }
