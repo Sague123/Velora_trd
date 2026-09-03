@@ -83,7 +83,10 @@
     "base": "Base",
     "total": "Total",
     "margin": "Margin",
-    "qty": "Ilość"
+    "qty": "Ilość",
+    "newOrder": "Nowe zlecenie",
+    "orderPrice": "Cena zlecenia",
+    "positionSize": "Wielkość pozycji"
   },
   "profileTabs": {
     "wallet": "Portfel",

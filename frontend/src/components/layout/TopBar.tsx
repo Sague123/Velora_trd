@@ -1,16 +1,16 @@
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../../store/auth";
+import { useTerminalStore } from "../../store/terminal";
 import { useConnStatus } from "../../hooks/useLivePrices";
 import { useServerHealth } from "../../hooks/useHealth";
-import { useAccount } from "../../hooks/useTrading";
+import { useAccount, useAlerts } from "../../hooks/useTrading";
 import { useIsMobile } from "../../hooks/useIsMobile";
 import { classNames, fmtUsd, n } from "../../lib/format";
 import { AnimatedNumber } from "../common/AnimatedNumber";
-import { Popover } from "../common/Popover";
 import type { AuthUser } from "../../lib/types";
 import {
-  IconBot, IconClipboard, IconDots, IconGear, IconHome, IconMarkets, IconTrade, IconVault,
+  IconBell, IconBot, IconHome, IconMarkets, IconTrade, IconVault,
 } from "../icons/Icon";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { ThemeToggle } from "./ThemeToggle";
@@ -24,11 +24,6 @@ const NAV = [
   { to: "/strategies", key: "nav.strategies", Icon: IconBot },
   { to: "/savings", key: "nav.savings", Icon: IconVault },
 ];
-
-// Mobile shows only the four the trader reaches constantly; everything else
-// (including Savings/CRM/Admin) folds into the "More" sheet below — trading
-// gets the width instead of a sixth or seventh equally-sized tab.
-const MOBILE_PRIMARY = ["/terminal", "/overview", "/markets", "/strategies"];
 
 function Avatar({ user }: { user: AuthUser | null }) {
   return user?.avatar ? (
@@ -46,106 +41,30 @@ function Avatar({ user }: { user: AuthUser | null }) {
 }
 
 /**
- * Mobile's primary nav: four icon-over-label tabs for the pages a trader
- * reaches constantly, plus a "More" sheet for everything else (Savings, CRM,
- * Admin, Profile) — not a sixth/seventh tab squeezed into the same row. Icon
- * above label (not beside it) reads as a real mobile nav bar rather than a
- * shrunk desktop tab strip, and the strip's own background + border is what
- * makes it a distinct control surface instead of text floating on the page.
+ * Price alerts that have fired since they were set, as a dot on a bell.
+ *
+ * Tapping it goes to the terminal's alerts list rather than opening a feed of
+ * its own — the alerts already live there, and a second place to read them
+ * would only be the same list twice. Renders the dot from real fired alerts,
+ * never as decoration.
  */
-function MobileNav({ isManager, user }: { isManager: boolean; user: AuthUser | null }) {
-  const { t } = useTranslation();
-  const location = useLocation();
-
-  const primary = NAV.filter((item) => MOBILE_PRIMARY.includes(item.to));
-  const moreRoutes = ["/savings", ...(isManager ? ["/crm"] : []), ...(user?.role === "ADMIN" ? ["/admin"] : []), "/profile"];
-  const moreActive = moreRoutes.includes(location.pathname);
-
-  const tabCls = (active: boolean, warn?: boolean) =>
-    classNames(
-      "tap flex flex-1 basis-0 shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg py-1 text-[10.5px] font-medium transition-colors",
-      active
-        ? warn ? "bg-warn/10 text-warn shadow-btn" : "bg-accent-soft text-accent shadow-btn"
-        : warn ? "text-warn/80" : "text-txt-2 hover:bg-bg-3 hover:text-txt-0"
-    );
+function AlertsBell() {
+  const user = useAuthStore((s) => s.user);
+  const { data } = useAlerts(!!user);
+  const setMobileMode = useTerminalStore((s) => s.setMobileMode);
+  const setHistoryTab = useTerminalStore((s) => s.setHistoryTab);
+  const fired = (data?.alerts ?? []).filter((a) => a.firedAt).length;
 
   return (
-    <nav className="flex items-stretch gap-1 border-t border-line bg-bg-2/60 px-1.5 py-1.5">
-      {primary.map((item) => (
-        <NavLink key={item.to} to={item.to} className={({ isActive }) => tabCls(isActive)}>
-          <item.Icon size={20} />
-          {t(item.key)}
-        </NavLink>
-      ))}
-
-      <Popover
-        align="right"
-        trigger={(open, toggle) => (
-          <button onClick={toggle} className={tabCls(open || moreActive)}>
-            <IconDots size={20} />
-            {t("nav.more")}
-          </button>
-        )}
-      >
-        {(close) => (
-          <div className="w-44 p-1">
-            <NavLink
-              to="/savings"
-              onClick={close}
-              className={({ isActive }) =>
-                classNames(
-                  "tap-sm flex items-center gap-2 rounded px-2.5 text-xs font-medium",
-                  isActive ? "bg-accent-soft text-accent" : "text-txt-1 hover:bg-bg-3"
-                )
-              }
-            >
-              <IconVault size={17} /> {t("nav.savings")}
-            </NavLink>
-            {isManager && (
-              <NavLink
-                to="/crm"
-                onClick={close}
-                className={({ isActive }) =>
-                  classNames(
-                    "tap-sm flex items-center gap-2 rounded px-2.5 text-xs font-medium",
-                    isActive ? "bg-accent-soft text-accent" : "text-txt-1 hover:bg-bg-3"
-                  )
-                }
-              >
-                <IconClipboard size={17} /> {t("nav.crm")}
-              </NavLink>
-            )}
-            {user?.role === "ADMIN" && (
-              <NavLink
-                to="/admin"
-                onClick={close}
-                className={({ isActive }) =>
-                  classNames(
-                    "tap-sm flex items-center gap-2 rounded px-2.5 text-xs font-medium",
-                    isActive ? "bg-warn/10 text-warn" : "text-warn/80 hover:bg-bg-3"
-                  )
-                }
-              >
-                <IconGear size={17} /> {t("nav.admin")}
-              </NavLink>
-            )}
-            <div className="my-1 border-t border-line-soft" />
-            <NavLink
-              to="/profile"
-              onClick={close}
-              className={({ isActive }) =>
-                classNames(
-                  "tap-sm flex items-center gap-2 rounded px-2.5 text-xs font-medium",
-                  isActive ? "bg-accent-soft text-accent" : "text-txt-1 hover:bg-bg-3"
-                )
-              }
-            >
-              <Avatar user={user} /> {t("nav.profile")}
-            </NavLink>
-          </div>
-        )}
-      </Popover>
-    </nav>
+    <NavLink
+      to="/terminal"
+      onClick={() => { setMobileMode("history"); setHistoryTab("alerts"); }}
+      aria-label={fired ? `Сработавших алертов: ${fired}` : "Алерты"}
+      className="btn-fx tap-sm relative flex h-8 w-8 items-center justify-center rounded-lg border border-line bg-bg-1 text-txt-2"
+    >
+      <IconBell size={16} />
+      {fired > 0 && <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-sell" />}
+    </NavLink>
   );
 }
 
@@ -169,29 +88,31 @@ export function TopBar() {
   const serverUp = !healthError && health?.status === "ok";
   const live = serverUp && wsStatus === "open";
 
-  // Mobile: everything visible up front, no hamburger — a compact top row
-  // (logo, live dot, theme, profile) plus an always-shown, horizontally
-  // scrollable nav strip right under it.
+  // Mobile: identity and status only. Navigation moved to the pinned bottom
+  // block (MobileBottomStack) — thumbs reach the bottom of a phone, not the
+  // top, and on the terminal it puts the nav in the same block as Buy/Sell
+  // instead of a second strip competing for height up here.
   if (isMobile) {
     return (
       // sticky + z-20: the bar stays pinned to the top of the shell instead of
       // being able to drift out of reach behind the mobile browser chrome.
-      <header className="sticky top-0 z-20 flex shrink-0 flex-col border-b border-line bg-bg-1 text-[13px]">
-        <div className="flex h-12 items-center gap-2 px-2">
-          <Link to="/" className="tap-sm flex items-center" aria-label="Velora — Home">
-            <Logo />
-          </Link>
-          <span className={classNames("h-1.5 w-1.5 shrink-0 rounded-full", live ? "bg-buy" : wsStatus === "connecting" ? "bg-warn animate-pulse" : "bg-sell")} />
-          <div className="ml-auto flex items-center gap-1.5">
-            <MobileStatusBar />
-            <LanguageSwitcher />
-            <ThemeToggle />
-            <NavLink to="/profile" title={t("nav.profile")} className="btn-fx tap-sm ml-1 flex items-center rounded border-l border-line pl-2">
-              <Avatar user={user} />
-            </NavLink>
-          </div>
+      <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b border-line-soft bg-bg-0 px-3.5 text-[13px]">
+        <Link to="/" className="tap-sm flex items-center gap-2" aria-label="Velora — Home">
+          <Logo />
+          <span className="text-sm font-extrabold tracking-[0.08em] text-txt-0">VELORA</span>
+        </Link>
+        <span
+          title={live ? t("topbar.live") : wsStatus === "connecting" ? t("topbar.connecting") : t("topbar.offline")}
+          className={classNames("h-1.5 w-1.5 shrink-0 rounded-full", live ? "bg-buy" : wsStatus === "connecting" ? "bg-warn animate-pulse" : "bg-sell")}
+        />
+        <div className="ml-auto flex items-center gap-1.5">
+          <MobileStatusBar />
+          <AlertsBell />
+          <ThemeToggle />
+          <NavLink to="/profile" title={t("nav.profile")} className="btn-fx tap-sm flex items-center">
+            <Avatar user={user} />
+          </NavLink>
         </div>
-        <MobileNav isManager={isManager} user={user} />
       </header>
     );
   }

@@ -83,7 +83,10 @@
     "base": "Base",
     "total": "Total",
     "margin": "Margin",
-    "qty": "数量"
+    "qty": "数量",
+    "newOrder": "新订单",
+    "orderPrice": "订单价格",
+    "positionSize": "仓位规模"
   },
   "profileTabs": {
     "wallet": "钱包",

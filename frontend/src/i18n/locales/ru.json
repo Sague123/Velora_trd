@@ -83,7 +83,10 @@
     "base": "Base",
     "total": "Total",
     "margin": "Margin",
-    "qty": "Кол-во"
+    "qty": "Кол-во",
+    "newOrder": "Новый ордер",
+    "orderPrice": "Цена ордера",
+    "positionSize": "Размер позиции"
   },
   "profileTabs": {
     "wallet": "Кошелёк",

@@ -83,7 +83,10 @@
     "base": "Base",
     "total": "Total",
     "margin": "Margin",
-    "qty": "Množství"
+    "qty": "Množství",
+    "newOrder": "Nový pokyn",
+    "orderPrice": "Cena pokynu",
+    "positionSize": "Velikost pozice"
   },
   "profileTabs": {
     "wallet": "Peněženka",

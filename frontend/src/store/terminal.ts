@@ -4,12 +4,34 @@ import type { DrawTool } from "../lib/chartEngine";
 
 export type Oscillator = "NONE" | "RSI" | "MACD";
 export type ChartType = "candles" | "line" | "area";
+/** Phone layout: chart, order book and history are three equal modes of the
+ * same screen, switched by one control in the symbol row — not a chart with
+ * a separate "Orders & History" tab underneath it. */
+export type MobileMode = "chart" | "book" | "history";
+export type HistoryTab = "positions" | "orders" | "history" | "alerts";
 
 interface TerminalState {
   symbol: string;
   timeframe: Timeframe;
   setSymbol: (s: string) => void;
   setTimeframe: (tf: Timeframe) => void;
+
+  // Which of the three phone modes is showing, and which tab the history
+  // mode is on. Both live here rather than inside MobileTerminal/BottomPanel
+  // because controls outside those components drive them: the fixed bottom
+  // Buy/Sell bar has to leave history mode before it can show the order
+  // ticket, and the top bar's bell deep-links straight to the alerts tab.
+  mobileMode: MobileMode;
+  historyTab: HistoryTab;
+  setMobileMode: (v: MobileMode) => void;
+  setHistoryTab: (v: HistoryTab) => void;
+
+  // "Scroll the order ticket into view" — same signal pattern as
+  // clearDrawingsRequest below: the scroll container belongs to
+  // MobileTerminal, while what triggers the scroll (the fixed Buy/Sell bar,
+  // a price tapped in the order book) sits outside it.
+  focusTicketRequest: number;
+  requestFocusTicket: () => void;
 
   // Chart overlay/tool state — shared rather than owned by ChartPanel alone,
   // so both the desktop and mobile toolbars can render the same Chart-type/
@@ -47,6 +69,14 @@ export const useTerminalStore = create<TerminalState>((set) => ({
   timeframe: "1H",
   setSymbol: (symbol) => set({ symbol }),
   setTimeframe: (timeframe) => set({ timeframe }),
+
+  mobileMode: "chart",
+  historyTab: "positions",
+  setMobileMode: (mobileMode) => set({ mobileMode }),
+  setHistoryTab: (historyTab) => set({ historyTab }),
+
+  focusTicketRequest: 0,
+  requestFocusTicket: () => set((s) => ({ focusTicketRequest: s.focusTicketRequest + 1 })),
 
   chartType: "candles",
   showSma20: true,

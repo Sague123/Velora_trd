@@ -8,6 +8,7 @@ import { useBinanceTickerFeed } from "./hooks/useBinanceTickerFeed";
 import { useIsMobile } from "./hooks/useIsMobile";
 import { useSwipeNav } from "./hooks/useSwipeNav";
 import { TopBar } from "./components/layout/TopBar";
+import { MobileBottomStack } from "./components/layout/MobileBottomStack";
 import { ActiveBotsBanner } from "./components/layout/ActiveBotsBanner";
 import { EmailVerificationBanner } from "./components/layout/EmailVerificationBanner";
 import { Toaster } from "./components/common/Toaster";
@@ -73,6 +74,11 @@ function AppLayout() {
       )}
       <div
         className="min-h-0 flex-1"
+        // Reserves exactly the height the pinned bottom block reports for
+        // itself (MobileBottomStack publishes it), so page content ends above
+        // it instead of hiding underneath — and so the reservation follows the
+        // block when it grows an extra tier on the terminal.
+        style={isMobile ? { paddingBottom: "var(--mobile-stack-h, 0px)" } : undefined}
         onTouchStart={swipe.onTouchStart}
         onTouchEnd={swipe.onTouchEnd}
       >
@@ -80,6 +86,7 @@ function AppLayout() {
           <Outlet />
         </div>
       </div>
+      <MobileBottomStack />
     </div>
   );
 }

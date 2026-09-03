@@ -56,7 +56,19 @@ function toneFor(variant: "flat" | "lifted", active: boolean) {
  * (desktop) matches the plain bordered buttons already used for zoom/
  * fullscreen there — real mouse hover already provides feedback.
  */
-export function ChartToolbar({ variant = "lifted" }: { variant?: "flat" | "lifted" }) {
+export type ChartControl = "timeframe" | "chartType" | "indicators" | "draw";
+const ALL_CONTROLS: ChartControl[] = ["timeframe", "chartType", "indicators", "draw"];
+
+export function ChartToolbar({
+  variant = "lifted",
+  show = ALL_CONTROLS,
+}: {
+  variant?: "flat" | "lifted";
+  /** Which controls to render. The phone layout splits them: the timeframe
+   * sits in the symbol row next to the price, the rest go with the indicator
+   * legend directly above the chart they act on. */
+  show?: ChartControl[];
+}) {
   const chartType = useTerminalStore((s) => s.chartType);
   const setChartType = useTerminalStore((s) => s.setChartType);
   const timeframe = useTerminalStore((s) => s.timeframe);
@@ -97,108 +109,116 @@ export function ChartToolbar({ variant = "lifted" }: { variant?: "flat" | "lifte
           constantly; chart type is set once and rarely touched again, so it
           gets the quieter icon-only slot right after instead of the lead
           position. */}
-      <Popover
-        trigger={(open, toggle) => (
-          <button onClick={toggle} className={classNames(btnCls, tfBtnSize, "text-2xs", toneFor(variant, open))}>
-            {timeframe}
-            <IconChevron size={10} direction={open ? "up" : "down"} />
-          </button>
-        )}
-      >
-        {(close) => (
-          <div className="w-24 p-1">
-            {TIMEFRAMES.map((tf) => (
-              <button key={tf} onClick={() => { setTimeframe(tf); close(); }} className={menuItemCls(timeframe === tf)}>
-                {tf}
-              </button>
-            ))}
-          </div>
-        )}
-      </Popover>
-
-      <Popover
-        trigger={(open, toggle) => (
-          <button onClick={toggle} className={classNames(btnCls, iconBtnSize, toneFor(variant, open))} aria-label="Тип графика" title="Тип графика">
-            <ChartTypeIcon size={variant === "lifted" ? 17 : 14} />
-          </button>
-        )}
-      >
-        {(close) => (
-          <div className="w-36 p-1">
-            {CHART_TYPES.map(({ id, label, Icon }) => (
-              <button key={id} onClick={() => { setChartType(id); close(); }} className={menuItemCls(chartType === id)}>
-                <Icon size={15} /> {label}
-              </button>
-            ))}
-          </div>
-        )}
-      </Popover>
-
-      <Popover
-        align="left"
-        trigger={(open, toggle) => (
-          <button
-            onClick={toggle}
-            className={classNames(btnCls, iconBtnSize, toneFor(variant, open || indicatorsActive))}
-            aria-label="Индикаторы"
-            title="Индикаторы"
-          >
-            <IconSliders size={variant === "lifted" ? 17 : 14} />
-          </button>
-        )}
-      >
-        {() => (
-          <div className="w-44 space-y-2 p-3">
-            <IndicatorToggle checked={showSma20} onChange={setShowSma20} textClass="text-accent" boxCheckedClass="border-accent bg-accent" label="SMA20" />
-            <IndicatorToggle checked={showSma50} onChange={setShowSma50} textClass="text-warn" boxCheckedClass="border-warn bg-warn" label="SMA50" />
-            <IndicatorToggle checked={showEma9} onChange={setShowEma9} textClass="text-indicator-ema9" boxCheckedClass="border-indicator-ema9 bg-indicator-ema9" label="EMA9" />
-            <IndicatorToggle checked={showEma21} onChange={setShowEma21} textClass="text-indicator-ema21" boxCheckedClass="border-indicator-ema21 bg-indicator-ema21" label="EMA21" />
-            <div className="border-t border-line-soft pt-2">
-              <select value={oscillator} onChange={(e) => setOscillator(e.target.value as Oscillator)}
-                className="w-full rounded-lg border border-line bg-bg-3 px-1.5 py-1 text-2xs text-txt-1 outline-none focus:border-accent">
-                <option value="NONE">Oscillator: none</option>
-                <option value="RSI">RSI (14)</option>
-                <option value="MACD">MACD (12,26,9)</option>
-              </select>
+      {show.includes("timeframe") && (
+        <Popover
+          trigger={(open, toggle) => (
+            <button onClick={toggle} className={classNames(btnCls, tfBtnSize, "text-2xs", toneFor(variant, open))}>
+              {timeframe}
+              <IconChevron size={10} direction={open ? "up" : "down"} />
+            </button>
+          )}
+        >
+          {(close) => (
+            <div className="w-24 p-1">
+              {TIMEFRAMES.map((tf) => (
+                <button key={tf} onClick={() => { setTimeframe(tf); close(); }} className={menuItemCls(timeframe === tf)}>
+                  {tf}
+                </button>
+              ))}
             </div>
-          </div>
-        )}
-      </Popover>
+          )}
+        </Popover>
+      )}
 
-      <Popover
-        align="left"
-        trigger={(open, toggle) => (
-          <button
-            onClick={toggle}
-            className={classNames(btnCls, iconBtnSize, toneFor(variant, open || tool !== "cursor"))}
-            aria-label="Инструменты рисования"
-            title="Инструменты рисования"
-          >
-            <IconPencil size={variant === "lifted" ? 17 : 14} />
-          </button>
-        )}
-      >
-        {(close) => (
-          <div className="w-48 p-1">
-            <button onClick={() => { setTool("cursor"); close(); }} className={menuItemCls(tool === "cursor")}>
-              <IconCrosshair size={15} /> Курсор
+      {show.includes("chartType") && (
+        <Popover
+          trigger={(open, toggle) => (
+            <button onClick={toggle} className={classNames(btnCls, iconBtnSize, toneFor(variant, open))} aria-label="Тип графика" title="Тип графика">
+              <ChartTypeIcon size={variant === "lifted" ? 17 : 14} />
             </button>
-            <button onClick={() => { setTool("trendline"); close(); }} className={menuItemCls(tool === "trendline")}>
-              <IconTrendLine size={15} /> Линия тренда
-            </button>
-            <button onClick={() => { setTool("hline"); close(); }} className={menuItemCls(tool === "hline")}>
-              <IconHorizontalLine size={15} /> Горизонтальная линия
-            </button>
-            <div className="my-1 border-t border-line-soft" />
+          )}
+        >
+          {(close) => (
+            <div className="w-36 p-1">
+              {CHART_TYPES.map(({ id, label, Icon }) => (
+                <button key={id} onClick={() => { setChartType(id); close(); }} className={menuItemCls(chartType === id)}>
+                  <Icon size={15} /> {label}
+                </button>
+              ))}
+            </div>
+          )}
+        </Popover>
+      )}
+
+      {show.includes("indicators") && (
+        <Popover
+          align="left"
+          trigger={(open, toggle) => (
             <button
-              onClick={() => { requestClearDrawings(); close(); }}
-              className="tap-sm flex w-full items-center gap-2 rounded-lg px-2.5 text-xs font-medium text-txt-2 hover:bg-bg-3 hover:text-sell active:scale-95"
+              onClick={toggle}
+              className={classNames(btnCls, iconBtnSize, toneFor(variant, open || indicatorsActive))}
+              aria-label="Индикаторы"
+              title="Индикаторы"
             >
-              <IconClose size={15} /> Удалить все линии
+              <IconSliders size={variant === "lifted" ? 17 : 14} />
             </button>
-          </div>
-        )}
-      </Popover>
+          )}
+        >
+          {() => (
+            <div className="w-44 space-y-2 p-3">
+              <IndicatorToggle checked={showSma20} onChange={setShowSma20} textClass="text-accent" boxCheckedClass="border-accent bg-accent" label="SMA20" />
+              <IndicatorToggle checked={showSma50} onChange={setShowSma50} textClass="text-warn" boxCheckedClass="border-warn bg-warn" label="SMA50" />
+              <IndicatorToggle checked={showEma9} onChange={setShowEma9} textClass="text-indicator-ema9" boxCheckedClass="border-indicator-ema9 bg-indicator-ema9" label="EMA9" />
+              <IndicatorToggle checked={showEma21} onChange={setShowEma21} textClass="text-indicator-ema21" boxCheckedClass="border-indicator-ema21 bg-indicator-ema21" label="EMA21" />
+              <div className="border-t border-line-soft pt-2">
+                <select value={oscillator} onChange={(e) => setOscillator(e.target.value as Oscillator)}
+                  className="w-full rounded-lg border border-line bg-bg-3 px-1.5 py-1 text-2xs text-txt-1 outline-none focus:border-accent">
+                  <option value="NONE">Oscillator: none</option>
+                  <option value="RSI">RSI (14)</option>
+                  <option value="MACD">MACD (12,26,9)</option>
+                </select>
+              </div>
+            </div>
+          )}
+        </Popover>
+      )}
+
+      {show.includes("draw") && (
+        <Popover
+          align="left"
+          trigger={(open, toggle) => (
+            <button
+              onClick={toggle}
+              className={classNames(btnCls, iconBtnSize, toneFor(variant, open || tool !== "cursor"))}
+              aria-label="Инструменты рисования"
+              title="Инструменты рисования"
+            >
+              <IconPencil size={variant === "lifted" ? 17 : 14} />
+            </button>
+          )}
+        >
+          {(close) => (
+            <div className="w-48 p-1">
+              <button onClick={() => { setTool("cursor"); close(); }} className={menuItemCls(tool === "cursor")}>
+                <IconCrosshair size={15} /> Курсор
+              </button>
+              <button onClick={() => { setTool("trendline"); close(); }} className={menuItemCls(tool === "trendline")}>
+                <IconTrendLine size={15} /> Линия тренда
+              </button>
+              <button onClick={() => { setTool("hline"); close(); }} className={menuItemCls(tool === "hline")}>
+                <IconHorizontalLine size={15} /> Горизонтальная линия
+              </button>
+              <div className="my-1 border-t border-line-soft" />
+              <button
+                onClick={() => { requestClearDrawings(); close(); }}
+                className="tap-sm flex w-full items-center gap-2 rounded-lg px-2.5 text-xs font-medium text-txt-2 hover:bg-bg-3 hover:text-sell active:scale-95"
+              >
+                <IconClose size={15} /> Удалить все линии
+              </button>
+            </div>
+          )}
+        </Popover>
+      )}
     </div>
   );
 }

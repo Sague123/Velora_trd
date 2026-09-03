@@ -1,6 +1,7 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../../store/auth";
+import { useTerminalStore } from "../../store/terminal";
+import type { HistoryTab } from "../../store/terminal";
 import { useAlerts, useOrders, usePositions, useTrades } from "../../hooks/useTrading";
 import { PositionsTable } from "./PositionsTable";
 import { OrdersTable } from "./OrdersTable";
@@ -11,7 +12,8 @@ import { classNames } from "../../lib/format";
 import { IconBell, IconListView, IconOrderHistory, IconTrade } from "../icons/Icon";
 import type { ComponentType } from "react";
 
-type Tab = "positions" | "orders" | "history" | "alerts";
+/** Defined in the terminal store, which is where the selected tab lives. */
+type Tab = HistoryTab;
 
 const TABS: { id: Tab; Icon: ComponentType<{ size?: number; className?: string }> }[] = [
   // Ordered live-to-quiet, not alphabetical: positions/orders are what a
@@ -27,7 +29,10 @@ const TABS: { id: Tab; Icon: ComponentType<{ size?: number; className?: string }
 export function BottomPanel() {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
-  const [tab, setTab] = useState<Tab>("positions");
+  // Shared rather than local: the top bar's alerts bell opens this panel
+  // already on the alerts tab, which it can't do if the tab lives in here.
+  const tab = useTerminalStore((s) => s.historyTab);
+  const setTab = useTerminalStore((s) => s.setHistoryTab);
 
   const positions = usePositions(!!user && tab === "positions");
   const orders = useOrders("NEW", !!user && tab === "orders");

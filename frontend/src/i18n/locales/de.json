@@ -83,7 +83,10 @@
     "base": "Base",
     "total": "Total",
     "margin": "Margin",
-    "qty": "Menge"
+    "qty": "Menge",
+    "newOrder": "Neue Order",
+    "orderPrice": "Orderpreis",
+    "positionSize": "Positionsgröße"
   },
   "profileTabs": {
     "wallet": "Wallet",

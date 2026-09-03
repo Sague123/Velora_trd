@@ -83,7 +83,10 @@
     "base": "Base",
     "total": "Total",
     "margin": "Margin",
-    "qty": "К-сть"
+    "qty": "К-сть",
+    "newOrder": "Новий ордер",
+    "orderPrice": "Ціна ордера",
+    "positionSize": "Розмір позиції"
   },
   "profileTabs": {
     "wallet": "Гаманець",

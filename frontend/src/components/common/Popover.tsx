@@ -10,11 +10,15 @@ import { classNames } from "../../lib/format";
  * needed the identical open/close/outside-click wiring.
  */
 export function Popover({
-  trigger, children, align = "left", panelClassName,
+  trigger, children, align = "left", side = "bottom", panelClassName,
 }: {
   trigger: (open: boolean, toggle: () => void) => ReactNode;
   children: (close: () => void) => ReactNode;
   align?: "left" | "right" | "center";
+  /** Which way the panel opens. "top" is for triggers pinned to the bottom
+   * of the screen (the mobile nav bar), where a downward panel would open
+   * off-screen. */
+  side?: "bottom" | "top";
   panelClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -42,7 +46,8 @@ export function Popover({
       {open && (
         <div
           className={classNames(
-            "absolute top-full z-40 mt-1.5 min-w-max rounded-lg border border-line bg-bg-2 shadow-lift",
+            "absolute z-40 min-w-max rounded-lg border border-line bg-bg-2 shadow-lift",
+            side === "top" ? "bottom-full mb-1.5" : "top-full mt-1.5",
             align === "right" ? "right-0" : align === "center" ? "left-1/2 -translate-x-1/2" : "left-0",
             panelClassName
           )}
