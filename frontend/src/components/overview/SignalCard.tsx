@@ -28,30 +28,36 @@ export function SignalCard({ symbol, onClick }: { symbol: string; onClick?: () =
       onClick={onClick}
       className="btn-fx flex flex-col gap-2 rounded border border-line bg-bg-1 p-3 text-left hover:border-accent/50"
     >
+      {/* price → change → derived signal, in that order of visual weight —
+          the raw numbers are what's actually happened; the rating below is
+          this card's own opinion about them, and shouldn't outweigh them.
+          Symbol stays on top (still the fastest way to scan which card is
+          which in a 12-card grid) but drops a step in weight since it's an
+          identifier, not the value itself. */}
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-txt-0">{symbol}</span>
-        {inst && <span className={classNames("tabular text-2xs", inst.liveChange24h >= 0 ? "text-buy" : "text-sell")}>{fmtPct(inst.liveChange24h)}</span>}
+        <span className="text-2xs font-medium text-txt-2">{symbol}</span>
+        {inst && <span className={classNames("tabular text-2xs font-medium", inst.liveChange24h >= 0 ? "text-buy" : "text-sell")}>{fmtPct(inst.liveChange24h)}</span>}
       </div>
 
-      {inst && <div className="tabular text-sm font-semibold text-txt-0">{fmtPrice(inst.livePrice, inst.priceDecimals)}</div>}
+      {inst && <div className="tabular text-base font-bold text-txt-0">{fmtPrice(inst.livePrice, inst.priceDecimals)}</div>}
 
       {isLoading && <div className="h-8 animate-pulse rounded bg-bg-3" />}
       {!isLoading && !signal && <div className="text-2xs text-txt-3">Недостаточно данных</div>}
       {signal && (
         <>
           <Tooltip label={signal.votes.map((v) => `${v.label}: ${v.direction > 0 ? "bullish" : v.direction < 0 ? "bearish" : "neutral"}`).join(" · ")}>
-            <div className={classNames("cursor-help text-xs font-semibold", RATING_STYLE[signal.rating])}>{ratingLabel(signal.rating)}</div>
+            <div className={classNames("cursor-help text-2xs font-medium", RATING_STYLE[signal.rating])}>{ratingLabel(signal.rating)}</div>
           </Tooltip>
           <div>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-gradient-to-r from-sell via-bg-3 to-buy">
+            <div className="h-1 w-full overflow-hidden rounded-full bg-gradient-to-r from-sell via-bg-3 to-buy opacity-60">
               <div
-                className="h-full w-[3px] bg-txt-0 shadow-[0_0_4px_rgba(0,0,0,0.5)]"
+                className="h-full w-[3px] bg-txt-0"
                 style={{ marginLeft: `calc(${probability}% - 1.5px)` }}
               />
             </div>
             <div className="mt-0.5 flex justify-between text-2xs text-txt-3">
               <span>Sell</span>
-              <span className="tabular text-txt-1">{probability}% buy</span>
+              <span className="tabular text-txt-2">{probability}% buy</span>
               <span>Buy</span>
             </div>
           </div>

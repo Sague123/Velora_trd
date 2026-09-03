@@ -41,11 +41,11 @@ function PlanCard({
         <span className="text-xs font-semibold text-txt-0">{plan.label}</span>
         <span className="tabular text-sm font-bold text-buy">{plan.apy}%</span>
       </div>
-      <div className="mb-2 flex items-center gap-1 text-2xs text-txt-3">
+      <div className="mb-2 flex items-center gap-1.5 text-2xs text-txt-3">
         {plan.lockDays > 0 ? (
-          <><IconLock size={11} /> заблокировано {plan.lockDays} дней</>
+          <><IconLock size={13} /> заблокировано {plan.lockDays} дней</>
         ) : (
-          <><IconTrendUp size={11} /> снятие в любой момент</>
+          <><IconTrendUp size={13} /> снятие в любой момент</>
         )}
       </div>
       <p className="mb-3 flex-1 text-2xs leading-relaxed text-txt-2">{plan.description}</p>
@@ -64,7 +64,7 @@ function PlanCard({
       <button
         type="submit"
         disabled={disabled || busy}
-        className="btn-fx rounded-lg bg-accent-fill px-3 py-2 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-40"
+        className="btn-fx rounded-lg bg-accent-fill px-3 py-2 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
       >
         Открыть счёт
       </button>
@@ -102,7 +102,7 @@ function AccountRow({ account }: { account: SavingsAccount }) {
         <span className="rounded bg-buy-soft px-1.5 py-0.5 text-2xs font-medium text-buy">{account.apy}% годовых</span>
         {account.locked && account.lockedUntil && (
           <span className="flex items-center gap-1 rounded bg-warn/10 px-1.5 py-0.5 text-2xs font-medium text-warn">
-            <IconLock size={10} /> до {fmtDateTime(account.lockedUntil).split(",")[0]}
+            <IconLock size={12} /> до {fmtDateTime(account.lockedUntil).split(",")[0]}
           </span>
         )}
         <span className="ml-auto tabular text-sm font-semibold text-txt-0">{fmtUsd(account.balance)}</span>
@@ -123,7 +123,7 @@ function AccountRow({ account }: { account: SavingsAccount }) {
           onClick={() => run("deposit")}
           disabled={busy || account.locked}
           title={account.locked ? "Срочный вклад пополнить нельзя — откройте ещё один счёт" : undefined}
-          className="btn-fx rounded border border-buy/40 px-2.5 py-1.5 text-2xs font-medium text-buy hover:bg-buy-soft disabled:opacity-40"
+          className="btn-fx tap-sm rounded border border-buy/40 px-2.5 py-1.5 text-2xs font-medium text-buy hover:bg-buy-soft disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
         >
           Пополнить
         </button>
@@ -131,7 +131,7 @@ function AccountRow({ account }: { account: SavingsAccount }) {
           onClick={() => run("withdraw")}
           disabled={busy || account.locked}
           title={account.locked ? "Средства заблокированы до окончания срока" : undefined}
-          className="btn-fx rounded border border-line px-2.5 py-1.5 text-2xs font-medium text-txt-1 hover:border-sell/40 hover:text-sell disabled:opacity-40"
+          className="btn-fx tap-sm rounded border border-line px-2.5 py-1.5 text-2xs font-medium text-txt-1 hover:border-sell/40 hover:text-sell disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sell"
         >
           {Number(amount) > 0 ? "Снять" : "Снять всё и закрыть"}
         </button>

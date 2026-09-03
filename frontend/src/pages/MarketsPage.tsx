@@ -5,7 +5,7 @@ import { useInstruments } from "../hooks/useMarket";
 import { useLiveInstruments } from "../hooks/useLivePrices";
 import { useTerminalStore } from "../store/terminal";
 import { classNames, fmtCompact, fmtPct, fmtPrice } from "../lib/format";
-import { ErrorRow, EmptyRow, SkeletonTableRows } from "../components/common/States";
+import { ErrorRow, EmptyRow, SkeletonBar, SkeletonTableRows } from "../components/common/States";
 import { IconCoin } from "../components/icons/Icon";
 import type { Category } from "../lib/types";
 import { SiteFooter } from "../components/layout/SiteFooter";
@@ -79,7 +79,7 @@ export function MarketsPage() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t("markets.searchPlaceholder")}
-          className="w-56 rounded border border-line bg-bg-2 px-2.5 py-1.5 text-xs outline-none focus:border-accent"
+          className="tap-sm w-56 max-w-full rounded border border-line bg-bg-2 px-2.5 py-1.5 text-xs outline-none focus:border-accent"
         />
         <div className="flex gap-0.5 rounded border border-line p-0.5">
           {CATEGORIES.map((c) => (
@@ -87,7 +87,7 @@ export function MarketsPage() {
               key={c.id}
               onClick={() => setCategory(c.id)}
               className={classNames(
-                "flex items-center gap-1 rounded px-2.5 py-1 text-2xs font-medium",
+                "tap-sm btn-fx flex items-center gap-1 rounded px-2.5 py-1 text-2xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent",
                 category === c.id ? "bg-accent-soft text-accent" : "text-txt-2 hover:text-txt-0"
               )}
             >
@@ -119,47 +119,102 @@ export function MarketsPage() {
       <div className="rounded-lg border border-line bg-bg-1">
         {isError && <ErrorRow label="Не удалось загрузить инструменты" onRetry={() => refetch()} />}
         {!isError && !isLoading && rows.length === 0 && <EmptyRow label="Ничего не найдено" />}
+
         {!isError && (isLoading || rows.length > 0) && (
-          <table className="w-full min-w-[760px] text-xs">
-            <thead className="sticky top-0 bg-bg-1">
-              <tr className="border-b border-line text-left">
-                <SortHeader id="symbol" label="Instrument" />
-                <th className="px-3 py-2 font-medium text-txt-3">Category</th>
-                <SortHeader id="price" label="Last Price" align="right" />
-                <SortHeader id="change" label="24h Change" align="right" />
-                <th className="px-3 py-2 text-right font-medium text-txt-3">24h High</th>
-                <th className="px-3 py-2 text-right font-medium text-txt-3">24h Low</th>
-                <SortHeader id="volume" label="24h Volume" align="right" />
-                <th className="px-3 py-2 text-right font-medium text-txt-3">Max Lev.</th>
-                <th className="px-3 py-2"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading && <SkeletonTableRows columns={9} />}
-              {!isLoading && rows.map((i) => (
-                <tr key={i.symbol} className="border-b border-line-soft/60 tabular hover:bg-bg-2/60">
-                  <td className="px-3 py-2">
-                    <div className="font-medium text-txt-0">{i.symbol}</div>
-                    <div className="text-2xs text-txt-3">{i.name}</div>
-                  </td>
-                  <td className="px-3 py-2 text-txt-2">{i.category}</td>
-                  <td className={classNames("px-3 py-2 text-right", i.dir === "up" ? "text-buy" : i.dir === "down" ? "text-sell" : "text-txt-0")}>
-                    {fmtPrice(i.livePrice, i.priceDecimals)}
-                  </td>
-                  <td className={classNames("px-3 py-2 text-right", i.liveChange24h >= 0 ? "text-buy" : "text-sell")}>{fmtPct(i.liveChange24h)}</td>
-                  <td className="px-3 py-2 text-right text-txt-1">{fmtPrice(i.liveHigh24h, i.priceDecimals)}</td>
-                  <td className="px-3 py-2 text-right text-txt-1">{fmtPrice(i.liveLow24h, i.priceDecimals)}</td>
-                  <td className="px-3 py-2 text-right text-txt-1">{fmtCompact(i.volume24h)}</td>
-                  <td className="px-3 py-2 text-right text-txt-1">{i.maxLeverage}x</td>
-                  <td className="px-3 py-2 text-right">
-                    <button onClick={() => openInTerminal(i.symbol)} className="rounded border border-line px-2.5 py-1 text-2xs text-txt-1 hover:border-accent hover:text-accent">
-                      Trade
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <>
+            {/* Below `sm`: stacked cards instead of the 9-column table — the
+                table's own min-w-[760px] used to force the whole page to
+                scroll sideways on a phone (confirmed: scrollWidth 773 vs a
+                390px viewport), dragging the search bar and filters out of
+                view along with it. Every column the desktop table shows is
+                still here, just reflowed instead of dropped. The whole card
+                is the tap target (matching what the desktop row already
+                does functionally via its Trade button, just easier to hit). */}
+            <div className="sm:hidden">
+              {isLoading &&
+                Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="border-b border-line-soft/60 px-3 py-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <SkeletonBar width="35%" height={12} />
+                      <SkeletonBar width="20%" height={12} />
+                    </div>
+                    <div className="mt-1.5"><SkeletonBar width="50%" height={9} /></div>
+                  </div>
+                ))}
+              {!isLoading &&
+                rows.map((i) => (
+                  <button
+                    key={i.symbol}
+                    onClick={() => openInTerminal(i.symbol)}
+                    className="tap-sm flex w-full flex-col gap-1 border-b border-line-soft/60 px-3 py-2.5 text-left hover:bg-bg-2/60 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <span className="truncate text-xs font-medium text-txt-0">{i.symbol}</span>
+                        <span className="shrink-0 rounded bg-bg-3 px-1 py-px text-[9px] font-medium uppercase tracking-wide text-txt-3">{i.category.slice(0, 4)}</span>
+                      </div>
+                      <span className={classNames("shrink-0 tabular text-xs font-semibold", i.dir === "up" ? "text-buy" : i.dir === "down" ? "text-sell" : "text-txt-0")}>
+                        {fmtPrice(i.livePrice, i.priceDecimals)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-2xs text-txt-2">
+                      <span className="truncate">{i.name}</span>
+                      <span className={classNames("tabular font-medium", i.liveChange24h >= 0 ? "text-buy" : "text-sell")}>{fmtPct(i.liveChange24h)}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-2xs text-txt-3 tabular">
+                      <span>H <span className="text-txt-2">{fmtPrice(i.liveHigh24h, i.priceDecimals)}</span></span>
+                      <span>L <span className="text-txt-2">{fmtPrice(i.liveLow24h, i.priceDecimals)}</span></span>
+                      <span>Vol <span className="text-txt-2">{fmtCompact(i.volume24h)}</span></span>
+                      <span>Max <span className="text-txt-2">{i.maxLeverage}x</span></span>
+                    </div>
+                  </button>
+                ))}
+            </div>
+
+            {/* `sm` and up: unchanged desktop table. */}
+            <div className="hidden sm:block">
+              <table className="w-full min-w-[760px] text-xs">
+                <thead className="sticky top-0 bg-bg-1">
+                  <tr className="border-b border-line text-left">
+                    <SortHeader id="symbol" label="Instrument" />
+                    <th className="px-3 py-2 font-medium text-txt-3">Category</th>
+                    <SortHeader id="price" label="Last Price" align="right" />
+                    <SortHeader id="change" label="24h Change" align="right" />
+                    <th className="px-3 py-2 text-right font-medium text-txt-3">24h High</th>
+                    <th className="px-3 py-2 text-right font-medium text-txt-3">24h Low</th>
+                    <SortHeader id="volume" label="24h Volume" align="right" />
+                    <th className="px-3 py-2 text-right font-medium text-txt-3">Max Lev.</th>
+                    <th className="px-3 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {isLoading && <SkeletonTableRows columns={9} />}
+                  {!isLoading && rows.map((i) => (
+                    <tr key={i.symbol} className="border-b border-line-soft/60 tabular hover:bg-bg-2/60">
+                      <td className="px-3 py-2">
+                        <div className="font-medium text-txt-0">{i.symbol}</div>
+                        <div className="text-2xs text-txt-3">{i.name}</div>
+                      </td>
+                      <td className="px-3 py-2 text-txt-2">{i.category}</td>
+                      <td className={classNames("px-3 py-2 text-right", i.dir === "up" ? "text-buy" : i.dir === "down" ? "text-sell" : "text-txt-0")}>
+                        {fmtPrice(i.livePrice, i.priceDecimals)}
+                      </td>
+                      <td className={classNames("px-3 py-2 text-right", i.liveChange24h >= 0 ? "text-buy" : "text-sell")}>{fmtPct(i.liveChange24h)}</td>
+                      <td className="px-3 py-2 text-right text-txt-1">{fmtPrice(i.liveHigh24h, i.priceDecimals)}</td>
+                      <td className="px-3 py-2 text-right text-txt-1">{fmtPrice(i.liveLow24h, i.priceDecimals)}</td>
+                      <td className="px-3 py-2 text-right text-txt-1">{fmtCompact(i.volume24h)}</td>
+                      <td className="px-3 py-2 text-right text-txt-1">{i.maxLeverage}x</td>
+                      <td className="px-3 py-2 text-right">
+                        <button onClick={() => openInTerminal(i.symbol)} className="btn-fx rounded border border-line px-2.5 py-1 text-2xs text-txt-1 hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent">
+                          Trade
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 

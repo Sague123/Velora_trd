@@ -17,6 +17,7 @@ import { OrdersTable } from "../components/terminal/OrdersTable";
 import { TradesTable } from "../components/terminal/TradesTable";
 import { LedgerTable } from "../components/terminal/LedgerTable";
 import { LoadingRow, ErrorRow } from "../components/common/States";
+import { Checkbox } from "../components/common/Checkbox";
 import { classNames, fmtDateTime } from "../lib/format";
 import { toast } from "../store/toast";
 import { ApiError } from "../lib/api";
@@ -71,7 +72,7 @@ function InfoForm() {
             className="w-full cursor-not-allowed rounded border border-line bg-bg-2/50 px-2.5 py-1.5 text-xs text-txt-2" />
         </label>
       </div>
-      <button type="submit" disabled={updateProfile.isPending} className="btn-fx mt-3 rounded-lg bg-accent-fill px-4 py-1.5 text-xs font-semibold text-white hover:bg-accent-dim disabled:opacity-50">
+      <button type="submit" disabled={updateProfile.isPending} className="btn-fx tap-sm mt-3 rounded-lg bg-accent-fill px-4 py-1.5 text-xs font-semibold text-white hover:bg-accent-dim disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent">
         {updateProfile.isPending ? "Сохранение…" : "Save"}
       </button>
     </form>
@@ -123,7 +124,7 @@ function PasswordForm() {
         </label>
       </div>
       {error && <div className="mt-3 rounded border border-sell/40 bg-sell-soft px-2.5 py-1.5 text-2xs text-sell">{error}</div>}
-      <button type="submit" disabled={changePassword.isPending} className="btn-fx mt-3 rounded-lg bg-accent-fill px-4 py-1.5 text-xs font-semibold text-white hover:bg-accent-dim disabled:opacity-50">
+      <button type="submit" disabled={changePassword.isPending} className="btn-fx tap-sm mt-3 rounded-lg bg-accent-fill px-4 py-1.5 text-xs font-semibold text-white hover:bg-accent-dim disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent">
         {changePassword.isPending ? "Сохранение…" : "Update Password"}
       </button>
       <span className="ml-2 text-2xs text-txt-3">Смена пароля завершит все ваши сессии.</span>
@@ -156,7 +157,7 @@ function SettingsTab() {
         <div className="flex gap-1">
           {(["dark", "light"] as const).map((t) => (
             <button key={t} onClick={() => setTheme(t)}
-              className={classNames("btn-fx flex items-center gap-1.5 rounded border px-3 py-1.5 text-2xs font-medium capitalize", theme === t ? "border-accent bg-accent-soft text-accent" : "border-line text-txt-2")}>
+              className={classNames("btn-fx tap-sm flex items-center gap-1.5 rounded border px-3 py-1.5 text-2xs font-medium capitalize focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent", theme === t ? "border-accent bg-accent-soft text-accent" : "border-line text-txt-2")}>
               {t === "dark" ? <IconMoon size={13} /> : <IconSun size={13} />} {t}
             </button>
           ))}
@@ -176,7 +177,7 @@ function SettingsTab() {
           <span className="mb-1 block text-2xs text-txt-2">Default Amount Mode</span>
           <div className="flex flex-wrap gap-1">
             {(["BASE", "QUOTE", "MARGIN"] as const).map((m) => (
-              <button key={m} onClick={() => s.setDefaultAmountMode(m)} className={classNames("btn-fx rounded border px-3 py-1.5 text-2xs font-medium", s.defaultAmountMode === m ? "border-accent bg-accent-soft text-accent" : "border-line text-txt-2")}>
+              <button key={m} onClick={() => s.setDefaultAmountMode(m)} className={classNames("btn-fx tap-sm rounded border px-3 py-1.5 text-2xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent", s.defaultAmountMode === m ? "border-accent bg-accent-soft text-accent" : "border-line text-txt-2")}>
                 {m === "BASE" ? "Base asset" : m === "QUOTE" ? "Total (USD)" : "Margin (USD)"}
               </button>
             ))}
@@ -187,21 +188,20 @@ function SettingsTab() {
           <span className="mb-1 block text-2xs text-txt-2">Default Chart Timeframe</span>
           <div className="flex flex-wrap gap-1">
             {TIMEFRAMES.map((tf) => (
-              <button key={tf} onClick={() => s.setDefaultTimeframe(tf)} className={classNames("btn-fx rounded border px-3 py-1.5 text-2xs font-medium", s.defaultTimeframe === tf ? "border-accent bg-accent-soft text-accent" : "border-line text-txt-2")}>
+              <button key={tf} onClick={() => s.setDefaultTimeframe(tf)} className={classNames("btn-fx tap-sm rounded border px-3 py-1.5 text-2xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent", s.defaultTimeframe === tf ? "border-accent bg-accent-soft text-accent" : "border-line text-txt-2")}>
                 {tf}
               </button>
             ))}
           </div>
         </label>
 
-        <label className="flex items-center gap-2 text-2xs text-txt-2">
-          <input type="checkbox" checked={s.confirmOnOrder} onChange={(e) => s.setConfirmOnOrder(e.target.checked)} className="accent-accent" />
+        <Checkbox checked={s.confirmOnOrder} onChange={s.setConfirmOnOrder} className="text-2xs text-txt-2">
           Требовать повторное нажатие Buy/Sell для подтверждения
-        </label>
+        </Checkbox>
       </div>
 
       <div className="rounded-lg border border-line bg-bg-1 p-4">
-        <button onClick={() => { s.reset(); toast.info("Настройки сброшены"); }} className="btn-fx rounded border border-line px-3 py-1.5 text-2xs text-txt-2 hover:border-sell hover:text-sell">
+        <button onClick={() => { s.reset(); toast.info("Настройки сброшены"); }} className="btn-fx tap-sm rounded border border-line px-3 py-1.5 text-2xs text-txt-2 hover:border-sell hover:text-sell focus-visible:outline focus-visible:outline-2 focus-visible:outline-sell">
           Reset to Defaults
         </button>
       </div>
@@ -228,14 +228,14 @@ function PortfolioTab() {
             ["ledger", "Ledger"],
           ] as [typeof sub, string][]
         ).map(([id, label]) => (
-          <button key={id} onClick={() => setSub(id)} className={classNames("btn-fx border-b-2 px-3 py-2 text-2xs font-medium", sub === id ? "border-accent text-txt-0" : "border-transparent text-txt-2 hover:text-txt-0")}>
+          <button key={id} onClick={() => setSub(id)} className={classNames("btn-fx tap-sm border-b-2 px-3 py-2 text-2xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent", sub === id ? "border-accent text-txt-0" : "border-transparent text-txt-2 hover:text-txt-0")}>
             {label}
           </button>
         ))}
         {sub === "orders" && (
           <div className="ml-auto flex gap-0.5 py-1 pr-2">
             {(["NEW", "FILLED", "CANCELLED", "ALL"] as const).map((s) => (
-              <button key={s} onClick={() => setOrderStatus(s)} className={classNames("btn-fx rounded px-2 py-1 text-2xs font-medium", orderStatus === s ? "bg-accent-soft text-accent" : "text-txt-2")}>
+              <button key={s} onClick={() => setOrderStatus(s)} className={classNames("btn-fx tap-sm rounded px-2 py-1 text-2xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent", orderStatus === s ? "bg-accent-soft text-accent" : "text-txt-2")}>
                 {s}
               </button>
             ))}
@@ -308,7 +308,7 @@ export function ProfilePage() {
         <span className={classNames("relative ml-2 rounded px-2 py-0.5 text-2xs font-medium", user.role === "ADMIN" ? "bg-warn/10 text-warn" : "bg-accent-soft text-accent")}>
           {user.role}
         </span>
-        <button onClick={handleLogout} className="btn-fx relative ml-auto rounded border border-line px-3 py-1.5 text-xs text-txt-2 hover:border-sell hover:text-sell">
+        <button onClick={handleLogout} className="btn-fx tap-sm relative ml-auto rounded border border-line px-3 py-1.5 text-xs text-txt-2 hover:border-sell hover:text-sell focus-visible:outline focus-visible:outline-2 focus-visible:outline-sell">
           {t("common.logout")}
         </button>
       </div>
@@ -324,7 +324,7 @@ export function ProfilePage() {
             ["settings", t("profileTabs.settings")],
           ] as [Tab, string][]
         ).map(([id, label]) => (
-          <button key={id} onClick={() => setTab(id)} className={classNames("btn-fx rounded px-3 py-1.5 text-xs font-medium", tab === id ? "bg-accent-soft text-accent" : "text-txt-2")}>
+          <button key={id} onClick={() => setTab(id)} className={classNames("btn-fx tap-sm rounded px-3 py-1.5 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent", tab === id ? "bg-accent-soft text-accent" : "text-txt-2")}>
             {label}
           </button>
         ))}

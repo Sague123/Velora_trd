@@ -57,24 +57,28 @@ export function OverviewPage() {
     <div className="h-full overflow-y-auto p-3">
       {showDeposit && <QuickDepositModal onClose={() => setShowDeposit(false)} />}
 
-      {/* Hero */}
-      <div className="anim-rise relative mb-4 overflow-hidden rounded-xl border border-line bg-bg-1 px-6 pb-8 pt-6">
+      {/* Hero — kept, but dialed down: this is what a returning trader sees
+          every session, not a one-time landing moment, so it shouldn't carry
+          the same weight as Home's. Smaller headline, tighter padding, and
+          the CTAs are a size down from before — the account snapshot right
+          below is the dashboard's actual content and should win the eye. */}
+      <div className="anim-rise relative mb-3 overflow-hidden rounded-xl border border-line bg-bg-1 px-5 pb-5 pt-5">
         <div className="hero-glow" aria-hidden />
-        <div className="relative flex flex-col gap-5">
+        <div className="relative flex flex-col gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-txt-0">
+            <h1 className="text-lg font-bold tracking-tight text-txt-0">
               {t("overview.welcome")} <span className="gradient-text">{user?.name}</span>
             </h1>
             <p className="mt-1 text-xs text-txt-2">{t("overview.subtitle")}</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <button onClick={() => navigate("/terminal")} className="cta-pill cta-trade flex items-center gap-2 px-7 py-3 text-sm">
-              {t("overview.startTrading")} <IconArrowRight size={16} />
+            <button onClick={() => navigate("/terminal")} className="cta-pill cta-trade flex items-center gap-2 px-6 py-2.5 text-xs">
+              {t("overview.startTrading")} <IconArrowRight size={15} />
             </button>
-            <button onClick={() => setShowDeposit(true)} className="cta-pill cta-deposit flex items-center gap-2 px-7 py-3 text-sm">
-              <IconWalletPlus size={16} /> {t("overview.deposit")}
+            <button onClick={() => setShowDeposit(true)} className="cta-pill cta-deposit flex items-center gap-2 px-6 py-2.5 text-xs">
+              <IconWalletPlus size={15} /> {t("overview.deposit")}
             </button>
-            <button onClick={() => navigate("/profile")} className="btn-fx text-2xs font-medium text-txt-2 underline decoration-dotted hover:text-accent">
+            <button onClick={() => navigate("/profile")} className="btn-fx text-2xs font-medium text-txt-2 underline decoration-dotted hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent">
               {t("overview.myProfile")} →
             </button>
           </div>
@@ -88,11 +92,11 @@ export function OverviewPage() {
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
           {/* Account snapshot */}
           {user && account.data && (
-            <div className="anim-rise-1 grid grid-cols-2 gap-2 rounded-lg border border-line bg-bg-1 p-3 shadow-none transition-shadow hover:shadow-float sm:grid-cols-4 lg:col-span-4">
-              <div><div className="text-2xs text-txt-2">{t("overview.equity")}</div><AnimatedNumber value={n(account.data.equity)} format={fmtUsd} className="tabular text-sm font-semibold text-txt-0" /></div>
-              <div><div className="text-2xs text-txt-2">{t("overview.freeMargin")}</div><AnimatedNumber value={n(account.data.cash)} format={fmtUsd} className="tabular text-sm font-semibold text-txt-0" /></div>
-              <div><div className="text-2xs text-txt-2">{t("overview.unrealisedPnl")}</div><AnimatedNumber value={n(account.data.unrealisedPnl)} format={fmtSigned} className={classNames("tabular text-sm font-semibold", Number(account.data.unrealisedPnl) >= 0 ? "text-buy" : "text-sell")} /></div>
-              <div><div className="text-2xs text-txt-2">{t("overview.openPositions")}</div><div className="tabular text-sm font-semibold text-txt-0">{account.data.openPositions}</div></div>
+            <div className="anim-rise-1 grid grid-cols-2 gap-2 rounded-lg border border-line bg-bg-1 p-3.5 shadow-none transition-shadow hover:shadow-float sm:grid-cols-4 lg:col-span-4">
+              <div><div className="text-2xs text-txt-2">{t("overview.equity")}</div><AnimatedNumber value={n(account.data.equity)} format={fmtUsd} className="tabular text-base font-bold text-txt-0" /></div>
+              <div><div className="text-2xs text-txt-2">{t("overview.freeMargin")}</div><AnimatedNumber value={n(account.data.cash)} format={fmtUsd} className="tabular text-base font-bold text-txt-0" /></div>
+              <div><div className="text-2xs text-txt-2">{t("overview.unrealisedPnl")}</div><AnimatedNumber value={n(account.data.unrealisedPnl)} format={fmtSigned} className={classNames("tabular text-base font-bold", Number(account.data.unrealisedPnl) >= 0 ? "text-buy" : "text-sell")} /></div>
+              <div><div className="text-2xs text-txt-2">{t("overview.openPositions")}</div><div className="tabular text-base font-bold text-txt-0">{account.data.openPositions}</div></div>
             </div>
           )}
 
