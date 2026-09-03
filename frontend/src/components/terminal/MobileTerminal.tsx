@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MarketWatch } from "./MarketWatch";
 import { ChartPanel } from "./ChartPanel";
-import { ChartToolbar } from "./ChartToolbar";
+import { ChartToolbar, mobileCtrlCls, mobileCtrlTone } from "./ChartToolbar";
 import { BottomPanel } from "./BottomPanel";
 import { OrderBookPanel } from "./OrderBookPanel";
 import { MobileOrderTicket } from "./MobileOrderTicket";
@@ -47,7 +47,7 @@ function IndicatorLegend() {
   }, [data, showSma20, showSma50, showEma9, showEma21]);
 
   return (
-    <div className="flex items-center gap-3 px-3.5 pb-1 pt-2">
+    <div className="flex items-center gap-3 px-3.5 pb-1.5 pt-2">
       <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden text-[10px] tabular">
         {items.length === 0 ? (
           <span className="text-txt-3">Индикаторы выключены</span>
@@ -59,21 +59,23 @@ function IndicatorLegend() {
           ))
         )}
       </div>
+
       {/* All four chart controls together, timeframe leading — it's also a
           chart display setting, not a property of the symbol, so it belongs
           with the rest of them rather than pinned up in the price row.
-          `dense`: this row already carries the SMA/EMA legend text on the
-          left, so the controls run smaller here than elsewhere on mobile. */}
+          `dense`: this row already carries the SMA/EMA legend text, so the
+          controls run smaller here than elsewhere on mobile. */}
       <ChartToolbar dense show={["timeframe", "chartType", "indicators", "draw"]} />
     </div>
   );
 }
 
-/** The latest closed bar's OHLC + volume, packed into the mode-switch card
- * instead of floating over the candles (ChartPanel drops that overlay in
- * `compact` mode — see the comment there). Reads the same bars
- * IndicatorLegend already fetches, just the raw candle rather than a moving
- * average of it. */
+/** Latest closed bar's OHLC + volume, under the price it describes — not
+ * floating over the candles (ChartPanel drops that overlay in `compact`
+ * mode, see the comment there), and not sharing a row with the mode-switch
+ * or the chart-control toolbar, which were each getting cramped carrying it.
+ * Reads the same bars IndicatorLegend fetches, just the raw candle rather
+ * than a moving average of it. */
 function HeaderOhlc() {
   const symbol = useTerminalStore((s) => s.symbol);
   const timeframe = useTerminalStore((s) => s.timeframe);
@@ -81,13 +83,21 @@ function HeaderOhlc() {
   const { data } = useChartBars(symbol, inst?.category, timeframe);
   const bar = data?.bars.at(-1);
   if (!bar || !inst) return null;
+  // A grid, not left-packed inline-wrap: the wrap version left a ragged,
+  // mostly-empty right column once it had this row to itself instead of
+  // sharing space with the toolbar. Columns split the full row width evenly
+  // regardless of each value's own length, so there's no dead strip on the
+  // right — and there's room now to run this at the same size as the SMA
+  // legend below it rather than the smallest size the type scale allows.
   return (
-    <div className="flex flex-wrap justify-end gap-x-1.5 gap-y-0 text-[9px] leading-tight tabular text-txt-3">
+    <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0.5 text-2xs leading-tight tabular text-txt-3">
       <span>O <span className="text-txt-1">{fmtPrice(bar.open, inst.priceDecimals)}</span></span>
       <span>H <span className="text-buy">{fmtPrice(bar.high, inst.priceDecimals)}</span></span>
       <span>L <span className="text-sell">{fmtPrice(bar.low, inst.priceDecimals)}</span></span>
       <span>C <span className="text-txt-1">{fmtPrice(bar.close, inst.priceDecimals)}</span></span>
-      {bar.volume !== undefined && <span>Vol <span className="text-txt-1">{fmtCompact(bar.volume)}</span></span>}
+      {bar.volume !== undefined && (
+        <span className="col-span-2">Vol <span className="text-txt-1">{fmtCompact(bar.volume)}</span></span>
+      )}
     </div>
   );
 }
@@ -189,33 +199,36 @@ export function MobileTerminal() {
                 </span>
               )}
             </div>
+            {mode === "chart" && <HeaderOhlc />}
           </div>
 
-          {/* One card, not a floating overlay on the chart: the mode switch
-              on top, the latest bar's OHLC underneath it — packed in here
-              since this is the one place on screen that's always visible
-              regardless of which of the three modes is showing. Widened
-              (h-9 buttons, more horizontal padding) now that it's carrying
-              two rows instead of one. */}
-          <div className="flex w-[176px] shrink-0 flex-col items-end gap-1 rounded-lg border border-line bg-bg-2 px-1.5 py-1.5">
-            <div className="flex gap-0.5">
-              {MODES.map(({ id, Icon, label }) => (
-                <button
-                  key={id}
-                  onClick={() => setMode(id)}
-                  aria-label={label}
-                  title={label}
-                  aria-pressed={mode === id}
-                  className={classNames(
-                    "tap-sm flex h-8 w-11 items-center justify-center rounded-md transition-colors",
-                    mode === id ? "bg-accent-fill text-white shadow-btn" : "text-txt-3"
-                  )}
-                >
-                  <Icon size={14} />
-                </button>
-              ))}
-            </div>
-            {mode === "chart" && <HeaderOhlc />}
+          {/* Mode switch only now (see IndicatorLegend for where the OHLC
+              line moved) — each button gets the same visible border+fill
+              mobileCtrlTone gives every other mobile control, in BOTH states,
+              not just the active one, so an unselected button still reads as
+              a button rather than a bare icon. ~1.3x bigger than the old
+              h-8 w-11 (now h-[42px] w-[54px]), rounder (rounded-xl, from
+              liftedCls), and liftedCls's shadow-lift is always on rather than
+              only appearing on the active button. scale-105 on the active
+              button plus liftedCls's own active:scale-95 tap-down is the
+              switch animation — the selected one visibly grows into place. */}
+          <div className="flex shrink-0 gap-1.5">
+            {MODES.map(({ id, Icon, label }) => (
+              <button
+                key={id}
+                onClick={() => setMode(id)}
+                aria-label={label}
+                title={label}
+                aria-pressed={mode === id}
+                className={classNames(
+                  mobileCtrlCls, mobileCtrlTone(mode === id),
+                  "h-[42px] w-[54px] transition-[transform,background-color,border-color,box-shadow] duration-200",
+                  mode === id && "scale-[1.05]"
+                )}
+              >
+                <Icon size={18} />
+              </button>
+            ))}
           </div>
         </section>
 

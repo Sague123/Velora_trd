@@ -116,7 +116,10 @@ export function ChartToolbar({
   // (mobile's legend row) shrinks the same way, ~1.5x down from the regular
   // touch-sized controls. Plain `lifted` (elsewhere on mobile) keeps the
   // larger, touch-target-sized controls untouched.
-  const iconBtnSize = variant === "flat" ? "h-[26px] w-[26px]" : dense ? "h-[21px] w-[21px]" : "h-8 w-8";
+  // Dense drops the fixed square in favour of auto width + side padding: the
+  // icon now shares the button with a short label (see the `dense &&` spans
+  // below), so a square sized for the icon alone would clip the text.
+  const iconBtnSize = variant === "flat" ? "h-[26px] w-[26px]" : dense ? "h-[22px] px-1.5" : "h-8 w-8";
   const tfBtnSize = variant === "flat" ? "h-[26px] px-1" : dense ? "h-[21px] px-1" : "h-8 px-2";
   const iconSize = variant === "flat" ? 14 : dense ? 11 : 17;
   const chevronSize = dense ? 8 : 10;
@@ -168,6 +171,7 @@ export function ChartToolbar({
           trigger={(open, toggle) => (
             <button onClick={toggle} className={classNames(btnCls, iconBtnSize, toneFor(variant, open))} aria-label="Тип графика" title="Тип графика">
               <ChartTypeIcon size={iconSize} />
+              {dense && <span className="text-[9px] font-bold leading-none">Тип</span>}
             </button>
           )}
         >
@@ -194,6 +198,7 @@ export function ChartToolbar({
               title="Индикаторы"
             >
               <IconSliders size={iconSize} />
+              {dense && <span className="text-[9px] font-bold leading-none">Инд</span>}
             </button>
           )}
         >
@@ -227,6 +232,7 @@ export function ChartToolbar({
               title="Инструменты рисования"
             >
               <IconPencil size={iconSize} />
+              {dense && <span className="text-[9px] font-bold leading-none">Рис</span>}
             </button>
           )}
         >
