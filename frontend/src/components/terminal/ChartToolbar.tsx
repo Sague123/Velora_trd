@@ -83,16 +83,23 @@ export function ChartToolbar({ variant = "lifted" }: { variant?: "flat" | "lifte
       "tap-sm flex w-full items-center gap-2 rounded-lg px-2.5 text-xs font-medium active:scale-95",
       active ? "bg-accent-soft text-accent" : "text-txt-1 hover:bg-bg-3"
     );
+  // Desktop (`flat`) sits in a single crowded header row alongside the
+  // symbol/price/signal cluster and the fit/fullscreen buttons — at
+  // 1280–1440px with the watchlist and order panel both open, the full-size
+  // (h-8) controls were enough to push fullscreen off the edge. Mobile
+  // (`lifted`) keeps the larger, touch-target-sized controls untouched.
+  const iconBtnSize = variant === "flat" ? "h-[26px] w-[26px]" : "h-8 w-8";
+  const tfBtnSize = variant === "flat" ? "h-[26px] px-1" : "h-8 px-2";
 
   return (
-    <div className="flex shrink-0 items-center gap-1">
+    <div className={classNames("flex shrink-0 items-center", variant === "flat" ? "gap-0.5" : "gap-1")}>
       {/* Timeframe first — it's the control a trader actually reaches for
           constantly; chart type is set once and rarely touched again, so it
           gets the quieter icon-only slot right after instead of the lead
           position. */}
       <Popover
         trigger={(open, toggle) => (
-          <button onClick={toggle} className={classNames(btnCls, "h-8 px-2 text-2xs", toneFor(variant, open))}>
+          <button onClick={toggle} className={classNames(btnCls, tfBtnSize, "text-2xs", toneFor(variant, open))}>
             {timeframe}
             <IconChevron size={10} direction={open ? "up" : "down"} />
           </button>
@@ -111,7 +118,7 @@ export function ChartToolbar({ variant = "lifted" }: { variant?: "flat" | "lifte
 
       <Popover
         trigger={(open, toggle) => (
-          <button onClick={toggle} className={classNames(btnCls, "h-8 w-8", toneFor(variant, open))} aria-label="Тип графика" title="Тип графика">
+          <button onClick={toggle} className={classNames(btnCls, iconBtnSize, toneFor(variant, open))} aria-label="Тип графика" title="Тип графика">
             <ChartTypeIcon size={variant === "lifted" ? 17 : 14} />
           </button>
         )}
@@ -132,7 +139,7 @@ export function ChartToolbar({ variant = "lifted" }: { variant?: "flat" | "lifte
         trigger={(open, toggle) => (
           <button
             onClick={toggle}
-            className={classNames(btnCls, "h-8 w-8", toneFor(variant, open || indicatorsActive))}
+            className={classNames(btnCls, iconBtnSize, toneFor(variant, open || indicatorsActive))}
             aria-label="Индикаторы"
             title="Индикаторы"
           >
@@ -163,7 +170,7 @@ export function ChartToolbar({ variant = "lifted" }: { variant?: "flat" | "lifte
         trigger={(open, toggle) => (
           <button
             onClick={toggle}
-            className={classNames(btnCls, "h-8 w-8", toneFor(variant, open || tool !== "cursor"))}
+            className={classNames(btnCls, iconBtnSize, toneFor(variant, open || tool !== "cursor"))}
             aria-label="Инструменты рисования"
             title="Инструменты рисования"
           >

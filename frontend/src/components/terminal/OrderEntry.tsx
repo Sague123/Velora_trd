@@ -12,7 +12,7 @@ import { ApiError } from "../../lib/api";
 import { Tooltip } from "../common/Tooltip";
 import { Popover } from "../common/Popover";
 import { mobileCtrlCls, mobileCtrlTone } from "./ChartToolbar";
-import { IconChevron } from "../icons/Icon";
+import { IconChevron, IconBullMarket, IconBearMarket } from "../icons/Icon";
 import type { OrderSide, OrderType } from "../../lib/types";
 
 const TYPES: OrderType[] = ["MARKET", "LIMIT", "STOP"];
@@ -492,7 +492,7 @@ export function OrderEntry({ compact = false }: { compact?: boolean } = {}) {
               onClick={() => handleSubmitClick(s)}
               disabled={!canSubmit}
               className={classNames(
-                "btn-fx rounded-xl font-bold transition-[transform,background-color] disabled:cursor-not-allowed disabled:opacity-40",
+                "btn-fx flex items-center justify-center gap-1.5 rounded-xl font-bold transition-[transform,background-color] disabled:cursor-not-allowed disabled:opacity-40",
                 // Primary action, biggest depth in the form: shadow-lift (not
                 // shadow-btn — see ChartToolbar.tsx's mobileCtrlCls doc for
                 // why the smaller token barely reads on this dark a surface),
@@ -505,6 +505,11 @@ export function OrderEntry({ compact = false }: { compact?: boolean } = {}) {
                 s === "BUY" ? "bg-buy-fill text-black hover:bg-buy-fill/90" : "bg-sell-fill text-white hover:bg-sell-fill/90"
               )}
             >
+              {/* Bull/bear as the direction mark — a shared trading-floor
+                  shorthand for long/short that reads faster than the button's
+                  color alone, and doubles as the icon-not-color cue WCAG asks
+                  for on top of buy/sell's color coding. */}
+              {s === "BUY" ? <IconBullMarket size={compact ? 14 : 16} /> : <IconBearMarket size={compact ? 14 : 16} />}
               {place.isPending && side === s
                 ? "Отправка…"
                 : armed === s

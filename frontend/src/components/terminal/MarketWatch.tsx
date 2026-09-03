@@ -4,7 +4,7 @@ import { useLiveInstruments } from "../../hooks/useLivePrices";
 import { useTerminalStore } from "../../store/terminal";
 import { classNames, fmtCompact, fmtPct, fmtPrice } from "../../lib/format";
 import { LoadingRow, ErrorRow, EmptyRow } from "../common/States";
-import { IconCoin } from "../icons/Icon";
+import { IconCoin, IconSearchDollar } from "../icons/Icon";
 import type { Category } from "../../lib/types";
 
 const CATEGORIES: Array<{ id: Category | "ALL"; label: string; Icon?: typeof IconCoin }> = [
@@ -34,12 +34,15 @@ export function MarketWatch({ onSelect }: { onSelect?: () => void } = {}) {
   return (
     <div className="flex h-full flex-col border-r border-line bg-bg-1">
       <div className="border-b border-line p-2">
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Поиск инструмента…"
-          className="tap-sm w-full rounded border border-line bg-bg-2 px-2 py-1.5 text-2xs text-txt-0 outline-none focus:border-accent"
-        />
+        <div className="relative">
+          <IconSearchDollar size={13} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-txt-3" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Поиск инструмента…"
+            className="tap-sm w-full rounded border border-line bg-bg-2 py-1.5 pl-6 pr-2 text-2xs text-txt-0 outline-none focus:border-accent"
+          />
+        </div>
         <div className="mt-2 flex gap-0.5">
           {CATEGORIES.map((c) => (
             <button

@@ -9,7 +9,7 @@ import { AccountStrip } from "./AccountStrip";
 import { useTerminalStore } from "../../store/terminal";
 import { useLiveInstrument } from "../../hooks/useLivePrices";
 import { classNames, fmtPct, fmtPrice } from "../../lib/format";
-import { IconBook, IconCandles, IconChevron, IconClipboard, IconClose, IconTrade } from "../icons/Icon";
+import { IconBookOpenCover, IconCandles, IconChevron, IconClipboard, IconClose, IconTrade } from "../icons/Icon";
 
 type TopView = "chart" | "book";
 type BottomView = "trade" | "orders";
@@ -92,7 +92,7 @@ export function MobileTerminal() {
             aria-label="Book"
             className={classNames(mobileCtrlCls, "h-8 w-8", mobileCtrlTone(topView === "book"))}
           >
-            <IconBook size={16} />
+            <IconBookOpenCover size={16} />
           </button>
         </div>
       </div>

@@ -306,7 +306,7 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
           remains), and chart-type/timeframe/indicators/draw-tools are one
           shared ChartToolbar instead of four separate always-open rows. */}
       {!compact && (
-        <div className="flex shrink-0 items-center gap-3 border-b border-line px-2.5 py-1.5">
+        <div className="flex shrink-0 items-center gap-2 border-b border-line px-2.5 py-1.5">
           {onToggleWatch && (
             <Tooltip label={watchCollapsed ? "Показать список пар" : "Скрыть список пар (больше места графику)"}>
               <button
@@ -356,26 +356,29 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
             </Tooltip>
           )}
 
-          <div className="ml-auto flex shrink-0 items-center gap-2">
+          <div className="ml-auto flex shrink-0 items-center gap-1">
             <ChartToolbar variant="flat" />
 
+            {/* Fit and fullscreen share one bordered box instead of two —
+                same controls, one less border+gap pair competing for room
+                in an already-tight row at 1280px. */}
             <div className="flex items-center gap-0.5 rounded border border-line p-0.5">
               <Tooltip label="Сбросить масштаб к последним свечам">
-                <button onClick={() => engineRef.current?.fitContent()} aria-label="Сбросить масштаб к последним свечам" className="btn-fx rounded px-1.5 py-1 text-txt-2 hover:text-txt-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent">
+                <button onClick={() => engineRef.current?.fitContent()} aria-label="Сбросить масштаб к последним свечам" className="btn-fx rounded px-1 py-1 text-txt-2 hover:text-txt-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent">
                   <IconFit size={14} />
                 </button>
               </Tooltip>
+              <div className="h-4 w-px shrink-0 bg-line" aria-hidden />
+              <Tooltip label={fullscreen ? "Выйти из полноэкранного режима" : "Полноэкранный режим"}>
+                <button
+                  onClick={toggleFullscreen}
+                  aria-label={fullscreen ? "Выйти из полноэкранного режима" : "Полноэкранный режим"}
+                  className="btn-fx rounded px-1 py-1 text-txt-2 hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+                >
+                  {fullscreen ? <IconCollapse size={14} /> : <IconExpand size={14} />}
+                </button>
+              </Tooltip>
             </div>
-
-            <Tooltip label={fullscreen ? "Выйти из полноэкранного режима" : "Полноэкранный режим"}>
-              <button
-                onClick={toggleFullscreen}
-                aria-label={fullscreen ? "Выйти из полноэкранного режима" : "Полноэкранный режим"}
-                className="btn-fx rounded border border-line px-1.5 py-1 text-txt-2 hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
-              >
-                {fullscreen ? <IconCollapse size={15} /> : <IconExpand size={15} />}
-              </button>
-            </Tooltip>
           </div>
         </div>
       )}

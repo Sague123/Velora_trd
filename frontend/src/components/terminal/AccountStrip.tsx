@@ -1,6 +1,7 @@
 import { useAccount } from "../../hooks/useTrading";
 import { useAuthStore } from "../../store/auth";
 import { classNames, fmtRate, fmtSigned, fmtUsd } from "../../lib/format";
+import { IconMeter } from "../icons/Icon";
 
 function Metric({ label, value, tone }: { label: string; value: string; tone?: "buy" | "sell" | "warn" | "default" }) {
   return (
@@ -56,6 +57,7 @@ export function AccountStrip() {
             <Metric label="Used Margin" value={fmtUsd(data.usedMargin)} />
             <Metric label="Locked (orders)" value={fmtUsd(data.lockedMargin)} />
             <div className="flex items-center gap-1.5">
+              <IconMeter size={12} className="shrink-0 text-txt-3" />
               <span className="text-2xs text-txt-2">Margin Usage</span>
               <div className="h-1.5 w-20 overflow-hidden rounded-full bg-bg-3">
                 <div
