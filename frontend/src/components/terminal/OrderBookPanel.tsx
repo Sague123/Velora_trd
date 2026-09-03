@@ -11,6 +11,12 @@ const MIN_SIZE_OPTIONS = [
   { value: 0.05, label: "Show only large (>5% of largest)" },
 ];
 
+// Was OrderBookPanel wrapped one level deep in a component literally named
+// RightPanelTabs, which held no tabs — the second tab ("Market Info") was
+// folded into this panel's own stats bar a while back, leaving a wrapper
+// that only ever rendered <OrderBookPanel /> and contributed one class
+// (border-l + bg-1, now on the root below). Removed rather than kept around
+// as unexplained indirection.
 export function OrderBookPanel() {
   const symbol = useTerminalStore((s) => s.symbol);
   const inst = useLiveInstrument(symbol);
@@ -50,7 +56,7 @@ export function OrderBookPanel() {
 
   if (status === "unsupported") {
     return (
-      <div className="flex h-full flex-col">
+      <div className="flex h-full flex-col border-l border-line bg-bg-1">
         {statsBar}
         <div className="flex flex-1 flex-col items-center justify-center gap-2 p-4 text-center">
           <span className="text-2xs text-txt-3">Стакан не поддерживается для {symbol}.</span>
@@ -60,7 +66,7 @@ export function OrderBookPanel() {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col border-l border-line bg-bg-1">
       {statsBar}
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-line-soft px-2.5 py-1.5">
         <span className="text-2xs font-semibold uppercase tracking-wide text-txt-2">Order Book</span>

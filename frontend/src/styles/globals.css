@@ -323,6 +323,19 @@ button:disabled { cursor: not-allowed; }
 .anim-rise-2 { animation: rise-in 420ms cubic-bezier(0.16, 1, 0.3, 1) 120ms both; }
 .anim-rise-3 { animation: rise-in 420ms cubic-bezier(0.16, 1, 0.3, 1) 180ms both; }
 
+/* Symmetric exit for .anim-rise (used by the terminal's modals) — same
+ * transform, reversed, on a standard "ease-in" accelerating curve instead of
+ * rise-in's decelerating one, which is the conventional entrance/exit pair.
+ * Transform-only, same rule as rise-in: nothing here may animate opacity
+ * from/to 0 — an exit interrupted mid-animation should stay visible but
+ * offset, never fade into a dead invisible state before the real unmount
+ * (driven by JS, see useModalExit) removes it. */
+@keyframes rise-out {
+  from { transform: translateY(0); }
+  to { transform: translateY(8px); }
+}
+.anim-rise-out { animation: rise-out 220ms cubic-bezier(0.4, 0, 1, 1) both; }
+
 @keyframes fade-in {
   from { transform: scale(0.98); }
   to { transform: scale(1); }

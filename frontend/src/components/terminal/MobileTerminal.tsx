@@ -2,7 +2,7 @@ import { useState } from "react";
 import { MarketWatch } from "./MarketWatch";
 import { ChartPanel } from "./ChartPanel";
 import { BottomPanel } from "./BottomPanel";
-import { RightPanelTabs } from "./RightPanelTabs";
+import { OrderBookPanel } from "./OrderBookPanel";
 import { OrderEntry } from "./OrderEntry";
 import { AccountStrip } from "./AccountStrip";
 import { useTerminalStore } from "../../store/terminal";
@@ -70,7 +70,7 @@ export function MobileTerminal() {
         className="relative shrink-0 border-b border-line transition-[height] duration-200"
         style={{ height: chartCollapsed ? "23%" : "46%" }}
       >
-        {topView === "chart" ? <ChartPanel compact /> : <RightPanelTabs />}
+        {topView === "chart" ? <ChartPanel compact /> : <OrderBookPanel />}
         <button
           onClick={() => setChartCollapsed((v) => !v)}
           aria-label={chartCollapsed ? "Развернуть график" : "Свернуть график"}

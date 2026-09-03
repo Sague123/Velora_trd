@@ -15,7 +15,10 @@ import { ema, macd as macdCalc, rsi as rsiCalc, sma } from "../../lib/indicators
 import { computeSignal, ratingLabel, type SignalResult } from "../../lib/signal";
 import { Tooltip } from "../common/Tooltip";
 import { LoadingRow, ErrorRow } from "../common/States";
-import { IconRefresh } from "../icons/Icon";
+import {
+  IconRefresh, IconChevron, IconCandles, IconChartLine, IconChartArea,
+  IconCrosshair, IconTrendLine, IconHorizontalLine, IconClose, IconFit, IconExpand, IconCollapse, IconCheck,
+} from "../icons/Icon";
 import { toast } from "../../store/toast";
 import { ApiError } from "../../lib/api";
 import type { Position, Timeframe } from "../../lib/types";
@@ -43,6 +46,31 @@ function saveDrawings(symbol: string, drawings: Drawing[]) {
   try {
     localStorage.setItem(drawingsKey(symbol), JSON.stringify(drawings));
   } catch { /* storage full/unavailable — drawings just won't persist */ }
+}
+
+/** SMA/EMA legend toggle — a real `<input type="checkbox">`, visually hidden
+ * (`sr-only`, not `hidden`/`display:none`) so it keeps full keyboard/screen-
+ * reader semantics, with a custom box driven by Tailwind's `peer` variants
+ * for the checked/focus-visible states. Was a bare native checkbox before —
+ * the only unstyled form control left in an otherwise fully custom UI kit. */
+function IndicatorToggle({
+  checked, onChange, textClass, boxCheckedClass, label,
+}: { checked: boolean; onChange: (v: boolean) => void; textClass: string; boxCheckedClass: string; label: string }) {
+  return (
+    <label className="flex cursor-pointer items-center gap-1.5">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="peer sr-only" />
+      <span
+        className={classNames(
+          "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border border-line bg-bg-2 transition-colors",
+          "peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-1 peer-focus-visible:outline-accent",
+          checked && boxCheckedClass
+        )}
+      >
+        {checked && <IconCheck size={9} className="text-white" />}
+      </span>
+      <span className={textClass}>{label}</span>
+    </label>
+  );
 }
 
 export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: { onToggleWatch?: () => void; watchCollapsed?: boolean; compact?: boolean }) {
@@ -284,8 +312,11 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line px-2.5 py-1.5">
         {onToggleWatch && (
           <Tooltip label={watchCollapsed ? "Показать список пар" : "Скрыть список пар (больше места графику)"}>
-            <button onClick={onToggleWatch} className="btn-fx rounded border border-line px-1.5 py-1 text-txt-2 hover:border-accent hover:text-accent">
-              {watchCollapsed ? "▶" : "◀"}
+            <button
+              onClick={onToggleWatch}
+              className="btn-fx rounded border border-line px-1.5 py-1 text-txt-2 hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+            >
+              <IconChevron direction={watchCollapsed ? "right" : "left"} size={15} />
             </button>
           </Tooltip>
         )}
@@ -338,19 +369,30 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
         <div className="ml-auto flex flex-wrap items-center gap-2">
           {!compact && (
             <div className="flex gap-0.5 rounded border border-line p-0.5">
-              {(["candles", "line", "area"] as ChartType[]).map((t) => (
-                <button key={t} onClick={() => setChartType(t)} title={t}
-                  className={classNames("btn-fx rounded px-1.5 py-0.5 text-2xs font-medium", chartType === t ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}>
-                  {t === "candles" ? "▤" : t === "line" ? "╱" : "◢"}
-                </button>
-              ))}
+              {(["candles", "line", "area"] as ChartType[]).map((t) => {
+                const ChartTypeIcon = t === "candles" ? IconCandles : t === "line" ? IconChartLine : IconChartArea;
+                return (
+                  <button
+                    key={t}
+                    onClick={() => setChartType(t)}
+                    title={t}
+                    aria-pressed={chartType === t}
+                    className={classNames(
+                      "btn-fx rounded px-1.5 py-1 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent",
+                      chartType === t ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0"
+                    )}
+                  >
+                    <ChartTypeIcon size={14} />
+                  </button>
+                );
+              })}
             </div>
           )}
 
           <div className="flex gap-0.5 rounded border border-line p-0.5">
             {(compact ? TIMEFRAMES.filter((tf) => tf !== "1m") : TIMEFRAMES).map((tf) => (
               <button key={tf} onClick={() => setTimeframe(tf)}
-                className={classNames("btn-fx rounded px-1.5 py-0.5 text-2xs font-medium", timeframe === tf ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}>
+                className={classNames("btn-fx rounded px-1.5 py-1 text-2xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent", timeframe === tf ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}>
                 {tf}
               </button>
             ))}
@@ -365,10 +407,10 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
                   (see globals.css — deliberately not the CRM cat-* palette,
                   which is explicitly scoped off-limits for the terminal).
                   Both are theme-aware and AA-verified against bg-0. */}
-              <label className="flex items-center gap-1 text-txt-2"><input type="checkbox" checked={showSma20} onChange={(e) => setShowSma20(e.target.checked)} className="accent-accent" /><span className="text-accent">SMA20</span></label>
-              <label className="flex items-center gap-1 text-txt-2"><input type="checkbox" checked={showSma50} onChange={(e) => setShowSma50(e.target.checked)} className="accent-warn" /><span className="text-warn">SMA50</span></label>
-              <label className="flex items-center gap-1 text-txt-2"><input type="checkbox" checked={showEma9} onChange={(e) => setShowEma9(e.target.checked)} className="accent-accent" /><span className="text-indicator-ema9">EMA9</span></label>
-              <label className="flex items-center gap-1 text-txt-2"><input type="checkbox" checked={showEma21} onChange={(e) => setShowEma21(e.target.checked)} className="accent-accent" /><span className="text-indicator-ema21">EMA21</span></label>
+              <IndicatorToggle checked={showSma20} onChange={setShowSma20} textClass="text-accent" boxCheckedClass="border-accent bg-accent" label="SMA20" />
+              <IndicatorToggle checked={showSma50} onChange={setShowSma50} textClass="text-warn" boxCheckedClass="border-warn bg-warn" label="SMA50" />
+              <IndicatorToggle checked={showEma9} onChange={setShowEma9} textClass="text-indicator-ema9" boxCheckedClass="border-indicator-ema9 bg-indicator-ema9" label="EMA9" />
+              <IndicatorToggle checked={showEma21} onChange={setShowEma21} textClass="text-indicator-ema21" boxCheckedClass="border-indicator-ema21 bg-indicator-ema21" label="EMA21" />
               <select value={oscillator} onChange={(e) => setOscillator(e.target.value as Oscillator)}
                 className="rounded border border-line bg-bg-2 px-1 py-0.5 text-2xs text-txt-1 outline-none focus:border-accent">
                 <option value="NONE">Oscillator: none</option>
@@ -381,46 +423,66 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
           {!compact && (
             <div className="flex gap-0.5 rounded border border-line p-0.5">
               <Tooltip label="Cursor — перетаскивание и зум колесом; потяните за шкалу цен справа, чтобы растянуть её по вертикали">
-                <button onClick={() => setTool("cursor")} className={classNames("btn-fx rounded px-1.5 py-0.5 text-2xs", tool === "cursor" ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}>
-                  ✛
+                <button
+                  onClick={() => setTool("cursor")}
+                  aria-pressed={tool === "cursor"}
+                  className={classNames("btn-fx rounded px-1.5 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent", tool === "cursor" ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}
+                >
+                  <IconCrosshair size={14} />
                 </button>
               </Tooltip>
               <Tooltip label="Trend line — клик, потом второй клик для завершения; ПКМ по линии удаляет">
-                <button onClick={() => setTool("trendline")} className={classNames("btn-fx rounded px-1.5 py-0.5 text-2xs", tool === "trendline" ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}>
-                  ╱
+                <button
+                  onClick={() => setTool("trendline")}
+                  aria-pressed={tool === "trendline"}
+                  className={classNames("btn-fx rounded px-1.5 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent", tool === "trendline" ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}
+                >
+                  <IconTrendLine size={14} />
                 </button>
               </Tooltip>
               <Tooltip label="Horizontal line — клик по цене; ПКМ по линии удаляет">
-                <button onClick={() => setTool("hline")} className={classNames("btn-fx rounded px-1.5 py-0.5 text-2xs", tool === "hline" ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}>
-                  —
+                <button
+                  onClick={() => setTool("hline")}
+                  aria-pressed={tool === "hline"}
+                  className={classNames("btn-fx rounded px-1.5 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent", tool === "hline" ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}
+                >
+                  <IconHorizontalLine size={14} />
                 </button>
               </Tooltip>
               <Tooltip label="Удалить все линии на этом графике">
-                <button onClick={() => engineRef.current?.clearDrawings()} className="btn-fx rounded px-1.5 py-0.5 text-2xs text-txt-2 hover:text-sell">
-                  ✕
+                <button
+                  onClick={() => engineRef.current?.clearDrawings()}
+                  className="btn-fx rounded px-1.5 py-1 text-txt-2 hover:text-sell focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+                >
+                  <IconClose size={14} />
                 </button>
               </Tooltip>
             </div>
           )}
 
           {!compact && (
-            <div className="flex gap-0.5 rounded border border-line p-0.5">
+            <div className="flex items-center gap-0.5 rounded border border-line p-0.5">
               <Tooltip label="Уменьшить масштаб">
-                <button onClick={() => engineRef.current?.zoomBy(1.4)} className="btn-fx rounded px-1.5 py-0.5 text-xs text-txt-2 hover:text-txt-0">−</button>
+                <button onClick={() => engineRef.current?.zoomBy(1.4)} className="btn-fx rounded px-1.5 py-1 text-xs text-txt-2 hover:text-txt-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent">−</button>
               </Tooltip>
               <Tooltip label="Сбросить масштаб">
-                <button onClick={() => engineRef.current?.fitContent()} className="btn-fx rounded px-1.5 py-0.5 text-2xs text-txt-2 hover:text-txt-0">⤢fit</button>
+                <button onClick={() => engineRef.current?.fitContent()} className="btn-fx rounded px-1.5 py-1 text-txt-2 hover:text-txt-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent">
+                  <IconFit size={14} />
+                </button>
               </Tooltip>
               <Tooltip label="Увеличить масштаб">
-                <button onClick={() => engineRef.current?.zoomBy(1 / 1.4)} className="btn-fx rounded px-1.5 py-0.5 text-xs text-txt-2 hover:text-txt-0">+</button>
+                <button onClick={() => engineRef.current?.zoomBy(1 / 1.4)} className="btn-fx rounded px-1.5 py-1 text-xs text-txt-2 hover:text-txt-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent">+</button>
               </Tooltip>
             </div>
           )}
 
           {!compact && (
           <Tooltip label={fullscreen ? "Выйти из полноэкранного режима" : "Полноэкранный режим"}>
-            <button onClick={toggleFullscreen} className="btn-fx rounded border border-line px-1.5 py-1 text-txt-2 hover:border-accent hover:text-accent">
-              {fullscreen ? "⤡" : "⤢"}
+            <button
+              onClick={toggleFullscreen}
+              className="btn-fx rounded border border-line px-1.5 py-1 text-txt-2 hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+            >
+              {fullscreen ? <IconCollapse size={15} /> : <IconExpand size={15} />}
             </button>
           </Tooltip>
           )}
@@ -442,9 +504,9 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
         {fullscreen && (
           <button
             onClick={toggleFullscreen}
-            className="btn-fx absolute right-2 top-2 z-20 flex items-center gap-1 rounded border border-line bg-bg-1/90 px-2 py-1 text-2xs font-medium text-txt-1 shadow-lg hover:border-accent hover:text-accent"
+            className="btn-fx absolute right-2 top-2 z-20 flex items-center gap-1 rounded border border-line bg-bg-1/90 px-2 py-1 text-2xs font-medium text-txt-1 shadow-lg hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
           >
-            ⤡ Выйти из полноэкранного режима
+            <IconCollapse size={13} /> Выйти из полноэкранного режима
           </button>
         )}
 
@@ -484,14 +546,21 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
           </div>
         )}
         {compact && (
-          <Tooltip label="Вернуться к последним свечам">
-            <button
-              onClick={() => engineRef.current?.fitContent()}
-              className="btn-fx absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full border border-line bg-bg-1/90 px-2.5 py-1.5 text-2xs text-txt-1 shadow-panel"
-            >
-              <IconRefresh size={13} /> К текущей цене
-            </button>
-          </Tooltip>
+          // The absolute positioning has to live on this wrapper, not on the
+          // button itself: Tooltip's own root <span> is `position: relative`,
+          // and an absolutely-positioned child inside it anchors to THAT
+          // small, content-sized span instead of this chart pane — which is
+          // exactly what sent the button off the left edge before.
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2">
+            <Tooltip label="Вернуться к последним свечам">
+              <button
+                onClick={() => engineRef.current?.fitContent()}
+                className="btn-fx flex items-center gap-1 rounded-full border border-line bg-bg-1/90 px-2.5 py-1.5 text-2xs text-txt-1 shadow-panel focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+              >
+                <IconRefresh size={13} /> К текущей цене
+              </button>
+            </Tooltip>
+          </div>
         )}
         {isFetching && !isLoading && <div className="absolute right-2 top-2 text-2xs text-txt-3">обновление…</div>}
         {tool !== "cursor" && (

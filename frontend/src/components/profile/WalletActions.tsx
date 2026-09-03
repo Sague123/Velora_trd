@@ -8,9 +8,12 @@ import { demoWalletAddress } from "../../lib/demoWallet";
 import { toast } from "../../store/toast";
 import { IconCopy, IconCrypto, IconWalletMinus, IconWalletPlus } from "../icons/Icon";
 
-const TILES: { method: WalletMethod; Icon: typeof IconWalletPlus; label: string; sub: string; gradient: string }[] = [
-  { method: "deposit", Icon: IconWalletPlus, label: "Deposit", sub: "Пополнить баланс", gradient: "from-buy to-emerald-400" },
-  { method: "withdraw", Icon: IconWalletMinus, label: "Withdraw", sub: "Вывести средства", gradient: "from-warn to-sell" },
+const TILES: { method: WalletMethod; Icon: typeof IconWalletPlus; label: string; sub: string; fill: string; text: string }[] = [
+  // Flat semantic fills, not gradients — same -fill tokens the terminal's own
+  // Buy/Sell buttons use, so "deposit" and "withdraw" read as the same kind
+  // of action everywhere in the app, not a decorative one-off here.
+  { method: "deposit", Icon: IconWalletPlus, label: "Deposit", sub: "Пополнить баланс", fill: "bg-buy-fill", text: "text-black" },
+  { method: "withdraw", Icon: IconWalletMinus, label: "Withdraw", sub: "Вывести средства", fill: "bg-sell-fill", text: "text-white" },
 ];
 
 export function WalletActions() {
@@ -28,7 +31,7 @@ export function WalletActions() {
         <div className="relative flex flex-wrap items-end justify-between gap-3">
           <div>
             <div className="text-2xs font-medium uppercase tracking-wide text-txt-2">Available Balance</div>
-            <div className="tabular gradient-text mt-1 text-3xl font-bold">{account ? fmtUsd(account.cash) : "—"}</div>
+            <div className="tabular mt-1 text-3xl font-bold text-txt-0">{account ? fmtUsd(account.cash) : "—"}</div>
           </div>
           {user?.accountNumber && (
             <div className="rounded-lg border border-line-soft bg-bg-2/60 px-3 py-1.5 text-right">
@@ -63,15 +66,19 @@ export function WalletActions() {
             key={t.method}
             onClick={() => setOpen(t.method)}
             className={classNames(
-              "btn-fx group flex flex-col items-center gap-1 rounded-xl px-2 py-2.5 text-center shadow-panel transition-transform hover:-translate-y-0.5",
-              "bg-gradient-to-br text-white",
-              t.gradient,
+              "btn-fx group flex flex-col items-center gap-1 rounded-xl border border-line px-2 py-2.5 text-center shadow-panel transition-transform hover:-translate-y-0.5",
+              t.fill,
+              t.text,
               idx === 0 ? "anim-rise-1" : idx === 1 ? "anim-rise-2" : "anim-rise-3"
             )}
           >
             <t.Icon size={18} />
             <div className="text-2xs font-bold sm:text-xs">{t.label}</div>
-            <div className="hidden text-2xs text-white/80 sm:block">{t.sub}</div>
+            {/* Full opacity, not a faded /80 — a diluted tint here reads fine
+                by eye but measures under the 4.5:1 AA floor on more than one
+                fill/theme combination; hierarchy comes from weight/size
+                instead, same rule the txt ramp itself follows. */}
+            <div className="hidden text-2xs sm:block">{t.sub}</div>
           </button>
         ))}
       </div>

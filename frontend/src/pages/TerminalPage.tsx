@@ -2,7 +2,7 @@ import { useState } from "react";
 import { MarketWatch } from "../components/terminal/MarketWatch";
 import { ChartPanel } from "../components/terminal/ChartPanel";
 import { BottomPanel } from "../components/terminal/BottomPanel";
-import { RightPanelTabs } from "../components/terminal/RightPanelTabs";
+import { OrderBookPanel } from "../components/terminal/OrderBookPanel";
 import { OrderEntry } from "../components/terminal/OrderEntry";
 import { AccountStrip } from "../components/terminal/AccountStrip";
 import { Resizer } from "../components/common/Resizer";
@@ -45,7 +45,7 @@ export function TerminalPage() {
         <Resizer axis="x" onResize={onRightDelta} />
         <div style={{ width: rightWidth }} className="flex shrink-0 flex-col">
           <div style={{ height: infoHeight }} className="min-h-0 shrink-0">
-            <RightPanelTabs />
+            <OrderBookPanel />
           </div>
           <Resizer axis="y" onResize={onInfoDelta} />
           <div className="min-h-0 flex-1 border-l border-line">

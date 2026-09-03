@@ -6,21 +6,26 @@ import { toast } from "../../store/toast";
 import { ApiError } from "../../lib/api";
 import { fmtUsd, classNames } from "../../lib/format";
 import { demoWalletAddress } from "../../lib/demoWallet";
+import { useModalExit } from "../../hooks/useModalExit";
 import { IconCard, IconCopy, IconCrypto, IconSwap, IconUsers, IconWalletMinus, IconWalletPlus } from "../icons/Icon";
 
 export type WalletMethod = "deposit" | "withdraw" | "transfer";
 type PayMethod = "p2p" | "card" | "crypto";
 
+// Flat semantic fills, not gradients (see WalletActions.tsx's tiles for the
+// same rule) — deposit/withdraw reuse the exact -fill tokens the terminal's
+// own Buy/Sell buttons are built on; transfer isn't a buy/sell action, so it
+// takes the neutral accent-fill rather than inventing a new hue for it.
 const METHOD_META: Record<WalletMethod, { title: string; Icon: typeof IconWalletPlus; cta: string; accentClass: string }> = {
-  deposit: { title: "Deposit", Icon: IconWalletPlus, cta: "cta-deposit", accentClass: "border-buy/40" },
-  withdraw: { title: "Withdraw", Icon: IconWalletMinus, cta: "bg-gradient-to-r from-warn to-sell text-white", accentClass: "border-warn/40" },
-  transfer: { title: "Transfer", Icon: IconSwap, cta: "bg-gradient-to-r from-accent to-[#7c3aed] text-white", accentClass: "border-accent/40" },
+  deposit: { title: "Deposit", Icon: IconWalletPlus, cta: "bg-buy-fill text-black", accentClass: "border-buy/40" },
+  withdraw: { title: "Withdraw", Icon: IconWalletMinus, cta: "bg-sell-fill text-white", accentClass: "border-warn/40" },
+  transfer: { title: "Transfer", Icon: IconSwap, cta: "bg-accent-fill text-white", accentClass: "border-accent/40" },
 };
 
-const PAY_METHODS: { id: PayMethod; label: string; sub: string; Icon: typeof IconUsers; gradient: string }[] = [
-  { id: "p2p", label: "P2P", sub: "Через объявление продавца", Icon: IconUsers, gradient: "from-accent to-[#7c3aed]" },
-  { id: "card", label: "Online Payment", sub: "Банковская карта", Icon: IconCard, gradient: "from-buy to-emerald-400" },
-  { id: "crypto", label: "Crypto Wallet", sub: "Демо-адрес Velora", Icon: IconCrypto, gradient: "from-warn to-sell" },
+const PAY_METHODS: { id: PayMethod; label: string; sub: string; Icon: typeof IconUsers }[] = [
+  { id: "p2p", label: "P2P", sub: "Через объявление продавца", Icon: IconUsers },
+  { id: "card", label: "Online Payment", sub: "Банковская карта", Icon: IconCard },
+  { id: "crypto", label: "Crypto Wallet", sub: "Демо-адрес Velora", Icon: IconCrypto },
 ];
 
 const P2P_OFFERS = [
@@ -32,6 +37,7 @@ const P2P_OFFERS = [
 const PRESETS = ["100", "500", "1000", "5000"];
 
 export function WalletFlowModal({ method, onClose }: { method: WalletMethod; onClose: () => void }) {
+  const { closing, requestClose } = useModalExit(onClose);
   const user = useAuthStore((s) => s.user);
   const { data: account } = useAccount(!!user);
   const deposit = useDeposit();
@@ -79,15 +85,18 @@ export function WalletFlowModal({ method, onClose }: { method: WalletMethod; onC
         );
         toast.success("Перевод выполнен", `Баланс: ${fmtUsd(res.balance)}`);
       }
-      onClose();
+      requestClose();
     } catch (e) {
       toast.error("Операция отклонена", e instanceof ApiError ? e.message : undefined);
     }
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div className={`anim-rise w-full max-w-sm rounded-xl border ${meta.accentClass} bg-bg-1 p-5 shadow-2xl`} onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" onClick={requestClose}>
+      <div
+        className={`${closing ? "anim-rise-out" : "anim-rise"} w-full max-w-sm rounded-xl border ${meta.accentClass} bg-bg-1 p-5 shadow-2xl`}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-txt-0">
           <meta.Icon size={18} /> {meta.title}
         </div>
@@ -100,19 +109,18 @@ export function WalletFlowModal({ method, onClose }: { method: WalletMethod; onC
                 key={m.id}
                 type="button"
                 onClick={() => chooseMethod(m.id)}
-                className={classNames(
-                  "btn-fx flex items-center gap-3 rounded-xl bg-gradient-to-br p-3 text-left text-white shadow-panel transition-transform hover:-translate-y-0.5",
-                  m.gradient
-                )}
+                className="btn-fx flex items-center gap-3 rounded-xl border border-line bg-bg-2 p-3 text-left shadow-panel transition-colors hover:border-accent/50 hover:bg-bg-3"
               >
-                <m.Icon size={20} />
+                {/* Accent is spent on the icon alone — a small semantic touch
+                    rather than lighting up the whole tile. */}
+                <m.Icon size={20} className="shrink-0 text-accent" />
                 <div>
-                  <div className="text-xs font-bold">{m.label}</div>
-                  <div className="text-2xs text-white/80">{m.sub}</div>
+                  <div className="text-xs font-bold text-txt-0">{m.label}</div>
+                  <div className="text-2xs text-txt-3">{m.sub}</div>
                 </div>
               </button>
             ))}
-            <button type="button" onClick={onClose} className="btn-fx mt-1 rounded-lg border border-line py-2 text-xs text-txt-2 hover:text-txt-0">
+            <button type="button" onClick={requestClose} className="btn-fx mt-1 rounded-lg border border-line py-2 text-xs text-txt-2 hover:text-txt-0">
               Cancel
             </button>
           </div>
@@ -150,13 +158,13 @@ export function WalletFlowModal({ method, onClose }: { method: WalletMethod; onC
             )}
 
             {method !== "transfer" && payMethod === "card" && (
-              <div className="mb-3 rounded-xl bg-gradient-to-br from-[#2b3350] to-[#171b2c] p-3.5 text-white shadow-panel">
-                <div className="mb-4 flex items-center justify-between text-2xs text-white/70">
+              <div className="mb-3 rounded-xl border border-line bg-bg-3 p-3.5 text-txt-0 shadow-panel">
+                <div className="mb-4 flex items-center justify-between text-2xs text-txt-3">
                   <span>Card</span>
                   <IconCard size={16} />
                 </div>
                 <div className="mb-3 font-mono text-sm tracking-widest">•••• •••• •••• 4242</div>
-                <div className="flex justify-between text-2xs text-white/70">
+                <div className="flex justify-between text-2xs text-txt-3">
                   <span>VELORA</span>
                   <span>12/29</span>
                 </div>
@@ -239,7 +247,7 @@ export function WalletFlowModal({ method, onClose }: { method: WalletMethod; onC
             />
 
             <div className="flex gap-2">
-              <button type="button" onClick={onClose} className="btn-fx flex-1 rounded-lg border border-line py-2 text-xs text-txt-2 hover:text-txt-0">
+              <button type="button" onClick={requestClose} className="btn-fx flex-1 rounded-lg border border-line py-2 text-xs text-txt-2 hover:text-txt-0">
                 Cancel
               </button>
               <button type="submit" disabled={pending} className={`cta-pill flex-1 py-2 text-xs disabled:opacity-50 ${meta.cta}`}>

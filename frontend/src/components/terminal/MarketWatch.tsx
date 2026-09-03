@@ -38,7 +38,7 @@ export function MarketWatch({ onSelect }: { onSelect?: () => void } = {}) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Поиск инструмента…"
-          className="w-full rounded border border-line bg-bg-2 px-2 py-1.5 text-2xs text-txt-0 outline-none focus:border-accent"
+          className="tap-sm w-full rounded border border-line bg-bg-2 px-2 py-1.5 text-2xs text-txt-0 outline-none focus:border-accent"
         />
         <div className="mt-2 flex gap-0.5">
           {CATEGORIES.map((c) => (
@@ -46,7 +46,7 @@ export function MarketWatch({ onSelect }: { onSelect?: () => void } = {}) {
               key={c.id}
               onClick={() => setCategory(c.id)}
               className={classNames(
-                "flex flex-1 items-center justify-center gap-1 rounded px-1 py-1 text-2xs font-medium transition-colors",
+                "tap-sm flex flex-1 items-center justify-center gap-1 rounded px-1 py-1 text-2xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent",
                 category === c.id ? "bg-accent-soft text-accent" : "text-txt-2 hover:bg-bg-3 hover:text-txt-0"
               )}
             >
@@ -76,12 +76,24 @@ export function MarketWatch({ onSelect }: { onSelect?: () => void } = {}) {
                 key={i.symbol}
                 onClick={() => { setSymbol(i.symbol); onSelect?.(); }}
                 className={classNames(
-                  "grid w-full grid-cols-[1fr_auto_auto] items-center gap-x-2 border-l-2 px-2 py-1.5 text-left transition-colors",
+                  "tap-sm grid w-full grid-cols-[1fr_auto_auto] items-center gap-x-2 border-l-2 px-2 py-1.5 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
                   active ? "border-accent bg-bg-3" : "border-transparent hover:bg-bg-2"
                 )}
               >
                 <span className="min-w-0">
-                  <span className="block truncate text-xs font-medium text-txt-0">{i.symbol}</span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="min-w-0 flex-1 truncate text-xs font-medium text-txt-0">{i.symbol}</span>
+                    {/* Was dead width before: the panel is resizable up to
+                        420px but showed the same 3 columns regardless, so a
+                        wider panel just stretched whitespace. This puts the
+                        category (already fetched, never rendered) to use
+                        instead of adding a whole new column. Capped to 4
+                        chars and never allowed to shrink the symbol below
+                        it — COMMODITY next to a longer ticker (PAXGUSDT)
+                        was squeezing the symbol itself, the one thing here
+                        that must never lose the fight for space. */}
+                    <span className="shrink-0 rounded bg-bg-3 px-1 py-px text-[9px] font-medium uppercase tracking-wide text-txt-3">{i.category.slice(0, 4)}</span>
+                  </span>
                   <span className="block truncate text-2xs text-txt-3">{i.name}</span>
                 </span>
                 <span

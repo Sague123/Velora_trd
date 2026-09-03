@@ -2,6 +2,7 @@ import { useBot } from "../../store/strategies";
 import { useOrders, usePositions } from "../../hooks/useTrading";
 import { classNames, fmtDateTime, fmtPrice, fmtSigned, fmtUsd } from "../../lib/format";
 import { LoadingRow } from "../common/States";
+import { useModalExit } from "../../hooks/useModalExit";
 import { IconClose, IconGrid, IconTrendDown } from "../icons/Icon";
 
 /**
@@ -11,6 +12,7 @@ import { IconClose, IconGrid, IconTrendDown } from "../icons/Icon";
  * actually doing, not what this browser last saw it doing.
  */
 export function BotDetailModal({ botId, onClose }: { botId: string; onClose: () => void }) {
+  const { closing, requestClose } = useModalExit(onClose);
   const detail = useBot(botId);
   const bot = detail.data?.bot;
   const logs = detail.data?.logs ?? [];
@@ -29,9 +31,9 @@ export function BotDetailModal({ botId, onClose }: { botId: string; onClose: () 
     : [];
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" onClick={requestClose}>
       <div
-        className="anim-rise flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-line bg-bg-1 shadow-2xl"
+        className={`${closing ? "anim-rise-out" : "anim-rise"} flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-line bg-bg-1 shadow-2xl`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex shrink-0 items-center justify-between border-b border-line bg-bg-2/40 px-4 py-3">
@@ -49,7 +51,7 @@ export function BotDetailModal({ botId, onClose }: { botId: string; onClose: () 
               </span>
             )}
           </div>
-          <button onClick={onClose} className="btn-fx flex items-center gap-1 rounded border border-line px-2 py-1 text-xs text-txt-2 hover:text-txt-0">
+          <button onClick={requestClose} className="btn-fx flex items-center gap-1 rounded border border-line px-2 py-1 text-xs text-txt-2 hover:text-txt-0">
             <IconClose size={12} /> Close
           </button>
         </div>

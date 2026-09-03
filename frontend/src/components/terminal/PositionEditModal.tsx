@@ -5,9 +5,11 @@ import { useInstruments } from "../../hooks/useMarket";
 import { classNames, fmtPrice, fmtQty, fmtSigned, fmtUsd } from "../../lib/format";
 import { toast } from "../../store/toast";
 import { ApiError } from "../../lib/api";
+import { useModalExit } from "../../hooks/useModalExit";
 import { IconClose } from "../icons/Icon";
 
 export function PositionEditModal({ position, onClose }: { position: Position; onClose: () => void }) {
+  const { closing, requestClose } = useModalExit(onClose);
   const { data } = useInstruments();
   const inst = data?.instruments.find((i) => i.symbol === position.symbol);
   const maxLeverage = inst?.maxLeverage ?? position.leverage;
@@ -30,7 +32,7 @@ export function PositionEditModal({ position, onClose }: { position: Position; o
         leverage: leverageChanged ? leverage : undefined,
       });
       toast.success("Позиция обновлена", position.symbol);
-      onClose();
+      requestClose();
     } catch (err) {
       toast.error("Не удалось обновить позицию", err instanceof ApiError ? err.message : undefined);
     }
@@ -42,7 +44,7 @@ export function PositionEditModal({ position, onClose }: { position: Position; o
       const pnl = Number(res.trade.pnl);
       if (pnl >= 0) toast.success(`Позиция закрыта: +${fmtUsd(res.trade.pnl)}`, position.symbol);
       else toast.error(`Позиция закрыта: ${fmtUsd(res.trade.pnl)}`, position.symbol);
-      onClose();
+      requestClose();
     } catch (err) {
       toast.error("Не удалось закрыть позицию", err instanceof ApiError ? err.message : undefined);
     }
@@ -51,8 +53,11 @@ export function PositionEditModal({ position, onClose }: { position: Position; o
   const pnl = Number(position.unrealisedPnl);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div className="anim-rise w-full max-w-sm rounded-xl border border-line bg-bg-1 p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" onClick={requestClose}>
+      <div
+        className={`${closing ? "anim-rise-out" : "anim-rise"} w-full max-w-sm rounded-xl border border-line bg-bg-1 p-5 shadow-2xl`}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className={classNames("rounded px-1.5 py-0.5 text-2xs font-medium", position.side === "BUY" ? "bg-buy-soft text-buy" : "bg-sell-soft text-sell")}>
@@ -60,7 +65,9 @@ export function PositionEditModal({ position, onClose }: { position: Position; o
             </span>
             <span className="text-sm font-semibold text-txt-0">{position.symbol}</span>
           </div>
-          <button onClick={onClose} className="text-txt-2 hover:text-txt-0"><IconClose size={16} /></button>
+          <button onClick={requestClose} className="btn-fx rounded p-1 text-txt-2 hover:text-txt-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent">
+            <IconClose size={16} />
+          </button>
         </div>
 
         <div className="mb-4 grid grid-cols-3 gap-2 rounded-lg border border-line-soft bg-bg-2/40 p-2.5 text-2xs">

@@ -81,7 +81,7 @@ export function AlertsTab() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-txt-3">создан {fmtDateTime(a.createdAt)}</span>
-                  <button onClick={() => onDelete(a.id, a.symbol)} className="rounded border border-line px-2 py-0.5 text-txt-1 hover:border-sell hover:text-sell">Delete</button>
+                  <button onClick={() => onDelete(a.id, a.symbol)} className="btn-fx rounded border border-line px-2 py-0.5 text-txt-1 hover:border-sell hover:text-sell focus-visible:outline focus-visible:outline-2 focus-visible:outline-sell">Delete</button>
                 </div>
               </div>
             ))}
@@ -94,7 +94,7 @@ export function AlertsTab() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-txt-3">{fmtDateTime(a.firedAt)}</span>
-                  <button onClick={() => onDelete(a.id, a.symbol)} className="rounded border border-line px-2 py-0.5 text-txt-1 hover:border-sell hover:text-sell">Delete</button>
+                  <button onClick={() => onDelete(a.id, a.symbol)} className="btn-fx rounded border border-line px-2 py-0.5 text-txt-1 hover:border-sell hover:text-sell focus-visible:outline focus-visible:outline-2 focus-visible:outline-sell">Delete</button>
                 </div>
               </div>
             ))}
