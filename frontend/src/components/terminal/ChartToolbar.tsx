@@ -102,17 +102,32 @@ export function ChartToolbar({
   // (`lifted`) keeps the larger, touch-target-sized controls untouched.
   const iconBtnSize = variant === "flat" ? "h-[26px] w-[26px]" : "h-8 w-8";
   const tfBtnSize = variant === "flat" ? "h-[26px] px-1" : "h-8 px-2";
+  // Indicators and Draw are the last two controls in the row, which on
+  // mobile sits flush against the right edge of a 375–390px screen (the
+  // legend text pushes this whole toolbar to the end of its flex row) — a
+  // left-anchored panel there opened rightward off-screen. Desktop keeps
+  // "left": its toolbar has room to the left inside the wider chart panel,
+  // and it was already verified there.
+  const trailingAlign = variant === "lifted" ? "right" : "left";
 
   return (
     <div className={classNames("flex shrink-0 items-center", variant === "flat" ? "gap-0.5" : "gap-1")}>
       {/* Timeframe first — it's the control a trader actually reaches for
           constantly; chart type is set once and rarely touched again, so it
           gets the quieter icon-only slot right after instead of the lead
-          position. */}
+          position. On mobile it stays accent-coloured whether or not its own
+          menu is open (not just while active, like the other three) — the
+          one control in this row worth the eye going to first. */}
       {show.includes("timeframe") && (
         <Popover
           trigger={(open, toggle) => (
-            <button onClick={toggle} className={classNames(btnCls, tfBtnSize, "text-2xs", toneFor(variant, open))}>
+            <button
+              onClick={toggle}
+              className={classNames(
+                btnCls, tfBtnSize, "text-2xs",
+                variant === "lifted" ? "border-accent/70 bg-accent-soft text-accent" : toneFor(variant, open)
+              )}
+            >
               {timeframe}
               <IconChevron size={10} direction={open ? "up" : "down"} />
             </button>
@@ -152,7 +167,7 @@ export function ChartToolbar({
 
       {show.includes("indicators") && (
         <Popover
-          align="left"
+          align={trailingAlign}
           trigger={(open, toggle) => (
             <button
               onClick={toggle}
@@ -185,7 +200,7 @@ export function ChartToolbar({
 
       {show.includes("draw") && (
         <Popover
-          align="left"
+          align={trailingAlign}
           trigger={(open, toggle) => (
             <button
               onClick={toggle}

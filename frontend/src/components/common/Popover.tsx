@@ -46,7 +46,11 @@ export function Popover({
       {open && (
         <div
           className={classNames(
-            "absolute z-40 min-w-max rounded-lg border border-line bg-bg-2 shadow-lift",
+            // max-w clamps every popover to the viewport regardless of which
+            // align a call site picked — a backstop for the case align alone
+            // can't fix: a trigger close enough to the screen edge that even
+            // "right" would clip the panel's own far side.
+            "absolute z-40 min-w-max max-w-[calc(100vw-16px)] rounded-lg border border-line bg-bg-2 shadow-lift",
             side === "top" ? "bottom-full mb-1.5" : "top-full mt-1.5",
             align === "right" ? "right-0" : align === "center" ? "left-1/2 -translate-x-1/2" : "left-0",
             panelClassName

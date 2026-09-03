@@ -82,9 +82,18 @@ function TradeButtons() {
         <button
           key={s}
           onClick={() => press(s)}
-          disabled={!canSubmit && armed !== s}
+          // Only a request already in flight actually disables the button —
+          // that's the one case a second tap must not do anything. An empty
+          // amount is NOT reason to disable: this press is what scrolls the
+          // ticket into view in the first place, so a hard `disabled` here
+          // would block the only route to the field that's missing.
+          // useOrderTicket's handleSubmitClick already refuses to arm/submit
+          // without a valid amount (toast + return), so nothing unsendable
+          // can get through — the dimming below is cosmetic, not a gate.
+          disabled={isPending && side === s}
           className={classNames(
-            "tap flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-extrabold shadow-lift transition-transform duration-100 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40",
+            "tap flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-extrabold shadow-lift transition-transform duration-100 active:scale-[0.97] disabled:cursor-not-allowed",
+            !canSubmit && armed !== s && "opacity-60",
             s === "BUY" ? "bg-buy-fill text-black" : "bg-sell-fill text-white"
           )}
         >

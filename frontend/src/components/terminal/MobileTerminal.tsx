@@ -59,9 +59,10 @@ function IndicatorLegend() {
           ))
         )}
       </div>
-      {/* The controls that act on the chart sit with the chart, not up in the
-          symbol row — only the timeframe belongs beside the price. */}
-      <ChartToolbar show={["chartType", "indicators", "draw"]} />
+      {/* All four chart controls together, timeframe leading — it's also a
+          chart display setting, not a property of the symbol, so it belongs
+          with the rest of them rather than pinned up in the price row. */}
+      <ChartToolbar show={["timeframe", "chartType", "indicators", "draw"]} />
     </div>
   );
 }
@@ -166,7 +167,6 @@ export function MobileTerminal() {
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
-            {mode === "chart" && <ChartToolbar show={["timeframe"]} />}
             <div className="flex rounded-lg border border-line bg-bg-2 p-0.5">
               {MODES.map(({ id, Icon, label }) => (
                 <button

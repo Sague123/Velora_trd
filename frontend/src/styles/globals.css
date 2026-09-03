@@ -251,7 +251,19 @@ body:has(.app-shell) { overscroll-behavior-y: contain; }
 ::-webkit-scrollbar-thumb:hover { background: rgb(var(--c-bg-4)); }
 
 input, button, select, textarea { font-family: inherit; font-size: inherit; color: inherit; }
-button { cursor: pointer; }
+/* Without these, a second tap on the same mobile button can register as a
+ * text-selection gesture instead of a click — worse the more text nodes the
+ * button has (a label plus a separate price span, as on Buy/Sell). None of
+ * this affects desktop: tap-highlight and touch-action are no-ops without a
+ * touchscreen, and user-select:none only blocks *text* selection, not the
+ * normal click/keyboard interaction pointer/keyboard users rely on. */
+button {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
 button:disabled { cursor: not-allowed; }
 
 .tabular { font-variant-numeric: tabular-nums; }
