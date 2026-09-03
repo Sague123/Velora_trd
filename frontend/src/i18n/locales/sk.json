@@ -7,7 +7,8 @@
     "savings": "Sporenie",
     "crm": "CRM",
     "admin": "Admin",
-    "profile": "Profil"
+    "profile": "Profil",
+    "more": "Viac"
   },
   "topbar": {
     "live": "Live",
@@ -81,7 +82,8 @@
     "estLiqPrice": "Est. Liq. Price",
     "base": "Base",
     "total": "Total",
-    "margin": "Margin"
+    "margin": "Margin",
+    "qty": "Množstvo"
   },
   "profileTabs": {
     "wallet": "Peňaženka",

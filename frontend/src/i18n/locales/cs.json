@@ -7,7 +7,8 @@
     "savings": "Spoření",
     "crm": "CRM",
     "admin": "Admin",
-    "profile": "Profil"
+    "profile": "Profil",
+    "more": "Více"
   },
   "topbar": {
     "live": "Live",
@@ -81,7 +82,8 @@
     "estLiqPrice": "Est. Liq. Price",
     "base": "Base",
     "total": "Total",
-    "margin": "Margin"
+    "margin": "Margin",
+    "qty": "Množství"
   },
   "profileTabs": {
     "wallet": "Peněženka",

@@ -7,7 +7,8 @@
     "savings": "Risparmi",
     "crm": "CRM",
     "admin": "Admin",
-    "profile": "Profilo"
+    "profile": "Profilo",
+    "more": "Altro"
   },
   "topbar": {
     "live": "Live",
@@ -81,7 +82,8 @@
     "estLiqPrice": "Est. Liq. Price",
     "base": "Base",
     "total": "Total",
-    "margin": "Margin"
+    "margin": "Margin",
+    "qty": "Qtà"
   },
   "profileTabs": {
     "wallet": "Portafoglio",

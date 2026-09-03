@@ -7,7 +7,8 @@
     "savings": "储蓄",
     "crm": "CRM",
     "admin": "管理",
-    "profile": "个人资料"
+    "profile": "个人资料",
+    "more": "更多"
   },
   "topbar": {
     "live": "实时",
@@ -81,7 +82,8 @@
     "estLiqPrice": "Est. Liq. Price",
     "base": "Base",
     "total": "Total",
-    "margin": "Margin"
+    "margin": "Margin",
+    "qty": "数量"
   },
   "profileTabs": {
     "wallet": "钱包",

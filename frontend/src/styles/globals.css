@@ -209,6 +209,16 @@ body {
  * pages, so leave it enabled at the document level rather than suppressing it.
  * Inside the app shell each pane keeps its own momentum scrolling. */
 html, body { overscroll-behavior-y: auto; }
+/* But NOT while the app shell is mounted. That "auto" is what let a touchmove
+ * that bottomed out inside a nested overflow-y-auto pane (Orders/History,
+ * fixed at their own edge) still nudge the page underneath by a sliver —
+ * enough for mobile Chrome/Safari to read the page as "being scrolled" and
+ * collapse the address bar. That resizes the visual viewport, `100dvh`
+ * recalculates, and .app-shell's whole layout reflows: the chart pane visibly
+ * jumps, then jumps back when the bar returns. contain() stops body/html
+ * from moving at all whenever .app-shell exists in the tree — public pages
+ * (which never render it) are unaffected and keep their rubber-band cue. */
+body:has(.app-shell) { overscroll-behavior-y: contain; }
 @media (pointer: coarse) {
   .app-shell [class*="overflow-y-auto"],
   .app-shell [class*="overflow-auto"] {

@@ -7,7 +7,8 @@
     "savings": "Накопления",
     "crm": "CRM",
     "admin": "Admin",
-    "profile": "Профиль"
+    "profile": "Профиль",
+    "more": "Ещё"
   },
   "topbar": {
     "live": "Live",
@@ -81,7 +82,8 @@
     "estLiqPrice": "Est. Liq. Price",
     "base": "Base",
     "total": "Total",
-    "margin": "Margin"
+    "margin": "Margin",
+    "qty": "Кол-во"
   },
   "profileTabs": {
     "wallet": "Кошелёк",

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChartEngine, type Bar, type Drawing, type DrawTool, type OverlayLine } from "../../lib/chartEngine";
+import { ChartEngine, type Bar, type Drawing, type OverlayLine } from "../../lib/chartEngine";
 import { chartThemeFor } from "../../lib/chartTheme";
 import { useChartBars } from "../../hooks/useMarket";
 import { useLiveInstrument } from "../../hooks/useLivePrices";
-import { useTerminalStore } from "../../store/terminal";
+import { useTerminalStore, type Oscillator } from "../../store/terminal";
 import { usePriceStore } from "../../store/prices";
 import { useThemeStore } from "../../store/theme";
 import { useAuthStore } from "../../store/auth";
@@ -15,9 +15,10 @@ import { ema, macd as macdCalc, rsi as rsiCalc, sma } from "../../lib/indicators
 import { computeSignal, ratingLabel, type SignalResult } from "../../lib/signal";
 import { Tooltip } from "../common/Tooltip";
 import { LoadingRow, ErrorRow } from "../common/States";
+import { IndicatorToggle } from "./IndicatorToggle";
 import {
   IconRefresh, IconChevron, IconCandles, IconChartLine, IconChartArea,
-  IconCrosshair, IconTrendLine, IconHorizontalLine, IconClose, IconFit, IconExpand, IconCollapse, IconCheck,
+  IconCrosshair, IconTrendLine, IconHorizontalLine, IconClose, IconFit, IconExpand, IconCollapse,
 } from "../icons/Icon";
 import { toast } from "../../store/toast";
 import { ApiError } from "../../lib/api";
@@ -25,7 +26,6 @@ import type { Position, Timeframe } from "../../lib/types";
 
 const TIMEFRAMES: Timeframe[] = ["1m", "5m", "15m", "1H", "4H", "1D", "1W"];
 type ChartType = "candles" | "line" | "area";
-type Oscillator = "NONE" | "RSI" | "MACD";
 
 const RATING_COLOR: Record<SignalResult["rating"], string> = {
   STRONG_BUY: "text-buy", BUY: "text-buy", NEUTRAL: "text-txt-2", SELL: "text-sell", STRONG_SELL: "text-sell",
@@ -53,26 +53,6 @@ function saveDrawings(symbol: string, drawings: Drawing[]) {
  * reader semantics, with a custom box driven by Tailwind's `peer` variants
  * for the checked/focus-visible states. Was a bare native checkbox before —
  * the only unstyled form control left in an otherwise fully custom UI kit. */
-function IndicatorToggle({
-  checked, onChange, textClass, boxCheckedClass, label,
-}: { checked: boolean; onChange: (v: boolean) => void; textClass: string; boxCheckedClass: string; label: string }) {
-  return (
-    <label className="flex cursor-pointer items-center gap-1.5">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="peer sr-only" />
-      <span
-        className={classNames(
-          "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border border-line bg-bg-2 transition-colors",
-          "peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-1 peer-focus-visible:outline-accent",
-          checked && boxCheckedClass
-        )}
-      >
-        {checked && <IconCheck size={9} className="text-white" />}
-      </span>
-      <span className={textClass}>{label}</span>
-    </label>
-  );
-}
-
 export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: { onToggleWatch?: () => void; watchCollapsed?: boolean; compact?: boolean }) {
   const symbol = useTerminalStore((s) => s.symbol);
   const timeframe = useTerminalStore((s) => s.timeframe);
@@ -98,15 +78,25 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
   useEffect(() => { positionRef.current = position; }, [position]);
 
   const [chartType, setChartType] = useState<ChartType>("candles");
-  const [showSma20, setShowSma20] = useState(true);
-  const [showSma50, setShowSma50] = useState(false);
-  const [showEma9, setShowEma9] = useState(false);
-  const [showEma21, setShowEma21] = useState(false);
-  const [oscillator, setOscillator] = useState<Oscillator>("NONE");
+  // Overlay/tool state lives in the shared terminal store, not local state —
+  // see store/terminal.ts's doc comment: the mobile header row renders these
+  // controls itself (merged with the symbol picker and Chart/Book toggle),
+  // so both it and this component need to read/write the same values.
+  const showSma20 = useTerminalStore((s) => s.showSma20);
+  const showSma50 = useTerminalStore((s) => s.showSma50);
+  const showEma9 = useTerminalStore((s) => s.showEma9);
+  const showEma21 = useTerminalStore((s) => s.showEma21);
+  const oscillator = useTerminalStore((s) => s.oscillator);
+  const tool = useTerminalStore((s) => s.tool);
+  const setShowSma20 = useTerminalStore((s) => s.setShowSma20);
+  const setShowSma50 = useTerminalStore((s) => s.setShowSma50);
+  const setShowEma9 = useTerminalStore((s) => s.setShowEma9);
+  const setShowEma21 = useTerminalStore((s) => s.setShowEma21);
+  const setOscillator = useTerminalStore((s) => s.setOscillator);
+  const setTool = useTerminalStore((s) => s.setTool);
   const [fullscreen, setFullscreen] = useState(false);
   const [atHistoryStart, setAtHistoryStart] = useState(false);
   const [legend, setLegend] = useState<Bar | null>(null);
-  const [tool, setTool] = useState<DrawTool>("cursor");
 
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<ChartEngine | null>(null);
@@ -174,6 +164,14 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
 
   useEffect(() => engineRef.current?.setKind(chartType), [chartType]);
   useEffect(() => engineRef.current?.setPriceDecimals(inst?.priceDecimals ?? 2), [inst?.priceDecimals]);
+  // Mobile's Draw menu lives outside this component (see ChartToolbar.tsx)
+  // and has no access to engineRef, so "clear all" is a request through the
+  // shared store instead of a direct call — see store/terminal.ts.
+  const clearDrawingsRequest = useTerminalStore((s) => s.clearDrawingsRequest);
+  useEffect(() => {
+    if (clearDrawingsRequest > 0) engineRef.current?.clearDrawings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clearDrawingsRequest]);
   useEffect(() => engineRef.current?.setTheme(chartThemeFor(theme)), [theme]);
   useEffect(() => engineRef.current?.setTool(tool), [tool]);
 
@@ -389,14 +387,22 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
             </div>
           )}
 
-          <div className="flex gap-0.5 rounded border border-line p-0.5">
-            {(compact ? TIMEFRAMES.filter((tf) => tf !== "1m") : TIMEFRAMES).map((tf) => (
-              <button key={tf} onClick={() => setTimeframe(tf)}
-                className={classNames("btn-fx rounded px-1.5 py-1 text-2xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent", timeframe === tf ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}>
-                {tf}
-              </button>
-            ))}
-          </div>
+          {!compact && (
+            <div className="flex gap-0.5 rounded border border-line p-0.5">
+              {TIMEFRAMES.map((tf) => (
+                <button key={tf} onClick={() => setTimeframe(tf)}
+                  className={classNames("btn-fx rounded px-1.5 py-1 text-2xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent", timeframe === tf ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}>
+                  {tf}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* No compact toolbar rendered here any more — on mobile these
+              controls (timeframe/indicators/draw) live in the merged header
+              row above the chart pane instead (MobileTerminal.tsx +
+              ChartToolbar.tsx), so the chart starts higher on the page. This
+              component still reacts to the same shared store either way. */}
 
           {!compact && (
             <div className="flex items-center gap-1.5 text-2xs">
@@ -489,7 +495,10 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
         </div>
       </div>
 
-      <div className="relative min-h-0 flex-1">
+      {/* data-swipe-nav-ignore: see useSwipeNav.ts — a horizontal drag to pan
+          the chart is not an overflow-x scroll, so without this the page-swipe
+          tab-switcher would fire underneath it on mobile. */}
+      <div className="relative min-h-0 flex-1" data-swipe-nav-ignore="">
         <div ref={containerRef} className="absolute inset-0" />
 
         {/* Faint enough (3.5% opacity, see .chart-watermark) that it never

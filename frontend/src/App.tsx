@@ -62,8 +62,15 @@ function AppLayout() {
   return (
     <div className="app-shell flex flex-col bg-bg-0 text-txt-0">
       <TopBar />
-      <EmailVerificationBanner />
-      <ActiveBotsBanner />
+      {/* Mobile shows this same state as two small icons inside TopBar's own
+          top row instead (see MobileStatusBar), not as a full-width row here
+          — desktop keeps the original banners since it has the width to spare. */}
+      {!isMobile && (
+        <>
+          <EmailVerificationBanner />
+          <ActiveBotsBanner />
+        </>
+      )}
       <div
         className="min-h-0 flex-1"
         onTouchStart={swipe.onTouchStart}

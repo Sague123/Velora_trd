@@ -7,7 +7,8 @@
     "savings": "Sparen",
     "crm": "CRM",
     "admin": "Admin",
-    "profile": "Profil"
+    "profile": "Profil",
+    "more": "Mehr"
   },
   "topbar": {
     "live": "Live",
@@ -81,7 +82,8 @@
     "estLiqPrice": "Est. Liq. Price",
     "base": "Base",
     "total": "Total",
-    "margin": "Margin"
+    "margin": "Margin",
+    "qty": "Menge"
   },
   "profileTabs": {
     "wallet": "Wallet",

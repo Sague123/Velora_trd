@@ -1,4 +1,4 @@
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../../store/auth";
 import { useConnStatus } from "../../hooks/useLivePrices";
@@ -7,10 +7,14 @@ import { useAccount } from "../../hooks/useTrading";
 import { useIsMobile } from "../../hooks/useIsMobile";
 import { classNames, fmtUsd, n } from "../../lib/format";
 import { AnimatedNumber } from "../common/AnimatedNumber";
+import { Popover } from "../common/Popover";
 import type { AuthUser } from "../../lib/types";
-import { IconBot, IconClipboard, IconGear, IconHome, IconMarkets, IconTrade, IconVault } from "../icons/Icon";
+import {
+  IconBot, IconClipboard, IconDots, IconGear, IconHome, IconMarkets, IconTrade, IconVault,
+} from "../icons/Icon";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { ThemeToggle } from "./ThemeToggle";
+import { MobileStatusBar } from "./MobileStatusBar";
 import { Logo } from "./Logo";
 
 const NAV = [
@@ -20,6 +24,11 @@ const NAV = [
   { to: "/strategies", key: "nav.strategies", Icon: IconBot },
   { to: "/savings", key: "nav.savings", Icon: IconVault },
 ];
+
+// Mobile shows only the four the trader reaches constantly; everything else
+// (including Savings/CRM/Admin) folds into the "More" sheet below — trading
+// gets the width instead of a sixth or seventh equally-sized tab.
+const MOBILE_PRIMARY = ["/terminal", "/overview", "/markets", "/strategies"];
 
 function Avatar({ user }: { user: AuthUser | null }) {
   return user?.avatar ? (
@@ -33,6 +42,110 @@ function Avatar({ user }: { user: AuthUser | null }) {
     >
       {user?.name?.[0]?.toUpperCase() ?? "?"}
     </span>
+  );
+}
+
+/**
+ * Mobile's primary nav: four icon-over-label tabs for the pages a trader
+ * reaches constantly, plus a "More" sheet for everything else (Savings, CRM,
+ * Admin, Profile) — not a sixth/seventh tab squeezed into the same row. Icon
+ * above label (not beside it) reads as a real mobile nav bar rather than a
+ * shrunk desktop tab strip, and the strip's own background + border is what
+ * makes it a distinct control surface instead of text floating on the page.
+ */
+function MobileNav({ isManager, user }: { isManager: boolean; user: AuthUser | null }) {
+  const { t } = useTranslation();
+  const location = useLocation();
+
+  const primary = NAV.filter((item) => MOBILE_PRIMARY.includes(item.to));
+  const moreRoutes = ["/savings", ...(isManager ? ["/crm"] : []), ...(user?.role === "ADMIN" ? ["/admin"] : []), "/profile"];
+  const moreActive = moreRoutes.includes(location.pathname);
+
+  const tabCls = (active: boolean, warn?: boolean) =>
+    classNames(
+      "tap flex flex-1 basis-0 shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg py-1 text-[10.5px] font-medium transition-colors",
+      active
+        ? warn ? "bg-warn/10 text-warn shadow-btn" : "bg-accent-soft text-accent shadow-btn"
+        : warn ? "text-warn/80" : "text-txt-2 hover:bg-bg-3 hover:text-txt-0"
+    );
+
+  return (
+    <nav className="flex items-stretch gap-1 border-t border-line bg-bg-2/60 px-1.5 py-1.5">
+      {primary.map((item) => (
+        <NavLink key={item.to} to={item.to} className={({ isActive }) => tabCls(isActive)}>
+          <item.Icon size={20} />
+          {t(item.key)}
+        </NavLink>
+      ))}
+
+      <Popover
+        align="right"
+        trigger={(open, toggle) => (
+          <button onClick={toggle} className={tabCls(open || moreActive)}>
+            <IconDots size={20} />
+            {t("nav.more")}
+          </button>
+        )}
+      >
+        {(close) => (
+          <div className="w-44 p-1">
+            <NavLink
+              to="/savings"
+              onClick={close}
+              className={({ isActive }) =>
+                classNames(
+                  "tap-sm flex items-center gap-2 rounded px-2.5 text-xs font-medium",
+                  isActive ? "bg-accent-soft text-accent" : "text-txt-1 hover:bg-bg-3"
+                )
+              }
+            >
+              <IconVault size={17} /> {t("nav.savings")}
+            </NavLink>
+            {isManager && (
+              <NavLink
+                to="/crm"
+                onClick={close}
+                className={({ isActive }) =>
+                  classNames(
+                    "tap-sm flex items-center gap-2 rounded px-2.5 text-xs font-medium",
+                    isActive ? "bg-accent-soft text-accent" : "text-txt-1 hover:bg-bg-3"
+                  )
+                }
+              >
+                <IconClipboard size={17} /> {t("nav.crm")}
+              </NavLink>
+            )}
+            {user?.role === "ADMIN" && (
+              <NavLink
+                to="/admin"
+                onClick={close}
+                className={({ isActive }) =>
+                  classNames(
+                    "tap-sm flex items-center gap-2 rounded px-2.5 text-xs font-medium",
+                    isActive ? "bg-warn/10 text-warn" : "text-warn/80 hover:bg-bg-3"
+                  )
+                }
+              >
+                <IconGear size={17} /> {t("nav.admin")}
+              </NavLink>
+            )}
+            <div className="my-1 border-t border-line-soft" />
+            <NavLink
+              to="/profile"
+              onClick={close}
+              className={({ isActive }) =>
+                classNames(
+                  "tap-sm flex items-center gap-2 rounded px-2.5 text-xs font-medium",
+                  isActive ? "bg-accent-soft text-accent" : "text-txt-1 hover:bg-bg-3"
+                )
+              }
+            >
+              <Avatar user={user} /> {t("nav.profile")}
+            </NavLink>
+          </div>
+        )}
+      </Popover>
+    </nav>
   );
 }
 
@@ -63,7 +176,8 @@ export function TopBar() {
             <Logo />
           </Link>
           <span className={classNames("h-1.5 w-1.5 shrink-0 rounded-full", live ? "bg-buy" : wsStatus === "connecting" ? "bg-warn animate-pulse" : "bg-sell")} />
-          <div className="ml-auto flex items-center gap-1">
+          <div className="ml-auto flex items-center gap-1.5">
+            <MobileStatusBar />
             <LanguageSwitcher />
             <ThemeToggle />
             <NavLink to="/profile" title={t("nav.profile")} className="btn-fx tap-sm ml-1 flex items-center rounded border-l border-line pl-2">
@@ -71,51 +185,7 @@ export function TopBar() {
             </NavLink>
           </div>
         </div>
-        <nav className="flex items-stretch gap-1 overflow-x-auto border-t border-line-soft px-2 py-1.5">
-          {NAV.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                classNames(
-                  // flex-1 + basis-0 gives every tab the same width instead of
-                  // each one sizing to its own label length.
-                  "tap-sm flex flex-1 basis-0 shrink-0 items-center justify-center gap-1 rounded px-2 text-2xs font-medium transition-colors",
-                  isActive ? "bg-accent-soft text-accent" : "text-txt-2 hover:bg-bg-3 hover:text-txt-0"
-                )
-              }
-            >
-              <item.Icon size={14} />
-              {t(item.key)}
-            </NavLink>
-          ))}
-          {isManager && (
-            <NavLink
-              to="/crm"
-              className={({ isActive }) =>
-                classNames(
-                  "tap-sm flex flex-1 basis-0 shrink-0 items-center justify-center gap-1 rounded px-2 text-2xs font-medium transition-colors",
-                  isActive ? "bg-accent-soft text-accent" : "text-txt-2 hover:bg-bg-3 hover:text-txt-0"
-                )
-              }
-            >
-              <IconClipboard size={14} /> {t("nav.crm")}
-            </NavLink>
-          )}
-          {user?.role === "ADMIN" && (
-            <NavLink
-              to="/admin"
-              className={({ isActive }) =>
-                classNames(
-                  "tap-sm flex flex-1 basis-0 shrink-0 items-center justify-center gap-1 rounded px-2 text-2xs font-medium transition-colors",
-                  isActive ? "bg-warn/10 text-warn" : "text-warn/80 hover:bg-bg-3"
-                )
-              }
-            >
-              <IconGear size={14} /> {t("nav.admin")}
-            </NavLink>
-          )}
-        </nav>
+        <MobileNav isManager={isManager} user={user} />
       </header>
     );
   }

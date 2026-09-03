@@ -92,3 +92,6 @@ export const IconFit = (p: IconProps) => base({ ...p, children: <path d="M4 9V5a
 export const IconExpand = (p: IconProps) => base({ ...p, children: <path d="M14 4h6v6M4 20l7-7M10 20H4v-6M20 4l-7 7" /> });
 export const IconCollapse = (p: IconProps) => base({ ...p, children: <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" /> });
 export const IconHistory = (p: IconProps) => base({ ...p, children: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" /></> });
+export const IconSliders = (p: IconProps) => base({ ...p, children: <><path d="M4 6h6M14 6h6M4 12h10M18 12h2M4 18h13M21 18h-1" /><circle cx="10" cy="6" r="2" /><circle cx="16" cy="12" r="2" /><circle cx="20" cy="18" r="2" /></> });
+export const IconDots = (p: IconProps) => base({ ...p, children: <><circle cx="5" cy="12" r="1.3" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none" /><circle cx="19" cy="12" r="1.3" fill="currentColor" stroke="none" /></> });
+export const IconShield = (p: IconProps) => base({ ...p, children: <><path d="M12 3l7 3v5.5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6Z" /><path d="M9 12l2 2 4-4" /></> });
