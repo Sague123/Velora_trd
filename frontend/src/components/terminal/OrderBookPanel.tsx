@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useTerminalStore } from "../../store/terminal";
 import { useLiveInstrument } from "../../hooks/useLivePrices";
 import { useLiveDepth, DEPTH_LEVELS as LEVELS } from "../../hooks/useLiveDepth";
-import { classNames, fmt, fmtCompact, fmtPct, fmtPrice } from "../../lib/format";
+import { classNames, fmt, fmtPrice } from "../../lib/format";
 
 const MIN_SIZE_OPTIONS = [
   { value: 0, label: "All sizes" },
@@ -46,18 +46,9 @@ export function OrderBookPanel() {
   const bestBid = rows?.bids.at(0)?.price;
   const spread = bestAsk !== undefined && bestBid !== undefined ? bestAsk - bestBid : null;
 
-  const statsBar = inst && (
-    <div className="flex shrink-0 items-center gap-3 border-b border-line-soft px-2.5 py-1.5 tabular text-2xs">
-      <span className="font-medium text-txt-0">{fmtPrice(inst.livePrice, decimals)}</span>
-      <span className={inst.liveChange24h >= 0 ? "text-buy" : "text-sell"}>{fmtPct(inst.liveChange24h)}</span>
-      <span className="text-txt-2">Vol <span className="text-txt-1">{fmtCompact(inst.volume24h)}</span></span>
-    </div>
-  );
-
   if (status === "unsupported") {
     return (
       <div className="flex h-full flex-col border-l border-line bg-bg-1">
-        {statsBar}
         <div className="flex flex-1 flex-col items-center justify-center gap-2 p-4 text-center">
           <span className="text-2xs text-txt-3">Стакан не поддерживается для {symbol}.</span>
         </div>
@@ -67,7 +58,12 @@ export function OrderBookPanel() {
 
   return (
     <div className="flex h-full flex-col border-l border-line bg-bg-1">
-      {statsBar}
+      {/* One header row, not two: price/24h-change/volume used to repeat here
+          in a stats bar of their own, right underneath the same three
+          numbers already shown in the chart's own toolbar. What belongs here
+          instead — mid-price and spread — already has its own row further
+          down, between asks and bids, where it's actually book-specific
+          information rather than a duplicate of the chart's. */}
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-line-soft px-2.5 py-1.5">
         <span className="text-2xs font-semibold uppercase tracking-wide text-txt-2">Order Book</span>
         <select

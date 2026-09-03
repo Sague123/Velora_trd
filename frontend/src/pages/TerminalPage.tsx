@@ -12,10 +12,16 @@ import { MobileTerminal } from "../components/terminal/MobileTerminal";
 
 export function TerminalPage() {
   const isMobile = useIsMobile();
-  const [watchWidth, onWatchDelta] = useResizable(248, 180, 420);
+  // Defaults tuned toward the chart and the order form, which is what a
+  // trader actually spends their time on — MarketWatch and the order book
+  // are reference panels, not workspaces, so they start closer to their
+  // usable minimum instead of splitting the window three ways evenly.
+  // Every one of these stays fully resizable; this only changes where the
+  // drag starts from.
+  const [watchWidth, onWatchDelta] = useResizable(220, 180, 420);
   const [rightWidth, onRightDelta] = useResizableInverted(320, 260, 460);
   const [bottomHeight, onBottomDelta] = useResizableInverted(220, 120, 460);
-  const [infoHeight, onInfoDelta] = useResizable(320, 200, 560);
+  const [infoHeight, onInfoDelta] = useResizable(260, 200, 560);
   const [watchCollapsed, setWatchCollapsed] = useState(false);
 
   if (isMobile) return <MobileTerminal />;

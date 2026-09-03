@@ -2,43 +2,63 @@ import { useTerminalStore } from "../../store/terminal";
 import { classNames } from "../../lib/format";
 import { Popover } from "../common/Popover";
 import { IndicatorToggle } from "./IndicatorToggle";
-import { IconChevron, IconClose, IconCrosshair, IconHorizontalLine, IconPencil, IconSliders, IconTrendLine } from "../icons/Icon";
-import type { Oscillator } from "../../store/terminal";
+import {
+  IconCandles, IconChartArea, IconChartLine, IconChevron, IconClose, IconCrosshair,
+  IconHorizontalLine, IconPencil, IconSliders, IconTrendLine,
+} from "../icons/Icon";
+import type { ChartType, Oscillator } from "../../store/terminal";
 import type { Timeframe } from "../../lib/types";
 
 const TIMEFRAMES: Timeframe[] = ["1m", "5m", "15m", "1H", "4H", "1D", "1W"];
+const CHART_TYPES: { id: ChartType; label: string; Icon: typeof IconCandles }[] = [
+  { id: "candles", label: "Свечи", Icon: IconCandles },
+  { id: "line", label: "Линия", Icon: IconChartLine },
+  { id: "area", label: "Область", Icon: IconChartArea },
+];
 
-/** Shared press/depth treatment for every compact control in this row and in
- * MobileTerminal's header. globals.css's `.btn-fx` gives depth only via
- * `:hover` (a state a touchscreen never fires) and clears it on `:active` —
- * built for a mouse, invisible on a phone. It's also tuned as `--shadow-btn`
- * (`0 1px 2px rgba(0,0,0,.4)`), a 2px-blur shadow that barely registers
- * against this app's near-black surfaces regardless of hover state. Mobile
- * controls use `shadow-lift` instead — the same larger, further-reaching
- * shadow the chart-collapse button already used — kept at rest (not cleared
- * on press, unlike `.btn-fx`) so there's always a visible raised edge, with
- * `active:scale-95` as the actual press feedback: a real tap-down squish
- * that doesn't depend on a shadow being visible at all. */
-export const mobileCtrlCls =
+/** Touch never fires `:hover`, which is the only place globals.css's `.btn-fx`
+ * puts any shadow — so on mobile a control looks flat at rest and (since
+ * `:active` clears shadow too) flatter still on tap. `lifted` fixes that with
+ * its own shadow held at rest and a real tap-down scale instead. Desktop has
+ * genuine mouse hover, so `.btn-fx`'s existing lift already works there —
+ * `flat` just matches the rest of the desktop toolbar's plain bordered
+ * buttons (chart-type, zoom, fullscreen) instead of introducing a heavier,
+ * inconsistent shadow style next to them. */
+const liftedCls =
   "tap-sm relative flex items-center justify-center gap-1 rounded-xl border font-semibold shadow-lift " +
   "transition-transform duration-100 active:scale-95";
+const flatCls =
+  "btn-fx relative flex items-center justify-center gap-1 rounded border font-medium " +
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent";
+
+export const mobileCtrlCls = liftedCls;
 
 export function mobileCtrlTone(active: boolean) {
-  return active
-    ? "border-accent/70 bg-accent-fill text-white"
-    : "border-line bg-bg-2 text-txt-1";
+  return active ? "border-accent/70 bg-accent-fill text-white" : "border-line bg-bg-2 text-txt-1";
+}
+
+function toneFor(variant: "flat" | "lifted", active: boolean) {
+  if (variant === "lifted") return mobileCtrlTone(active);
+  return active ? "border-accent-fill bg-accent-fill text-white" : "border-line bg-bg-2 text-txt-2 hover:text-txt-0";
 }
 
 /**
- * Timeframe / Indicators / Draw — merged into the mobile header row between
- * the symbol picker and the Chart/Book toggle (moved out of ChartPanel's own
- * toolbar entirely, which is why the mobile chart pane now starts with no
- * standing control row of its own). All three read/write the shared terminal
+ * Chart type / Timeframe / Indicators / Draw — one shared toolbar for both
+ * breakpoints instead of desktop hand-rolling its own inline row and mobile
+ * keeping a separate compact one. All four read/write the shared terminal
  * store (see store/terminal.ts) so ChartPanel, which owns the actual
- * ChartEngine instance, reacts to the same values without needing a ref
- * passed across components.
+ * ChartEngine instance, reacts to the same values without a ref passed
+ * across components.
+ *
+ * `variant="lifted"` (mobile, the default) gives each control its own
+ * always-on shadow and a tap-down squish, since touch never triggers the
+ * hover-only lift the rest of the app's buttons rely on. `variant="flat"`
+ * (desktop) matches the plain bordered buttons already used for zoom/
+ * fullscreen there — real mouse hover already provides feedback.
  */
-export function ChartToolbar() {
+export function ChartToolbar({ variant = "lifted" }: { variant?: "flat" | "lifted" }) {
+  const chartType = useTerminalStore((s) => s.chartType);
+  const setChartType = useTerminalStore((s) => s.setChartType);
   const timeframe = useTerminalStore((s) => s.timeframe);
   const setTimeframe = useTerminalStore((s) => s.setTimeframe);
   const showSma20 = useTerminalStore((s) => s.showSma20);
@@ -56,12 +76,23 @@ export function ChartToolbar() {
   const requestClearDrawings = useTerminalStore((s) => s.requestClearDrawings);
 
   const indicatorsActive = showSma20 || showSma50 || showEma9 || showEma21 || oscillator !== "NONE";
+  const btnCls = variant === "lifted" ? liftedCls : flatCls;
+  const ChartTypeIcon = CHART_TYPES.find((c) => c.id === chartType)?.Icon ?? IconCandles;
+  const menuItemCls = (active: boolean) =>
+    classNames(
+      "tap-sm flex w-full items-center gap-2 rounded-lg px-2.5 text-xs font-medium active:scale-95",
+      active ? "bg-accent-soft text-accent" : "text-txt-1 hover:bg-bg-3"
+    );
 
   return (
     <div className="flex shrink-0 items-center gap-1">
+      {/* Timeframe first — it's the control a trader actually reaches for
+          constantly; chart type is set once and rarely touched again, so it
+          gets the quieter icon-only slot right after instead of the lead
+          position. */}
       <Popover
         trigger={(open, toggle) => (
-          <button onClick={toggle} className={classNames(mobileCtrlCls, "h-8 px-2 text-2xs", mobileCtrlTone(open))}>
+          <button onClick={toggle} className={classNames(btnCls, "h-8 px-2 text-2xs", toneFor(variant, open))}>
             {timeframe}
             <IconChevron size={10} direction={open ? "up" : "down"} />
           </button>
@@ -70,15 +101,26 @@ export function ChartToolbar() {
         {(close) => (
           <div className="w-24 p-1">
             {TIMEFRAMES.map((tf) => (
-              <button
-                key={tf}
-                onClick={() => { setTimeframe(tf); close(); }}
-                className={classNames(
-                  "tap-sm flex w-full items-center rounded-lg px-2.5 text-xs font-medium active:scale-95",
-                  timeframe === tf ? "bg-accent-soft text-accent" : "text-txt-1 hover:bg-bg-3"
-                )}
-              >
+              <button key={tf} onClick={() => { setTimeframe(tf); close(); }} className={menuItemCls(timeframe === tf)}>
                 {tf}
+              </button>
+            ))}
+          </div>
+        )}
+      </Popover>
+
+      <Popover
+        trigger={(open, toggle) => (
+          <button onClick={toggle} className={classNames(btnCls, "h-8 w-8", toneFor(variant, open))} aria-label="Тип графика" title="Тип графика">
+            <ChartTypeIcon size={variant === "lifted" ? 17 : 14} />
+          </button>
+        )}
+      >
+        {(close) => (
+          <div className="w-36 p-1">
+            {CHART_TYPES.map(({ id, label, Icon }) => (
+              <button key={id} onClick={() => { setChartType(id); close(); }} className={menuItemCls(chartType === id)}>
+                <Icon size={15} /> {label}
               </button>
             ))}
           </div>
@@ -90,11 +132,11 @@ export function ChartToolbar() {
         trigger={(open, toggle) => (
           <button
             onClick={toggle}
-            className={classNames(mobileCtrlCls, "h-8 w-8", mobileCtrlTone(open || indicatorsActive))}
+            className={classNames(btnCls, "h-8 w-8", toneFor(variant, open || indicatorsActive))}
             aria-label="Индикаторы"
             title="Индикаторы"
           >
-            <IconSliders size={17} />
+            <IconSliders size={variant === "lifted" ? 17 : 14} />
           </button>
         )}
       >
@@ -121,32 +163,23 @@ export function ChartToolbar() {
         trigger={(open, toggle) => (
           <button
             onClick={toggle}
-            className={classNames(mobileCtrlCls, "h-8 w-8", mobileCtrlTone(open || tool !== "cursor"))}
+            className={classNames(btnCls, "h-8 w-8", toneFor(variant, open || tool !== "cursor"))}
             aria-label="Инструменты рисования"
             title="Инструменты рисования"
           >
-            <IconPencil size={17} />
+            <IconPencil size={variant === "lifted" ? 17 : 14} />
           </button>
         )}
       >
         {(close) => (
           <div className="w-48 p-1">
-            <button
-              onClick={() => { setTool("cursor"); close(); }}
-              className={classNames("tap-sm flex w-full items-center gap-2 rounded-lg px-2.5 text-xs font-medium active:scale-95", tool === "cursor" ? "bg-accent-soft text-accent" : "text-txt-1 hover:bg-bg-3")}
-            >
+            <button onClick={() => { setTool("cursor"); close(); }} className={menuItemCls(tool === "cursor")}>
               <IconCrosshair size={15} /> Курсор
             </button>
-            <button
-              onClick={() => { setTool("trendline"); close(); }}
-              className={classNames("tap-sm flex w-full items-center gap-2 rounded-lg px-2.5 text-xs font-medium active:scale-95", tool === "trendline" ? "bg-accent-soft text-accent" : "text-txt-1 hover:bg-bg-3")}
-            >
+            <button onClick={() => { setTool("trendline"); close(); }} className={menuItemCls(tool === "trendline")}>
               <IconTrendLine size={15} /> Линия тренда
             </button>
-            <button
-              onClick={() => { setTool("hline"); close(); }}
-              className={classNames("tap-sm flex w-full items-center gap-2 rounded-lg px-2.5 text-xs font-medium active:scale-95", tool === "hline" ? "bg-accent-soft text-accent" : "text-txt-1 hover:bg-bg-3")}
-            >
+            <button onClick={() => { setTool("hline"); close(); }} className={menuItemCls(tool === "hline")}>
               <IconHorizontalLine size={15} /> Горизонтальная линия
             </button>
             <div className="my-1 border-t border-line-soft" />

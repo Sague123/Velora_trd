@@ -159,6 +159,12 @@ export function TopBar() {
   const { data: health, isError: healthError } = useServerHealth();
   const { data: account } = useAccount(!!user);
   const isMobile = useIsMobile();
+  const location = useLocation();
+  // AccountStrip already shows Equity/uPnL on the terminal page itself, with
+  // the rest of the account context right next to it — repeating just those
+  // two numbers up here too was reading the same figure twice on the one
+  // screen where it's most likely to actually matter.
+  const onTerminal = location.pathname === "/terminal";
 
   const serverUp = !healthError && health?.status === "ok";
   const live = serverUp && wsStatus === "open";
@@ -257,7 +263,7 @@ export function TopBar() {
           </div>
         )}
 
-        {account && user?.role !== "MANAGER" && (
+        {account && user?.role !== "MANAGER" && !onTerminal && (
           <div className="flex items-center gap-3 border-l border-line pl-3 tabular">
             <div className="text-right leading-tight">
               <div className="text-2xs text-txt-2">{t("overview.equity")}</div>

@@ -3,29 +3,22 @@ import { ChartEngine, type Bar, type Drawing, type OverlayLine } from "../../lib
 import { chartThemeFor } from "../../lib/chartTheme";
 import { useChartBars } from "../../hooks/useMarket";
 import { useLiveInstrument } from "../../hooks/useLivePrices";
-import { useTerminalStore, type Oscillator } from "../../store/terminal";
+import { useTerminalStore } from "../../store/terminal";
 import { usePriceStore } from "../../store/prices";
 import { useThemeStore } from "../../store/theme";
 import { useAuthStore } from "../../store/auth";
 import { usePositions, useUpdatePosition, useClosePosition } from "../../hooks/useTrading";
-import { useLiveDepth, bestBidAsk } from "../../hooks/useLiveDepth";
 import { useBinanceSymbolFeed } from "../../hooks/useBinanceSymbolFeed";
 import { classNames, fmtCompact, fmtPct, fmtPrice, fmtQty, fmtSigned, fmtUsd, n } from "../../lib/format";
 import { ema, macd as macdCalc, rsi as rsiCalc, sma } from "../../lib/indicators";
 import { computeSignal, ratingLabel, type SignalResult } from "../../lib/signal";
 import { Tooltip } from "../common/Tooltip";
 import { LoadingRow, ErrorRow } from "../common/States";
-import { IndicatorToggle } from "./IndicatorToggle";
-import {
-  IconRefresh, IconChevron, IconCandles, IconChartLine, IconChartArea,
-  IconCrosshair, IconTrendLine, IconHorizontalLine, IconClose, IconFit, IconExpand, IconCollapse,
-} from "../icons/Icon";
+import { ChartToolbar } from "./ChartToolbar";
+import { IconRefresh, IconChevron, IconFit, IconExpand, IconCollapse } from "../icons/Icon";
 import { toast } from "../../store/toast";
 import { ApiError } from "../../lib/api";
-import type { Position, Timeframe } from "../../lib/types";
-
-const TIMEFRAMES: Timeframe[] = ["1m", "5m", "15m", "1H", "4H", "1D", "1W"];
-type ChartType = "candles" | "line" | "area";
+import type { Position } from "../../lib/types";
 
 const RATING_COLOR: Record<SignalResult["rating"], string> = {
   STRONG_BUY: "text-buy", BUY: "text-buy", NEUTRAL: "text-txt-2", SELL: "text-sell", STRONG_SELL: "text-sell",
@@ -64,8 +57,6 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
   useBinanceSymbolFeed(symbol, inst?.category);
   const tick = usePriceStore((s) => s.ticks[symbol]);
   const theme = useThemeStore((s) => s.theme);
-  const { book: depthBook } = useLiveDepth(symbol, inst?.category);
-  const bidAsk = useMemo(() => bestBidAsk(depthBook), [depthBook]);
   const user = useAuthStore((s) => s.user);
   const positionsQuery = usePositions(!!user);
   const updatePosition = useUpdatePosition();
@@ -77,22 +68,20 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
   const positionRef = useRef<Position | null>(null);
   useEffect(() => { positionRef.current = position; }, [position]);
 
-  const [chartType, setChartType] = useState<ChartType>("candles");
-  // Overlay/tool state lives in the shared terminal store, not local state —
-  // see store/terminal.ts's doc comment: the mobile header row renders these
-  // controls itself (merged with the symbol picker and Chart/Book toggle),
-  // so both it and this component need to read/write the same values.
+  // Chart type and overlay/tool state live in the shared terminal store, not
+  // local state — see store/terminal.ts's doc comment: both the desktop and
+  // mobile headers render the same ChartToolbar controls, so this component
+  // and they need to read/write the same values.
+  const chartType = useTerminalStore((s) => s.chartType);
   const showSma20 = useTerminalStore((s) => s.showSma20);
   const showSma50 = useTerminalStore((s) => s.showSma50);
   const showEma9 = useTerminalStore((s) => s.showEma9);
   const showEma21 = useTerminalStore((s) => s.showEma21);
   const oscillator = useTerminalStore((s) => s.oscillator);
   const tool = useTerminalStore((s) => s.tool);
-  const setShowSma20 = useTerminalStore((s) => s.setShowSma20);
-  const setShowSma50 = useTerminalStore((s) => s.setShowSma50);
-  const setShowEma9 = useTerminalStore((s) => s.setShowEma9);
-  const setShowEma21 = useTerminalStore((s) => s.setShowEma21);
-  const setOscillator = useTerminalStore((s) => s.setOscillator);
+  // Only the setter this component itself still calls (reset to cursor on
+  // symbol change, below) — the rest of the toggles are set from
+  // ChartToolbar.tsx, which writes the same store directly.
   const setTool = useTerminalStore((s) => s.setTool);
   const [fullscreen, setFullscreen] = useState(false);
   const [atHistoryStart, setAtHistoryStart] = useState(false);
@@ -307,19 +296,29 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-bg-0">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line px-2.5 py-1.5">
-        {onToggleWatch && (
-          <Tooltip label={watchCollapsed ? "Показать список пар" : "Скрыть список пар (больше места графику)"}>
-            <button
-              onClick={onToggleWatch}
-              className="btn-fx rounded border border-line px-1.5 py-1 text-txt-2 hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
-            >
-              <IconChevron direction={watchCollapsed ? "right" : "left"} size={15} />
-            </button>
-          </Tooltip>
-        )}
+      {/* Desktop only — mobile's equivalent (symbol, price, Chart/Book toggle,
+          ChartToolbar) lives one level up in MobileTerminal's own merged
+          header row, so this row doesn't render at all in compact mode
+          rather than leaving an empty bordered strip behind. One row,
+          not the three-deep wrapped mess this used to be at normal window
+          widths: Bid/Ask dropped (the order book right next to this already
+          owns that), zoom +/- dropped (mouse wheel already zooms; Fit
+          remains), and chart-type/timeframe/indicators/draw-tools are one
+          shared ChartToolbar instead of four separate always-open rows. */}
+      {!compact && (
+        <div className="flex shrink-0 items-center gap-3 border-b border-line px-2.5 py-1.5">
+          {onToggleWatch && (
+            <Tooltip label={watchCollapsed ? "Показать список пар" : "Скрыть список пар (больше места графику)"}>
+              <button
+                onClick={onToggleWatch}
+                aria-label={watchCollapsed ? "Показать список пар" : "Скрыть список пар"}
+                className="btn-fx rounded border border-line px-1.5 py-1 text-txt-2 hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+              >
+                <IconChevron direction={watchCollapsed ? "right" : "left"} size={15} />
+              </button>
+            </Tooltip>
+          )}
 
-        {!compact && (
           <div className="flex items-baseline gap-2">
             <span className="text-sm font-semibold text-txt-0">{symbol}</span>
             {inst && <span className="rounded border border-line px-1 py-px text-2xs text-txt-3">{inst.category}</span>}
@@ -334,166 +333,52 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
               </Tooltip>
             )}
           </div>
-        )}
 
-        {!compact && inst && (
-          <div className="flex items-center gap-3 tabular text-2xs">
-            <Tooltip label="Mark price — используется для расчёта uPnL и ликвидации">
-              <span className={classNames("cursor-help text-sm font-semibold", inst.dir === "up" ? "text-buy" : inst.dir === "down" ? "text-sell" : "text-txt-0")}>
-                {fmtPrice(inst.livePrice, inst.priceDecimals)}
+          {inst && (
+            <div className="flex items-center gap-3 tabular text-2xs">
+              <Tooltip label="Mark price — используется для расчёта uPnL и ликвидации">
+                <span className={classNames("cursor-help text-sm font-semibold", inst.dir === "up" ? "text-buy" : inst.dir === "down" ? "text-sell" : "text-txt-0")}>
+                  {fmtPrice(inst.livePrice, inst.priceDecimals)}
+                </span>
+              </Tooltip>
+              <span className={inst.liveChange24h >= 0 ? "text-buy" : "text-sell"}>{fmtPct(inst.liveChange24h)}</span>
+              <span className="text-txt-2">H <span className="text-txt-1">{fmtPrice(inst.liveHigh24h, inst.priceDecimals)}</span></span>
+              <span className="text-txt-2">L <span className="text-txt-1">{fmtPrice(inst.liveLow24h, inst.priceDecimals)}</span></span>
+              <span className="text-txt-2">Vol <span className="text-txt-1">{fmtCompact(inst.volume24h)}</span></span>
+            </div>
+          )}
+
+          {signal && (
+            <Tooltip label={`${signal.votes.map((v) => `${v.label}: ${v.direction > 0 ? "bullish" : v.direction < 0 ? "bearish" : "neutral"}`).join(" · ")} — техническая сводка, не инвестсовет`}>
+              <span className={classNames("cursor-help rounded border border-line px-1.5 py-0.5 text-2xs font-medium", RATING_COLOR[signal.rating])}>
+                {ratingLabel(signal.rating)}
               </span>
             </Tooltip>
-            <span className={inst.liveChange24h >= 0 ? "text-buy" : "text-sell"}>{fmtPct(inst.liveChange24h)}</span>
-            <span className="text-txt-2">H <span className="text-txt-1">{fmtPrice(inst.liveHigh24h, inst.priceDecimals)}</span></span>
-            <span className="text-txt-2">L <span className="text-txt-1">{fmtPrice(inst.liveLow24h, inst.priceDecimals)}</span></span>
-            <span className="text-txt-2">Vol <span className="text-txt-1">{fmtCompact(inst.volume24h)}</span></span>
-            {bidAsk && (
-              <>
-                <span className="text-txt-2">Bid <span className="text-buy">{fmtPrice(bidAsk.bid, inst.priceDecimals)}</span></span>
-                <span className="text-txt-2">Ask <span className="text-sell">{fmtPrice(bidAsk.ask, inst.priceDecimals)}</span></span>
-              </>
-            )}
-          </div>
-        )}
-
-        {!compact && signal && (
-          <Tooltip label={`${signal.votes.map((v) => `${v.label}: ${v.direction > 0 ? "bullish" : v.direction < 0 ? "bearish" : "neutral"}`).join(" · ")} — техническая сводка, не инвестсовет`}>
-            <span className={classNames("cursor-help rounded border border-line px-1.5 py-0.5 text-2xs font-medium", RATING_COLOR[signal.rating])}>
-              {ratingLabel(signal.rating)}
-            </span>
-          </Tooltip>
-        )}
-
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          {!compact && (
-            <div className="flex gap-0.5 rounded border border-line p-0.5">
-              {(["candles", "line", "area"] as ChartType[]).map((t) => {
-                const ChartTypeIcon = t === "candles" ? IconCandles : t === "line" ? IconChartLine : IconChartArea;
-                return (
-                  <button
-                    key={t}
-                    onClick={() => setChartType(t)}
-                    title={t}
-                    aria-pressed={chartType === t}
-                    className={classNames(
-                      "btn-fx rounded px-1.5 py-1 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent",
-                      chartType === t ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0"
-                    )}
-                  >
-                    <ChartTypeIcon size={14} />
-                  </button>
-                );
-              })}
-            </div>
           )}
 
-          {!compact && (
-            <div className="flex gap-0.5 rounded border border-line p-0.5">
-              {TIMEFRAMES.map((tf) => (
-                <button key={tf} onClick={() => setTimeframe(tf)}
-                  className={classNames("btn-fx rounded px-1.5 py-1 text-2xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent", timeframe === tf ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}>
-                  {tf}
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <ChartToolbar variant="flat" />
 
-          {/* No compact toolbar rendered here any more — on mobile these
-              controls (timeframe/indicators/draw) live in the merged header
-              row above the chart pane instead (MobileTerminal.tsx +
-              ChartToolbar.tsx), so the chart starts higher on the page. This
-              component still reacts to the same shared store either way. */}
-
-          {!compact && (
-            <div className="flex items-center gap-1.5 text-2xs">
-              {/* Legend text is tokens throughout, not raw hex: SMA20/SMA50
-                  reuse --c-accent/--c-warn (they were byte-for-byte those
-                  tokens typed out by hand); EMA9/EMA21 had no existing match
-                  so they get dedicated --c-indicator-ema9/-ema21 tokens
-                  (see globals.css — deliberately not the CRM cat-* palette,
-                  which is explicitly scoped off-limits for the terminal).
-                  Both are theme-aware and AA-verified against bg-0. */}
-              <IndicatorToggle checked={showSma20} onChange={setShowSma20} textClass="text-accent" boxCheckedClass="border-accent bg-accent" label="SMA20" />
-              <IndicatorToggle checked={showSma50} onChange={setShowSma50} textClass="text-warn" boxCheckedClass="border-warn bg-warn" label="SMA50" />
-              <IndicatorToggle checked={showEma9} onChange={setShowEma9} textClass="text-indicator-ema9" boxCheckedClass="border-indicator-ema9 bg-indicator-ema9" label="EMA9" />
-              <IndicatorToggle checked={showEma21} onChange={setShowEma21} textClass="text-indicator-ema21" boxCheckedClass="border-indicator-ema21 bg-indicator-ema21" label="EMA21" />
-              <select value={oscillator} onChange={(e) => setOscillator(e.target.value as Oscillator)}
-                className="rounded border border-line bg-bg-2 px-1 py-0.5 text-2xs text-txt-1 outline-none focus:border-accent">
-                <option value="NONE">Oscillator: none</option>
-                <option value="RSI">RSI (14)</option>
-                <option value="MACD">MACD (12,26,9)</option>
-              </select>
-            </div>
-          )}
-
-          {!compact && (
-            <div className="flex gap-0.5 rounded border border-line p-0.5">
-              <Tooltip label="Cursor — перетаскивание и зум колесом; потяните за шкалу цен справа, чтобы растянуть её по вертикали">
-                <button
-                  onClick={() => setTool("cursor")}
-                  aria-pressed={tool === "cursor"}
-                  className={classNames("btn-fx rounded px-1.5 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent", tool === "cursor" ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}
-                >
-                  <IconCrosshair size={14} />
-                </button>
-              </Tooltip>
-              <Tooltip label="Trend line — клик, потом второй клик для завершения; ПКМ по линии удаляет">
-                <button
-                  onClick={() => setTool("trendline")}
-                  aria-pressed={tool === "trendline"}
-                  className={classNames("btn-fx rounded px-1.5 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent", tool === "trendline" ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}
-                >
-                  <IconTrendLine size={14} />
-                </button>
-              </Tooltip>
-              <Tooltip label="Horizontal line — клик по цене; ПКМ по линии удаляет">
-                <button
-                  onClick={() => setTool("hline")}
-                  aria-pressed={tool === "hline"}
-                  className={classNames("btn-fx rounded px-1.5 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent", tool === "hline" ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}
-                >
-                  <IconHorizontalLine size={14} />
-                </button>
-              </Tooltip>
-              <Tooltip label="Удалить все линии на этом графике">
-                <button
-                  onClick={() => engineRef.current?.clearDrawings()}
-                  className="btn-fx rounded px-1.5 py-1 text-txt-2 hover:text-sell focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
-                >
-                  <IconClose size={14} />
-                </button>
-              </Tooltip>
-            </div>
-          )}
-
-          {!compact && (
             <div className="flex items-center gap-0.5 rounded border border-line p-0.5">
-              <Tooltip label="Уменьшить масштаб">
-                <button onClick={() => engineRef.current?.zoomBy(1.4)} className="btn-fx rounded px-1.5 py-1 text-xs text-txt-2 hover:text-txt-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent">−</button>
-              </Tooltip>
-              <Tooltip label="Сбросить масштаб">
-                <button onClick={() => engineRef.current?.fitContent()} className="btn-fx rounded px-1.5 py-1 text-txt-2 hover:text-txt-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent">
+              <Tooltip label="Сбросить масштаб к последним свечам">
+                <button onClick={() => engineRef.current?.fitContent()} aria-label="Сбросить масштаб к последним свечам" className="btn-fx rounded px-1.5 py-1 text-txt-2 hover:text-txt-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent">
                   <IconFit size={14} />
                 </button>
               </Tooltip>
-              <Tooltip label="Увеличить масштаб">
-                <button onClick={() => engineRef.current?.zoomBy(1 / 1.4)} className="btn-fx rounded px-1.5 py-1 text-xs text-txt-2 hover:text-txt-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent">+</button>
-              </Tooltip>
             </div>
-          )}
 
-          {!compact && (
-          <Tooltip label={fullscreen ? "Выйти из полноэкранного режима" : "Полноэкранный режим"}>
-            <button
-              onClick={toggleFullscreen}
-              className="btn-fx rounded border border-line px-1.5 py-1 text-txt-2 hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
-            >
-              {fullscreen ? <IconCollapse size={15} /> : <IconExpand size={15} />}
-            </button>
-          </Tooltip>
-          )}
+            <Tooltip label={fullscreen ? "Выйти из полноэкранного режима" : "Полноэкранный режим"}>
+              <button
+                onClick={toggleFullscreen}
+                aria-label={fullscreen ? "Выйти из полноэкранного режима" : "Полноэкранный режим"}
+                className="btn-fx rounded border border-line px-1.5 py-1 text-txt-2 hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+              >
+                {fullscreen ? <IconCollapse size={15} /> : <IconExpand size={15} />}
+              </button>
+            </Tooltip>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* data-swipe-nav-ignore: see useSwipeNav.ts — a horizontal drag to pan
           the chart is not an overflow-x scroll, so without this the page-swipe
