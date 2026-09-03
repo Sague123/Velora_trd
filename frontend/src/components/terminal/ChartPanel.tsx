@@ -353,8 +353,15 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
 
           {!compact && (
             <div className="flex items-center gap-1.5 text-2xs">
-              <label className="flex items-center gap-1 text-txt-2"><input type="checkbox" checked={showSma20} onChange={(e) => setShowSma20(e.target.checked)} className="accent-accent" /><span style={{ color: "#3d7cff" }}>SMA20</span></label>
-              <label className="flex items-center gap-1 text-txt-2"><input type="checkbox" checked={showSma50} onChange={(e) => setShowSma50(e.target.checked)} className="accent-warn" /><span style={{ color: "#e0a53c" }}>SMA50</span></label>
+              {/* SMA20/SMA50 legend text used raw hex that was, byte for byte,
+                  --c-accent/--c-warn typed out by hand — swapped for the real
+                  tokens, so they're AA-verified and theme-aware instead of a
+                  frozen dark-mode-only guess. EMA9/EMA21 still hardcode hex
+                  (#c084fc/#22d3ee, no existing token match) — left as-is here;
+                  see the audit note on why (globals.css's cat-* palette is
+                  explicitly scoped off-limits for the terminal). */}
+              <label className="flex items-center gap-1 text-txt-2"><input type="checkbox" checked={showSma20} onChange={(e) => setShowSma20(e.target.checked)} className="accent-accent" /><span className="text-accent">SMA20</span></label>
+              <label className="flex items-center gap-1 text-txt-2"><input type="checkbox" checked={showSma50} onChange={(e) => setShowSma50(e.target.checked)} className="accent-warn" /><span className="text-warn">SMA50</span></label>
               <label className="flex items-center gap-1 text-txt-2"><input type="checkbox" checked={showEma9} onChange={(e) => setShowEma9(e.target.checked)} className="accent-accent" /><span style={{ color: "#c084fc" }}>EMA9</span></label>
               <label className="flex items-center gap-1 text-txt-2"><input type="checkbox" checked={showEma21} onChange={(e) => setShowEma21(e.target.checked)} className="accent-accent" /><span style={{ color: "#22d3ee" }}>EMA21</span></label>
               <select value={oscillator} onChange={(e) => setOscillator(e.target.value as Oscillator)}

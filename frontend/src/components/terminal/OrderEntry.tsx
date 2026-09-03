@@ -388,7 +388,10 @@ export function OrderEntry({ compact = false }: { compact?: boolean } = {}) {
               className={classNames(
                 "btn-fx rounded-xl font-bold shadow-btn transition-colors disabled:cursor-not-allowed disabled:opacity-40",
                 compact ? "py-2.5 text-xs" : "py-3.5 text-sm",
-                s === "BUY" ? "bg-buy text-black hover:bg-buy/90" : "bg-sell text-white hover:bg-sell/90"
+                // -fill, not the plain buy/sell color: this is solid text
+                // directly on the fill, which needs its own AA-verified
+                // background — see globals.css's --c-buy-fill/--c-sell-fill.
+                s === "BUY" ? "bg-buy-fill text-black hover:bg-buy-fill/90" : "bg-sell-fill text-white hover:bg-sell-fill/90"
               )}
             >
               {place.isPending && side === s

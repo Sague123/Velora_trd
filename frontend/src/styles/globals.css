@@ -45,9 +45,18 @@
   --c-buy: 23 200 133;
   --c-buy-dim: 15 127 87;
   --c-buy-soft: 12 35 27;
+  /* Same problem as --c-accent-fill above, same fix: the Buy/Sell trade
+   * buttons render solid black/white text directly on these fills, which
+   * --c-buy/--c-sell were never tuned for (they're proven at 4.5:1+ only as
+   * *text* on bg-1/bg-2/bg-3/-soft). Measured: black-on-buy already clears
+   * 9.64:1 here, so buy-fill is unchanged; white-on-sell measured only
+   * 3.5:1, so sell-fill is a darkened red (13% darker, 4.6:1) — still reads
+   * as the same sell red, just dark enough for white text to sit on it. */
+  --c-buy-fill: 23 200 133;
   --c-sell: 245 73 94;
   --c-sell-dim: 156 47 61;
   --c-sell-soft: 42 18 22;
+  --c-sell-fill: 210 63 81;
   --c-warn: 224 165 60;
   /* Categorical palette for the CRM lead pipeline only — ten funnel stages
    * need to be told apart at a glance, and the four semantic tones above
@@ -113,9 +122,16 @@
   --c-buy: 0 119 61;
   --c-buy-dim: 0 96 49;
   --c-buy-soft: 216 245 231;
+  /* Mirror of dark theme's buy-fill/sell-fill, flipped: here it's black-on-buy
+   * that fails (3.71:1 — --c-buy is tuned as text-on-white, too dark itself
+   * to read a fill's luminance floor for black text), so buy-fill is a
+   * lightened green (14% lighter, 4.61:1); white-on-sell already clears
+   * 5.65:1, so sell-fill tracks --c-sell unchanged. */
+  --c-buy-fill: 0 136 70;
   --c-sell: 200 33 49;
   --c-sell-dim: 163 26 39;
   --c-sell-soft: 251 223 226;
+  --c-sell-fill: 200 33 49;
   --c-warn: 168 105 22;
   /* Same six categorical hues, redarkened for a white surface — same rule as
    * the rest of the ramp: 4.5:1 on bg-1, on bg-3, and on their own -soft tint. */

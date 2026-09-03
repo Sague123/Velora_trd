@@ -116,7 +116,7 @@ export function MarketsPage() {
           anchor, and this box never scrolls vertically, so the header would
           just slide away. Horizontal overflow is handled by the page
           container instead, which keeps the header pinned to the viewport. */}
-      <div className="rounded border border-line bg-bg-1">
+      <div className="rounded-lg border border-line bg-bg-1">
         {isLoading && <LoadingRow label="Загрузка инструментов…" />}
         {isError && <ErrorRow label="Не удалось загрузить инструменты" onRetry={() => refetch()} />}
         {!isLoading && !isError && rows.length === 0 && <EmptyRow label="Ничего не найдено" />}

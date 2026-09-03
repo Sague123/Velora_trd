@@ -39,11 +39,16 @@ export default {
           DEFAULT: rgbVar("--c-buy"),
           dim: rgbVar("--c-buy-dim"),
           soft: rgbVar("--c-buy-soft"),
+          // Same reasoning as accent.fill above: the plain buy/sell colors
+          // are tuned as text, not as a solid fill under white/black text.
+          // See globals.css for the arithmetic.
+          fill: rgbVar("--c-buy-fill"),
         },
         sell: {
           DEFAULT: rgbVar("--c-sell"),
           dim: rgbVar("--c-sell-dim"),
           soft: rgbVar("--c-sell-soft"),
+          fill: rgbVar("--c-sell-fill"),
         },
         warn: rgbVar("--c-warn"),
         // CRM-only categorical palette — see globals.css for why these six

@@ -150,7 +150,7 @@ export function IdentityForm({ onSubmitted, onCancel }: { onSubmitted: () => voi
               type="button"
               onClick={() => { setDocumentType(d.value); if (!d.needsBack) setDocumentBack(null); }}
               className={classNames(
-                "tap-sm btn-fx flex-1 basis-0 rounded-md px-2 py-1.5 text-2xs font-medium",
+                "tap-sm btn-fx flex-1 basis-0 rounded px-2 py-1.5 text-2xs font-medium",
                 documentType === d.value ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0"
               )}
             >

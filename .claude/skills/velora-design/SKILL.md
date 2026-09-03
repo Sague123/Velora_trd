@@ -49,6 +49,13 @@ tooltip.
 `accent` (Velora blue — interactive/brand), `buy` (green — long/up/positive),
 `sell` (red — short/down/negative), `warn` (amber — caution, fees, degraded
 state). Each has `-dim` (hover/pressed) and `-soft` (tinted background) forms.
+`accent`, `buy` and `sell` also have a `-fill` form: the plain color is tuned
+and AA-verified as *text* on `bg-1`/`bg-2`/`bg-3`/`-soft`, which is a
+different, sometimes incompatible constraint from being a *solid background*
+under white/black text — a button using `bg-accent`/`bg-buy`/`bg-sell` for a
+filled background with text on top should use `-fill` instead
+(`bg-accent-fill`/`bg-buy-fill`/`bg-sell-fill`; see globals.css for the
+contrast arithmetic behind each).
 
 **Never** use `buy`/`sell` for anything but market direction or P&L sign. A
 green "Save" button is wrong here — it reads as "long".

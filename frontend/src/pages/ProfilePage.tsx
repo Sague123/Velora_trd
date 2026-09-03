@@ -49,7 +49,7 @@ function InfoForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="rounded border border-line bg-bg-1 p-4">
+    <form onSubmit={onSubmit} className="rounded-lg border border-line bg-bg-1 p-4">
       <h2 className="mb-1 text-xs font-semibold text-txt-0">Basic Info</h2>
       <p className="mb-3 text-2xs text-txt-3">
         Самостоятельно указанные данные — Velora не проверяет их по документам и не проводит настоящую KYC-верификацию.
@@ -71,7 +71,7 @@ function InfoForm() {
             className="w-full cursor-not-allowed rounded border border-line bg-bg-2/50 px-2.5 py-1.5 text-xs text-txt-2" />
         </label>
       </div>
-      <button type="submit" disabled={updateProfile.isPending} className="btn-fx mt-3 rounded bg-accent-fill px-4 py-1.5 text-xs font-semibold text-white hover:bg-accent-dim disabled:opacity-50">
+      <button type="submit" disabled={updateProfile.isPending} className="btn-fx mt-3 rounded-lg bg-accent-fill px-4 py-1.5 text-xs font-semibold text-white hover:bg-accent-dim disabled:opacity-50">
         {updateProfile.isPending ? "Сохранение…" : "Save"}
       </button>
     </form>
@@ -103,7 +103,7 @@ function PasswordForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="rounded border border-line bg-bg-1 p-4">
+    <form onSubmit={onSubmit} className="rounded-lg border border-line bg-bg-1 p-4">
       <h2 className="mb-3 text-xs font-semibold text-txt-0">Change Password</h2>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <label className="block">
@@ -123,7 +123,7 @@ function PasswordForm() {
         </label>
       </div>
       {error && <div className="mt-3 rounded border border-sell/40 bg-sell-soft px-2.5 py-1.5 text-2xs text-sell">{error}</div>}
-      <button type="submit" disabled={changePassword.isPending} className="btn-fx mt-3 rounded bg-accent-fill px-4 py-1.5 text-xs font-semibold text-white hover:bg-accent-dim disabled:opacity-50">
+      <button type="submit" disabled={changePassword.isPending} className="btn-fx mt-3 rounded-lg bg-accent-fill px-4 py-1.5 text-xs font-semibold text-white hover:bg-accent-dim disabled:opacity-50">
         {changePassword.isPending ? "Сохранение…" : "Update Password"}
       </button>
       <span className="ml-2 text-2xs text-txt-3">Смена пароля завершит все ваши сессии.</span>
@@ -151,7 +151,7 @@ function SettingsTab() {
       )}
       <PasswordForm />
 
-      <div className="rounded border border-line bg-bg-1 p-4">
+      <div className="rounded-lg border border-line bg-bg-1 p-4">
         <h2 className="mb-3 text-xs font-semibold text-txt-0">Appearance</h2>
         <div className="flex gap-1">
           {(["dark", "light"] as const).map((t) => (
@@ -163,7 +163,7 @@ function SettingsTab() {
         </div>
       </div>
 
-      <div className="rounded border border-line bg-bg-1 p-4">
+      <div className="rounded-lg border border-line bg-bg-1 p-4">
         <h2 className="mb-3 text-xs font-semibold text-txt-0">Trading Defaults</h2>
         <p className="mb-3 text-2xs text-txt-3">Хранится локально, на сервер не отправляется.</p>
 
@@ -200,7 +200,7 @@ function SettingsTab() {
         </label>
       </div>
 
-      <div className="rounded border border-line bg-bg-1 p-4">
+      <div className="rounded-lg border border-line bg-bg-1 p-4">
         <button onClick={() => { s.reset(); toast.info("Настройки сброшены"); }} className="btn-fx rounded border border-line px-3 py-1.5 text-2xs text-txt-2 hover:border-sell hover:text-sell">
           Reset to Defaults
         </button>
@@ -218,7 +218,7 @@ function PortfolioTab() {
   const ledger = useLedger(sub === "ledger");
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col rounded border border-line bg-bg-1">
+    <div className="flex min-h-0 flex-1 flex-col rounded-lg border border-line bg-bg-1">
       <div className="flex shrink-0 flex-wrap items-center gap-0.5 border-b border-line px-1">
         {(
           [
