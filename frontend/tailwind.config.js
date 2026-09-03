@@ -61,6 +61,13 @@ export default {
           magenta: { DEFAULT: rgbVar("--c-cat-magenta"), soft: rgbVar("--c-cat-magenta-soft") },
           rose: { DEFAULT: rgbVar("--c-cat-rose"), soft: rgbVar("--c-cat-rose-soft") },
         },
+        // Terminal-only chart indicator colors — never CRM. See globals.css;
+        // kept in sync with lib/chartTheme.ts, which uses the same two hues
+        // as hex for the canvas-drawn overlay line itself.
+        indicator: {
+          ema9: rgbVar("--c-indicator-ema9"),
+          ema21: rgbVar("--c-indicator-ema21"),
+        },
       },
       fontFamily: {
         sans: [

@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useAccount, useLedger } from "../../hooks/useTrading";
 import { useAuthStore } from "../../store/auth";
 import { classNames, fmtRate, fmtSigned, fmtUsd } from "../../lib/format";
-import { LoadingRow, ErrorRow } from "../common/States";
+import { ErrorRow, SkeletonBar } from "../common/States";
 
 function Stat({ label, value, tone, sub }: { label: string; value: string; tone?: "buy" | "sell"; sub?: string }) {
   return (
@@ -12,6 +12,17 @@ function Stat({ label, value, tone, sub }: { label: string; value: string; tone?
         {value}
       </div>
       {sub && <div className="mt-0.5 text-2xs text-txt-3">{sub}</div>}
+    </div>
+  );
+}
+
+function StatSkeleton() {
+  return (
+    <div className="rounded border border-line bg-bg-1 px-3 py-2.5">
+      <SkeletonBar width="55%" height={10} />
+      <div className="mt-1.5">
+        <SkeletonBar width="40%" height={18} />
+      </div>
     </div>
   );
 }
@@ -38,7 +49,13 @@ export function BalanceStats() {
     return { deposited, withdrawn, transferIn, transferOut, fees, netContributions, roi };
   }, [ledger.data, account.data]);
 
-  if (account.isLoading || ledger.isLoading) return <LoadingRow label="Загрузка статистики…" />;
+  if (account.isLoading || ledger.isLoading) {
+    return (
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+        {Array.from({ length: 11 }).map((_, i) => <StatSkeleton key={i} />)}
+      </div>
+    );
+  }
   if (account.isError || ledger.isError) return <ErrorRow label="Не удалось загрузить статистику" onRetry={() => { account.refetch(); ledger.refetch(); }} />;
   if (!account.data) return null;
   const a = account.data;

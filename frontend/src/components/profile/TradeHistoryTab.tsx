@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useTrades } from "../../hooks/useTrading";
 import { classNames, fmtDateTime, fmtPrice, fmtQty, fmtSigned, fmtUsd, n } from "../../lib/format";
-import { LoadingRow, ErrorRow, EmptyRow } from "../common/States";
+import { ErrorRow, EmptyRow, SkeletonBar, SkeletonTableRows } from "../common/States";
 import { CoinBadge } from "../common/CoinBadge";
 
 function Stat({ label, value, tone }: { label: string; value: string; tone?: "buy" | "sell" | "warn" }) {
@@ -16,6 +16,15 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: "bu
       >
         {value}
       </div>
+    </div>
+  );
+}
+
+function StatSkeleton() {
+  return (
+    <div className="rounded-lg border border-line bg-bg-1 p-3">
+      <SkeletonBar width="60%" height={10} />
+      <div className="mt-2"><SkeletonBar width="45%" height={18} /></div>
     </div>
   );
 }
@@ -52,21 +61,26 @@ export function TradeHistoryTab() {
     };
   }, [trades]);
 
-  if (isLoading) return <LoadingRow />;
   if (isError) return <ErrorRow label="Не удалось загрузить историю" onRetry={() => refetch()} />;
 
   return (
     <div className="flex flex-col gap-3">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-        <Stat label="Всего сделок" value={String(trades.length)} />
-        <Stat label="Валовый P&L" value={fmtSigned(totals.pnl)} tone={totals.pnl >= 0 ? "buy" : "sell"} />
-        <Stat label="Комиссии всего" value={fmtUsd(totals.fees, 4)} tone="warn" />
-        <Stat label="Чистый результат" value={fmtSigned(totals.net)} tone={totals.net >= 0 ? "buy" : "sell"} />
-        <Stat label="Winrate" value={totals.winRate === null ? "—" : `${totals.winRate}%`} />
+        {isLoading ? (
+          Array.from({ length: 5 }).map((_, i) => <StatSkeleton key={i} />)
+        ) : (
+          <>
+            <Stat label="Всего сделок" value={String(trades.length)} />
+            <Stat label="Валовый P&L" value={fmtSigned(totals.pnl)} tone={totals.pnl >= 0 ? "buy" : "sell"} />
+            <Stat label="Комиссии всего" value={fmtUsd(totals.fees, 4)} tone="warn" />
+            <Stat label="Чистый результат" value={fmtSigned(totals.net)} tone={totals.net >= 0 ? "buy" : "sell"} />
+            <Stat label="Winrate" value={totals.winRate === null ? "—" : `${totals.winRate}%`} />
+          </>
+        )}
       </div>
 
       <div className="rounded-lg border border-line bg-bg-1">
-        {trades.length === 0 ? (
+        {!isLoading && trades.length === 0 ? (
           <EmptyRow label="Закрытых сделок пока нет" />
         ) : (
           <div className="overflow-x-auto">
@@ -83,37 +97,39 @@ export function TradeHistoryTab() {
                 </tr>
               </thead>
               <tbody>
-                {trades.map((t) => {
-                  const pnl = n(t.pnl);
-                  return (
-                    <tr key={t.id} className="border-b border-line-soft/60 tabular hover:bg-bg-2/60">
-                      <td className="px-3 py-2">
-                        <div className="flex items-center gap-2">
-                          <CoinBadge symbol={t.symbol} size={20} />
-                          <div>
-                            <div className="font-medium text-txt-0">{t.symbol}</div>
-                            <span className={classNames("text-2xs", t.side === "BUY" ? "text-buy" : "text-sell")}>{t.side}</span>
+                {isLoading && <SkeletonTableRows columns={7} />}
+                {!isLoading &&
+                  trades.map((t) => {
+                    const pnl = n(t.pnl);
+                    return (
+                      <tr key={t.id} className="border-b border-line-soft/60 tabular hover:bg-bg-2/60">
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <CoinBadge symbol={t.symbol} size={20} />
+                            <div>
+                              <div className="font-medium text-txt-0">{t.symbol}</div>
+                              <span className={classNames("text-2xs", t.side === "BUY" ? "text-buy" : "text-sell")}>{t.side}</span>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-2 py-2 text-right text-txt-1">{fmtQty(t.qty)}</td>
-                      <td className="px-2 py-2 text-right text-txt-1">{fmtPrice(t.entryPrice, 4)}</td>
-                      <td className="px-2 py-2 text-right text-txt-1">{fmtPrice(t.exitPrice, 4)}</td>
-                      <td className="px-2 py-2 text-right text-txt-2">{fmtUsd(t.fee, 4)}</td>
-                      <td className={classNames("px-2 py-2 text-right font-semibold", pnl >= 0 ? "text-buy" : "text-sell")}>
-                        {fmtSigned(t.pnl)}
-                      </td>
-                      <td className="px-3 py-2 text-txt-2">{fmtDateTime(t.closedAt)}</td>
-                    </tr>
-                  );
-                })}
+                        </td>
+                        <td className="px-2 py-2 text-right text-txt-1">{fmtQty(t.qty)}</td>
+                        <td className="px-2 py-2 text-right text-txt-1">{fmtPrice(t.entryPrice, 4)}</td>
+                        <td className="px-2 py-2 text-right text-txt-1">{fmtPrice(t.exitPrice, 4)}</td>
+                        <td className="px-2 py-2 text-right text-txt-2">{fmtUsd(t.fee, 4)}</td>
+                        <td className={classNames("px-2 py-2 text-right font-semibold", pnl >= 0 ? "text-buy" : "text-sell")}>
+                          {fmtSigned(t.pnl)}
+                        </td>
+                        <td className="px-3 py-2 text-txt-2">{fmtDateTime(t.closedAt)}</td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </div>
         )}
       </div>
 
-      {trades.length >= 200 && (
+      {!isLoading && trades.length >= 200 && (
         <p className="text-2xs text-txt-3">
           Показаны последние 200 закрытых сделок — столько отдаёт API за один запрос.
         </p>

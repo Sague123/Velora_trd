@@ -18,7 +18,7 @@ const inputCls = "w-full rounded border border-line bg-bg-2 px-2 py-1.5 text-xs 
 const labelCls = "mb-1 block text-2xs font-medium text-txt-2";
 const PREVIEW_TFS: Timeframe[] = ["15m", "1H", "4H", "1D"];
 
-function GridBotForm({ onCreate }: { onCreate: (input: CreateBotInput) => void }) {
+function GridBotForm({ onCreate, pending }: { onCreate: (input: CreateBotInput) => void; pending: boolean }) {
   const { data } = useInstruments();
   const cryptoInstruments = data?.instruments ?? [];
   const [symbol, setSymbol] = useState("BTCUSDT");
@@ -64,6 +64,12 @@ function GridBotForm({ onCreate }: { onCreate: (input: CreateBotInput) => void }
 
   const estMargin = (Number(qtyPerLevel) || 0) * (Number(upper) || suggestion?.price || 0) / Math.max(1, Number(leverage) || 1);
   const estTotal = estMargin * Math.max(1, Math.trunc(Number(levels)) || 1);
+
+  // Mirrors the same range/qty check submit() already enforces via toast —
+  // the toast stays as a fallback (e.g. a value pasted in after the button
+  // last recomputed), this just stops the obviously-incomplete case up front.
+  const lowerNum = Number(lower), upperNum = Number(upper), qtyNum = Number(qtyPerLevel);
+  const canSubmit = lowerNum > 0 && upperNum > lowerNum && qtyNum > 0;
 
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-[200px_minmax(0,1fr)_320px]">
@@ -132,7 +138,11 @@ function GridBotForm({ onCreate }: { onCreate: (input: CreateBotInput) => void }
           </div>
         )}
 
-        <button type="submit" className="btn-fx mt-1 rounded-lg bg-gradient-to-r from-accent to-[#7c3aed] px-4 py-2.5 text-xs font-bold text-white hover:brightness-110">
+        <button
+          type="submit"
+          disabled={!canSubmit || pending}
+          className="btn-fx mt-1 rounded-lg bg-gradient-to-r from-accent to-[#7c3aed] px-4 py-2.5 text-xs font-bold text-white hover:brightness-110 disabled:opacity-40"
+        >
           Create Grid Bot
         </button>
       </form>
@@ -364,7 +374,7 @@ export function StrategiesPage() {
           <button onClick={() => setTab("grid")} className={classNames("btn-fx flex items-center gap-1.5 rounded px-4 py-1.5 text-xs font-semibold", tab === "grid" ? "bg-accent-fill text-white" : "text-txt-2")}><IconGrid size={14} /> Grid Bot</button>
           <button onClick={() => setTab("martingale")} className={classNames("btn-fx flex items-center gap-1.5 rounded px-4 py-1.5 text-xs font-semibold", tab === "martingale" ? "bg-gradient-to-r from-warn to-sell text-white" : "text-txt-2")}><IconTrendDown size={14} /> Martingale Bot</button>
         </div>
-        {tab === "grid" ? <GridBotForm onCreate={handleCreate} /> : <MartingaleBotForm onCreate={handleCreate} />}
+        {tab === "grid" ? <GridBotForm onCreate={handleCreate} pending={create.isPending} /> : <MartingaleBotForm onCreate={handleCreate} />}
       </div>
 
       <div className="anim-rise-3 space-y-2">

@@ -1,6 +1,6 @@
 import { useAdminAudit } from "../../hooks/useAdmin";
 import { fmtDateTime } from "../../lib/format";
-import { LoadingRow } from "../common/States";
+import { SkeletonBar } from "../common/States";
 
 /**
  * A customer's own slice of the platform-wide admin audit log — what an
@@ -12,7 +12,17 @@ import { LoadingRow } from "../common/States";
 export function AuditPanel({ userId }: { userId: string }) {
   const { data, isLoading } = useAdminAudit({ action: "", targetUserId: userId, page: 1, pageSize: 20 }, true);
 
-  if (isLoading) return <LoadingRow />;
+  if (isLoading) {
+    return (
+      <div className="space-y-1 rounded-lg border border-line-soft bg-bg-2/30 p-2">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="px-1.5 py-1">
+            <SkeletonBar width={`${70 - i * 10}%`} height={10} />
+          </div>
+        ))}
+      </div>
+    );
+  }
   if (!data || data.entries.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-line bg-bg-2/20 px-3 py-4 text-center text-2xs text-txt-3">

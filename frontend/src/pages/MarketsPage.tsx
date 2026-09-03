@@ -5,7 +5,7 @@ import { useInstruments } from "../hooks/useMarket";
 import { useLiveInstruments } from "../hooks/useLivePrices";
 import { useTerminalStore } from "../store/terminal";
 import { classNames, fmtCompact, fmtPct, fmtPrice } from "../lib/format";
-import { LoadingRow, ErrorRow, EmptyRow } from "../components/common/States";
+import { ErrorRow, EmptyRow, SkeletonTableRows } from "../components/common/States";
 import { IconCoin } from "../components/icons/Icon";
 import type { Category } from "../lib/types";
 import { SiteFooter } from "../components/layout/SiteFooter";
@@ -117,10 +117,9 @@ export function MarketsPage() {
           just slide away. Horizontal overflow is handled by the page
           container instead, which keeps the header pinned to the viewport. */}
       <div className="rounded-lg border border-line bg-bg-1">
-        {isLoading && <LoadingRow label="Загрузка инструментов…" />}
         {isError && <ErrorRow label="Не удалось загрузить инструменты" onRetry={() => refetch()} />}
-        {!isLoading && !isError && rows.length === 0 && <EmptyRow label="Ничего не найдено" />}
-        {!isLoading && !isError && rows.length > 0 && (
+        {!isError && !isLoading && rows.length === 0 && <EmptyRow label="Ничего не найдено" />}
+        {!isError && (isLoading || rows.length > 0) && (
           <table className="w-full min-w-[760px] text-xs">
             <thead className="sticky top-0 bg-bg-1">
               <tr className="border-b border-line text-left">
@@ -136,7 +135,8 @@ export function MarketsPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((i) => (
+              {isLoading && <SkeletonTableRows columns={9} />}
+              {!isLoading && rows.map((i) => (
                 <tr key={i.symbol} className="border-b border-line-soft/60 tabular hover:bg-bg-2/60">
                   <td className="px-3 py-2">
                     <div className="font-medium text-txt-0">{i.symbol}</div>

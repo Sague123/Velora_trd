@@ -69,6 +69,13 @@ export interface ChartTheme {
   sell: string;
   accent: string;
   crosshair: string;
+  // SMA20/SMA50 overlay lines reuse accent/warn above; EMA9/EMA21 have no
+  // other semantic match, so they get two dedicated indicator colors — see
+  // globals.css's --c-indicator-ema9/--c-indicator-ema21, which this
+  // mirrors so the drawn line and its legend label are always the same
+  // color. Terminal-only, same as everything else in this theme object.
+  ema9: string;
+  ema21: string;
 }
 
 const DEFAULT_THEME: ChartTheme = {
@@ -79,6 +86,8 @@ const DEFAULT_THEME: ChartTheme = {
   sell: "#f5495e",
   accent: "#3d7cff",
   crosshair: "#4a515c",
+  ema9: "#c084fc",
+  ema21: "#22d3ee",
 };
 
 const OSC_BAND_RATIO = 0.26; // fraction of plot height reserved for the oscillator

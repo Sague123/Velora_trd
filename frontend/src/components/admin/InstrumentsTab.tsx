@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useInstruments } from "../../hooks/useMarket";
 import { useAdminUpdateInstrument } from "../../hooks/useAdmin";
-import { LoadingRow, ErrorRow } from "../common/States";
+import { ErrorRow, SkeletonTableRows } from "../common/States";
 import { classNames, fmtPrice } from "../../lib/format";
 import { toast } from "../../store/toast";
 import { ApiError } from "../../lib/api";
@@ -36,9 +36,8 @@ export function InstrumentsTab() {
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {isLoading && <LoadingRow label="Загрузка инструментов…" />}
         {isError && <ErrorRow label="Не удалось загрузить инструменты" onRetry={() => refetch()} />}
-        {data && (
+        {!isError && (isLoading || data) && (
           <table className="w-full min-w-[720px] text-xs">
             <thead className="sticky top-0 bg-bg-1">
               <tr className="border-b border-line text-left text-txt-3">
@@ -51,7 +50,8 @@ export function InstrumentsTab() {
               </tr>
             </thead>
             <tbody>
-              {data.instruments.map((i) => (
+              {isLoading && <SkeletonTableRows columns={6} />}
+              {!isLoading && data?.instruments.map((i) => (
                 <tr key={i.symbol} className="border-b border-line-soft/60 tabular hover:bg-bg-2/60">
                   <td className="px-3 py-2 font-medium text-txt-0">{i.symbol}</td>
                   <td className="px-3 py-2 text-txt-2">{i.category}</td>

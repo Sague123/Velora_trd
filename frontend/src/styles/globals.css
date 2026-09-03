@@ -80,6 +80,19 @@
   --c-cat-magenta-soft: 50 17 54;
   --c-cat-rose: 228 68 169;
   --c-cat-rose-soft: 50 17 42;
+  /* Chart indicator lines/legend — terminal-only, the mirror-image scope of
+   * the CRM palette above (never CRM, only the trading terminal's own SMA/
+   * EMA overlays). SMA20/SMA50 already read as --c-accent/--c-warn (they
+   * were literally those tokens typed out as hex before); EMA9/EMA21 had no
+   * match, so this is two dedicated hues chosen to sit clearly apart from
+   * accent (blue), warn (amber), buy (green) and sell (red) — and, since
+   * this is a canvas line as much as it's legend text, also mirrored in
+   * lib/chartTheme.ts's ChartTheme so the drawn line and its label are
+   * always the same color. Text-on-bg-0 (the toolbar strip) clears 4.5:1;
+   * bg-0 rather than bg-1/-soft because that's what the legend actually
+   * sits on. */
+  --c-indicator-ema9: 192 132 252;
+  --c-indicator-ema21: 34 211 238;
   --shadow-btn: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-panel: 0 0 0 1px rgba(255, 255, 255, 0.03);
   /* A deliberately larger lift than --shadow-btn, for the one primary action
@@ -147,6 +160,11 @@
   --c-cat-magenta-soft: 248 229 248;
   --c-cat-rose: 170 24 116;
   --c-cat-rose-soft: 248 229 241;
+  /* Same two hues, redarkened for a white surface — the dark-theme values
+   * measured only 2.47:1 (ema9) / 1.69:1 (ema21) unchanged on light bg-0,
+   * so both are deepened until text clears 4.5:1 there (4.62 / 4.60). */
+  --c-indicator-ema9: 135 93 178;
+  --c-indicator-ema21: 20 123 139;
   --shadow-btn: 0 1px 3px rgba(20, 24, 33, 0.12);
   --shadow-panel: 0 0 0 1px rgba(15, 23, 42, 0.06);
   --shadow-lift: 0 8px 22px -8px rgba(15, 23, 42, 0.28);

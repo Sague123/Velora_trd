@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAdminKycDetail, useReviewKyc } from "../../hooks/useAdmin";
 import { classNames, fmtDateTime } from "../../lib/format";
-import { LoadingRow } from "../common/States";
+import { SkeletonBar } from "../common/States";
 import { toast } from "../../store/toast";
 import { ApiError } from "../../lib/api";
 import type { KycStatus, LeadPlatformInfo } from "../../lib/types";
@@ -108,7 +108,18 @@ export function KycPanel({ platform, isAdmin }: { platform: LeadPlatformInfo | n
         </div>
       ) : (
         <>
-          {detail.isLoading && <LoadingRow />}
+          {detail.isLoading && (
+            <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="rounded-lg border border-line bg-bg-2 p-1.5">
+                  <SkeletonBar width="40%" height={10} />
+                  <div className="mt-1">
+                    <SkeletonBar height={96} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           {s && (
             <>
               <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-3">

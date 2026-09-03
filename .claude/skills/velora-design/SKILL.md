@@ -71,6 +71,17 @@ everything else on this page). **Do not use these in the trading terminal** —
 they exist to solve "ten CRM statuses need to be told apart," not as a general
 extra accent palette.
 
+### Chart indicators — `indicator-ema9`, `indicator-ema21`
+The mirror-image scope of the categorical palette above: **only** the trading
+chart's EMA9/EMA21 overlay lines and their legend labels, never CRM. SMA20/
+SMA50 already read as `accent`/`warn`; these two exist because EMA9/EMA21
+have no other semantic match, and reusing `cat-*` here would trade one scope
+violation for another. Each hue clears 4.5:1 as text on `bg-0` (what the
+chart legend actually sits on) in both themes. Also mirrored as literal hex
+in `lib/chartTheme.ts`'s `ChartTheme` (`ema9`/`ema21` fields) — the canvas
+line needs a real color string, not a CSS variable, so the two are kept in
+sync by hand rather than one deriving from the other.
+
 ---
 
 ## The accessibility floor (non-negotiable)

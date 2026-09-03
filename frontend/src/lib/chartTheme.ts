@@ -9,6 +9,10 @@ const DARK: ChartTheme = {
   sell: "#f5495e",
   accent: "#3d7cff",
   crosshair: "#4a515c",
+  // Same values as globals.css's --c-indicator-ema9/--c-indicator-ema21 —
+  // kept in sync by hand since canvas needs a literal string, not a CSS var.
+  ema9: "#c084fc",
+  ema21: "#22d3ee",
 };
 
 const LIGHT: ChartTheme = {
@@ -19,6 +23,8 @@ const LIGHT: ChartTheme = {
   sell: "#dc3545",
   accent: "#2563eb",
   crosshair: "#9aa1ab",
+  ema9: "#875db2",
+  ema21: "#147b8b",
 };
 
 export function chartThemeFor(theme: Theme): ChartTheme {

@@ -215,12 +215,17 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
     const bars = barsRef.current;
     const closesArr = bars.map((b) => b.close);
     const overlays: OverlayLine[] = [];
+    // SMA20/SMA50 keep their pre-existing hex here (out of scope for this
+    // pass — see the audit note); EMA9/EMA21 source from the same per-theme
+    // ChartTheme the legend's text-indicator-ema9/-ema21 classes resolve to,
+    // so the drawn line always matches its label's color, in both themes.
+    const chartTheme = chartThemeFor(theme);
     if (showSma20) overlays.push({ key: "sma20", color: "#3d7cff", values: sma(closesArr, 20) });
     if (showSma50) overlays.push({ key: "sma50", color: "#e0a53c", values: sma(closesArr, 50) });
-    if (showEma9) overlays.push({ key: "ema9", color: "#c084fc", values: ema(closesArr, 9) });
-    if (showEma21) overlays.push({ key: "ema21", color: "#22d3ee", values: ema(closesArr, 21) });
+    if (showEma9) overlays.push({ key: "ema9", color: chartTheme.ema9, values: ema(closesArr, 9) });
+    if (showEma21) overlays.push({ key: "ema21", color: chartTheme.ema21, values: ema(closesArr, 21) });
     engine.setOverlays(overlays);
-  }, [showSma20, showSma50, showEma9, showEma21, data]);
+  }, [showSma20, showSma50, showEma9, showEma21, data, theme]);
 
   // ---- oscillator ----
   useEffect(() => {
@@ -353,17 +358,17 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
 
           {!compact && (
             <div className="flex items-center gap-1.5 text-2xs">
-              {/* SMA20/SMA50 legend text used raw hex that was, byte for byte,
-                  --c-accent/--c-warn typed out by hand — swapped for the real
-                  tokens, so they're AA-verified and theme-aware instead of a
-                  frozen dark-mode-only guess. EMA9/EMA21 still hardcode hex
-                  (#c084fc/#22d3ee, no existing token match) — left as-is here;
-                  see the audit note on why (globals.css's cat-* palette is
-                  explicitly scoped off-limits for the terminal). */}
+              {/* Legend text is tokens throughout, not raw hex: SMA20/SMA50
+                  reuse --c-accent/--c-warn (they were byte-for-byte those
+                  tokens typed out by hand); EMA9/EMA21 had no existing match
+                  so they get dedicated --c-indicator-ema9/-ema21 tokens
+                  (see globals.css — deliberately not the CRM cat-* palette,
+                  which is explicitly scoped off-limits for the terminal).
+                  Both are theme-aware and AA-verified against bg-0. */}
               <label className="flex items-center gap-1 text-txt-2"><input type="checkbox" checked={showSma20} onChange={(e) => setShowSma20(e.target.checked)} className="accent-accent" /><span className="text-accent">SMA20</span></label>
               <label className="flex items-center gap-1 text-txt-2"><input type="checkbox" checked={showSma50} onChange={(e) => setShowSma50(e.target.checked)} className="accent-warn" /><span className="text-warn">SMA50</span></label>
-              <label className="flex items-center gap-1 text-txt-2"><input type="checkbox" checked={showEma9} onChange={(e) => setShowEma9(e.target.checked)} className="accent-accent" /><span style={{ color: "#c084fc" }}>EMA9</span></label>
-              <label className="flex items-center gap-1 text-txt-2"><input type="checkbox" checked={showEma21} onChange={(e) => setShowEma21(e.target.checked)} className="accent-accent" /><span style={{ color: "#22d3ee" }}>EMA21</span></label>
+              <label className="flex items-center gap-1 text-txt-2"><input type="checkbox" checked={showEma9} onChange={(e) => setShowEma9(e.target.checked)} className="accent-accent" /><span className="text-indicator-ema9">EMA9</span></label>
+              <label className="flex items-center gap-1 text-txt-2"><input type="checkbox" checked={showEma21} onChange={(e) => setShowEma21(e.target.checked)} className="accent-accent" /><span className="text-indicator-ema21">EMA21</span></label>
               <select value={oscillator} onChange={(e) => setOscillator(e.target.value as Oscillator)}
                 className="rounded border border-line bg-bg-2 px-1 py-0.5 text-2xs text-txt-1 outline-none focus:border-accent">
                 <option value="NONE">Oscillator: none</option>
