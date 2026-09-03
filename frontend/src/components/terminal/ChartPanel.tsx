@@ -407,7 +407,11 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
           </button>
         )}
 
-        {legendData && inst && (
+        {/* Mobile shows this same OHLC in the symbol-row card instead (see
+            MobileTerminal's HeaderOhlc) — packed in next to the mode switch
+            rather than floating over the candles it would otherwise cover on
+            a screen this narrow. */}
+        {!compact && legendData && inst && (
           <div className="pointer-events-none absolute left-2 top-2 flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded bg-bg-0/70 px-2 py-1 tabular text-2xs text-txt-1">
             <span className="text-txt-2">
               {new Date(legendData.time * 1000).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}

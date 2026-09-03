@@ -27,6 +27,13 @@ const CHART_TYPES: { id: ChartType; label: string; Icon: typeof IconCandles }[] 
 const liftedCls =
   "tap-sm relative flex items-center justify-center gap-1 rounded-xl border font-semibold shadow-lift " +
   "transition-transform duration-100 active:scale-95";
+// Same look, no `tap-sm` — that class floors touch targets at 38px on any
+// coarse pointer, which would silently cancel out `dense`'s whole point.
+// Used only where the caller has deliberately traded the touch-target floor
+// for a smaller, denser control (see `dense` below).
+const denseLiftedCls =
+  "relative flex items-center justify-center gap-1 rounded-lg border font-semibold shadow-lift " +
+  "transition-transform duration-100 active:scale-95";
 const flatCls =
   "btn-fx relative flex items-center justify-center gap-1 rounded border font-medium " +
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent";
@@ -62,12 +69,19 @@ const ALL_CONTROLS: ChartControl[] = ["timeframe", "chartType", "indicators", "d
 export function ChartToolbar({
   variant = "lifted",
   show = ALL_CONTROLS,
+  dense = false,
 }: {
   variant?: "flat" | "lifted";
   /** Which controls to render. The phone layout splits them: the timeframe
    * sits in the symbol row next to the price, the rest go with the indicator
    * legend directly above the chart they act on. */
   show?: ChartControl[];
+  /** ~1.5x smaller controls, `lifted` only — for the mobile legend row,
+   * which already carries the SMA/EMA legend text and doesn't have room for
+   * full touch-sized buttons beside it. Trades away the `tap-sm` touch-target
+   * floor deliberately; don't reach for this anywhere the buttons are a
+   * primary, frequently-mistapped target. */
+  dense?: boolean;
 }) {
   const chartType = useTerminalStore((s) => s.chartType);
   const setChartType = useTerminalStore((s) => s.setChartType);
@@ -88,7 +102,7 @@ export function ChartToolbar({
   const requestClearDrawings = useTerminalStore((s) => s.requestClearDrawings);
 
   const indicatorsActive = showSma20 || showSma50 || showEma9 || showEma21 || oscillator !== "NONE";
-  const btnCls = variant === "lifted" ? liftedCls : flatCls;
+  const btnCls = variant === "lifted" ? (dense ? denseLiftedCls : liftedCls) : flatCls;
   const ChartTypeIcon = CHART_TYPES.find((c) => c.id === chartType)?.Icon ?? IconCandles;
   const menuItemCls = (active: boolean) =>
     classNames(
@@ -98,10 +112,14 @@ export function ChartToolbar({
   // Desktop (`flat`) sits in a single crowded header row alongside the
   // symbol/price/signal cluster and the fit/fullscreen buttons — at
   // 1280–1440px with the watchlist and order panel both open, the full-size
-  // (h-8) controls were enough to push fullscreen off the edge. Mobile
-  // (`lifted`) keeps the larger, touch-target-sized controls untouched.
-  const iconBtnSize = variant === "flat" ? "h-[26px] w-[26px]" : "h-8 w-8";
-  const tfBtnSize = variant === "flat" ? "h-[26px] px-1" : "h-8 px-2";
+  // (h-8) controls were enough to push fullscreen off the edge. `dense`
+  // (mobile's legend row) shrinks the same way, ~1.5x down from the regular
+  // touch-sized controls. Plain `lifted` (elsewhere on mobile) keeps the
+  // larger, touch-target-sized controls untouched.
+  const iconBtnSize = variant === "flat" ? "h-[26px] w-[26px]" : dense ? "h-[21px] w-[21px]" : "h-8 w-8";
+  const tfBtnSize = variant === "flat" ? "h-[26px] px-1" : dense ? "h-[21px] px-1" : "h-8 px-2";
+  const iconSize = variant === "flat" ? 14 : dense ? 11 : 17;
+  const chevronSize = dense ? 8 : 10;
   // Indicators and Draw are the last two controls in the row, which on
   // mobile sits flush against the right edge of a 375–390px screen (the
   // legend text pushes this whole toolbar to the end of its flex row) — a
@@ -111,7 +129,7 @@ export function ChartToolbar({
   const trailingAlign = variant === "lifted" ? "right" : "left";
 
   return (
-    <div className={classNames("flex shrink-0 items-center", variant === "flat" ? "gap-0.5" : "gap-1")}>
+    <div className={classNames("flex shrink-0 items-center", variant === "flat" || dense ? "gap-0.5" : "gap-1")}>
       {/* Timeframe first — it's the control a trader actually reaches for
           constantly; chart type is set once and rarely touched again, so it
           gets the quieter icon-only slot right after instead of the lead
@@ -129,7 +147,7 @@ export function ChartToolbar({
               )}
             >
               {timeframe}
-              <IconChevron size={10} direction={open ? "up" : "down"} />
+              <IconChevron size={chevronSize} direction={open ? "up" : "down"} />
             </button>
           )}
         >
@@ -149,7 +167,7 @@ export function ChartToolbar({
         <Popover
           trigger={(open, toggle) => (
             <button onClick={toggle} className={classNames(btnCls, iconBtnSize, toneFor(variant, open))} aria-label="Тип графика" title="Тип графика">
-              <ChartTypeIcon size={variant === "lifted" ? 17 : 14} />
+              <ChartTypeIcon size={iconSize} />
             </button>
           )}
         >
@@ -175,7 +193,7 @@ export function ChartToolbar({
               aria-label="Индикаторы"
               title="Индикаторы"
             >
-              <IconSliders size={variant === "lifted" ? 17 : 14} />
+              <IconSliders size={iconSize} />
             </button>
           )}
         >
@@ -208,7 +226,7 @@ export function ChartToolbar({
               aria-label="Инструменты рисования"
               title="Инструменты рисования"
             >
-              <IconPencil size={variant === "lifted" ? 17 : 14} />
+              <IconPencil size={iconSize} />
             </button>
           )}
         >

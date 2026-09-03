@@ -10,7 +10,7 @@ import { useOrderTicketStore } from "../../store/orderTicket";
 import { useLiveInstrument } from "../../hooks/useLivePrices";
 import { useChartBars } from "../../hooks/useMarket";
 import { ema, sma } from "../../lib/indicators";
-import { classNames, fmtPct, fmtPrice } from "../../lib/format";
+import { classNames, fmtCompact, fmtPct, fmtPrice } from "../../lib/format";
 import { IconBookOpenCover, IconCandles, IconChevron, IconClose, IconOrderHistory } from "../icons/Icon";
 import type { MobileMode } from "../../store/terminal";
 import type { OrderSide } from "../../lib/types";
@@ -61,8 +61,33 @@ function IndicatorLegend() {
       </div>
       {/* All four chart controls together, timeframe leading — it's also a
           chart display setting, not a property of the symbol, so it belongs
-          with the rest of them rather than pinned up in the price row. */}
-      <ChartToolbar show={["timeframe", "chartType", "indicators", "draw"]} />
+          with the rest of them rather than pinned up in the price row.
+          `dense`: this row already carries the SMA/EMA legend text on the
+          left, so the controls run smaller here than elsewhere on mobile. */}
+      <ChartToolbar dense show={["timeframe", "chartType", "indicators", "draw"]} />
+    </div>
+  );
+}
+
+/** The latest closed bar's OHLC + volume, packed into the mode-switch card
+ * instead of floating over the candles (ChartPanel drops that overlay in
+ * `compact` mode — see the comment there). Reads the same bars
+ * IndicatorLegend already fetches, just the raw candle rather than a moving
+ * average of it. */
+function HeaderOhlc() {
+  const symbol = useTerminalStore((s) => s.symbol);
+  const timeframe = useTerminalStore((s) => s.timeframe);
+  const inst = useLiveInstrument(symbol);
+  const { data } = useChartBars(symbol, inst?.category, timeframe);
+  const bar = data?.bars.at(-1);
+  if (!bar || !inst) return null;
+  return (
+    <div className="flex flex-wrap justify-end gap-x-1.5 gap-y-0 text-[9px] leading-tight tabular text-txt-3">
+      <span>O <span className="text-txt-1">{fmtPrice(bar.open, inst.priceDecimals)}</span></span>
+      <span>H <span className="text-buy">{fmtPrice(bar.high, inst.priceDecimals)}</span></span>
+      <span>L <span className="text-sell">{fmtPrice(bar.low, inst.priceDecimals)}</span></span>
+      <span>C <span className="text-txt-1">{fmtPrice(bar.close, inst.priceDecimals)}</span></span>
+      {bar.volume !== undefined && <span>Vol <span className="text-txt-1">{fmtCompact(bar.volume)}</span></span>}
     </div>
   );
 }
@@ -166,8 +191,14 @@ export function MobileTerminal() {
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
-            <div className="flex rounded-lg border border-line bg-bg-2 p-0.5">
+          {/* One card, not a floating overlay on the chart: the mode switch
+              on top, the latest bar's OHLC underneath it — packed in here
+              since this is the one place on screen that's always visible
+              regardless of which of the three modes is showing. Widened
+              (h-9 buttons, more horizontal padding) now that it's carrying
+              two rows instead of one. */}
+          <div className="flex w-[176px] shrink-0 flex-col items-end gap-1 rounded-lg border border-line bg-bg-2 px-1.5 py-1.5">
+            <div className="flex gap-0.5">
               {MODES.map(({ id, Icon, label }) => (
                 <button
                   key={id}
@@ -176,7 +207,7 @@ export function MobileTerminal() {
                   title={label}
                   aria-pressed={mode === id}
                   className={classNames(
-                    "tap-sm flex h-7 w-8 items-center justify-center rounded-md transition-colors",
+                    "tap-sm flex h-8 w-11 items-center justify-center rounded-md transition-colors",
                     mode === id ? "bg-accent-fill text-white shadow-btn" : "text-txt-3"
                   )}
                 >
@@ -184,6 +215,7 @@ export function MobileTerminal() {
                 </button>
               ))}
             </div>
+            {mode === "chart" && <HeaderOhlc />}
           </div>
         </section>
 
