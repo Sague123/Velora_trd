@@ -106,7 +106,7 @@ export function MobileOrderTicket() {
               onClick={() => setAmountMode(m)}
               aria-pressed={amountMode === m}
               className={classNames(
-                "rounded-md px-1.5 py-0.5 text-[10px] font-bold transition-[background-color,box-shadow,color]",
+                "rounded-md px-1 py-0.5 text-[10px] font-bold transition-[background-color,box-shadow,color]",
                 amountMode === m ? "glow-accent bg-accent-fill text-white" : "text-txt-3 hover:text-txt-1"
               )}
             >
@@ -137,7 +137,7 @@ export function MobileOrderTicket() {
               type="button"
               onClick={() => setType(ty)}
               className={classNames(
-                "rounded px-1.5 py-0.5 text-[10px] font-bold transition-[background-color,box-shadow,color]",
+                "rounded px-1 py-0.5 text-[10px] font-bold transition-[background-color,box-shadow,color]",
                 type === ty ? "glow-accent bg-accent-fill text-white" : "text-txt-3"
               )}
             >

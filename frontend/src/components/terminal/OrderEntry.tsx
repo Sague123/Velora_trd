@@ -56,7 +56,7 @@ export function OrderEntry() {
             key={ty}
             onClick={() => setType(ty)}
             className={classNames(
-              "btn-fx flex-1 rounded px-1.5 py-1 text-2xs font-semibold transition-[background-color,box-shadow,color] duration-150",
+              "btn-fx flex-1 rounded px-1 py-0.5 text-2xs font-semibold transition-[background-color,box-shadow,color] duration-150",
               type === ty ? "glow-accent bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0"
             )}
           >
@@ -95,7 +95,7 @@ export function OrderEntry() {
                 type="button"
                 onClick={() => setAmountMode("BASE")}
                 aria-pressed={amountMode === "BASE"}
-                className={classNames("rounded px-1.5 py-0.5 text-2xs font-semibold transition-[background-color,box-shadow,color]", amountMode === "BASE" ? "glow-accent bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}
+                className={classNames("rounded px-1 py-0.5 text-2xs font-semibold transition-[background-color,box-shadow,color]", amountMode === "BASE" ? "glow-accent bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}
               >
                 {baseAsset || t("terminal.base")}
               </button>
@@ -103,7 +103,7 @@ export function OrderEntry() {
                 type="button"
                 onClick={() => setAmountMode("QUOTE")}
                 aria-pressed={amountMode === "QUOTE"}
-                className={classNames("rounded px-1.5 py-0.5 text-2xs font-semibold transition-[background-color,box-shadow,color]", amountMode === "QUOTE" ? "glow-accent bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}
+                className={classNames("rounded px-1 py-0.5 text-2xs font-semibold transition-[background-color,box-shadow,color]", amountMode === "QUOTE" ? "glow-accent bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}
               >
                 {t("terminal.total")}
               </button>
@@ -112,7 +112,7 @@ export function OrderEntry() {
                   type="button"
                   onClick={() => setAmountMode("MARGIN")}
                   aria-pressed={amountMode === "MARGIN"}
-                  className={classNames("cursor-help rounded px-1.5 py-0.5 text-2xs font-semibold underline decoration-dotted transition-[background-color,box-shadow,color]", amountMode === "MARGIN" ? "glow-accent bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}
+                  className={classNames("cursor-help rounded px-1 py-0.5 text-2xs font-semibold underline decoration-dotted transition-[background-color,box-shadow,color]", amountMode === "MARGIN" ? "glow-accent bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}
                 >
                   {t("terminal.margin")}
                 </button>
