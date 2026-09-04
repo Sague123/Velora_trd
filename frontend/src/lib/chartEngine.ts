@@ -664,8 +664,13 @@ export class ChartEngine {
     if (this.priceDragging) {
       const dy = e.clientY - this.priceDragLastY;
       this.priceDragLastY = e.clientY;
-      // drag down = stretch the range taller (zoom out vertically), drag up = compress
-      this.priceScaleFactor = Math.max(0.15, Math.min(6, this.priceScaleFactor * (1 + dy / 180)));
+      // drag down = stretch the range taller (zoom out vertically), drag up =
+      // compress. Bounds are only there to keep the math finite (a literal 0
+      // or Infinity factor breaks yForPrice) — 0.15-6 was reported as capping
+      // out well before a trader was done adjusting, so this is wide enough
+      // that the practical limit is "how far you're willing to drag", not
+      // the clamp.
+      this.priceScaleFactor = Math.max(0.02, Math.min(40, this.priceScaleFactor * (1 + dy / 180)));
       this.scheduleRender();
       return;
     }
@@ -696,10 +701,13 @@ export class ChartEngine {
       if (this.lastPriceH > 0) {
         const range = this.lastMaxP - this.lastMinP;
         this.priceOffset += (dy / this.lastPriceH) * range;
-        // generous, but finite — otherwise a fast/long drag could pan the
-        // price window so far from the actual data that the chart looked
-        // "lost" (an empty canvas with no candles anywhere in view).
-        const limit = range * 4;
+        // Finite, not tight — 4x was reported as stopping a drag well short
+        // of where the user wanted to go. This is generous enough that the
+        // "reset" button (setPosition/setData/fitContent all zero it, and
+        // there's an explicit "к текущей цене" control) stays the practical
+        // way back, not this clamp; downward panning is separately floored
+        // at price=0 below regardless of this limit.
+        const limit = range * 40;
         this.priceOffset = Math.max(-limit, Math.min(limit, this.priceOffset));
       }
     }
