@@ -89,11 +89,11 @@
     "positionSize": "Размер позиции"
   },
   "profileTabs": {
-    "wallet": "Кошелёк",
-    "balance": "Баланс",
     "portfolio": "Портфель",
     "history": "История",
-    "settings": "Настройки"
+    "settings": "Настройки",
+    "account": "Счёт",
+    "security": "Безопасность"
   },
   "markets": {
     "searchPlaceholder": "Поиск…"

@@ -89,11 +89,11 @@
     "positionSize": "Position size"
   },
   "profileTabs": {
-    "wallet": "Wallet",
-    "balance": "Balance",
     "portfolio": "Portfolio",
     "history": "History",
-    "settings": "Settings"
+    "settings": "Settings",
+    "account": "Account",
+    "security": "Security"
   },
   "markets": {
     "searchPlaceholder": "Search instrument…"

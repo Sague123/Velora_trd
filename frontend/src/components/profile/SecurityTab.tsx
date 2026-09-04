@@ -1,6 +1,8 @@
 import { FormEvent, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../store/auth";
 import { useKyc } from "../../hooks/useKyc";
+import { useChangePassword } from "../../hooks/useProfile";
 import { apiPost, ApiError } from "../../lib/api";
 import { toast } from "../../store/toast";
 import { classNames, fmtDateTime } from "../../lib/format";
@@ -352,12 +354,73 @@ function KycPanel() {
   );
 }
 
+/**
+ * Changing the password used to live on Settings, next to full name and date
+ * of birth, while 2FA and identity verification sat on this tab — splitting
+ * one question ("who can get into this account") across two places. It leads
+ * here, ahead of 2FA: the password is the credential that exists on every
+ * account, the second factor is what you add on top of it.
+ */
+function PasswordPanel() {
+  const logout = useAuthStore((s) => s.logout);
+  const navigate = useNavigate();
+  const changePassword = useChangePassword();
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (next !== confirm) return setError("Новые пароли не совпадают");
+    if (next.length < 10) return setError("Пароль должен быть не короче 10 символов");
+    try {
+      await changePassword.mutateAsync({ currentPassword: current, newPassword: next });
+      toast.success("Пароль изменён", "Войдите заново с новым паролем");
+      await logout();
+      navigate("/login");
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Не удалось изменить пароль");
+    }
+  }
+
+  return (
+    <Panel title="Пароль">
+      <form onSubmit={onSubmit}>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <label className="block">
+            <span className={labelCls}>Current Password</span>
+            <input type="password" required value={current} onChange={(e) => setCurrent(e.target.value)} className={inputCls} />
+          </label>
+          <label className="block">
+            <span className={labelCls}>New Password</span>
+            <input type="password" required value={next} onChange={(e) => setNext(e.target.value)} placeholder="Мин. 10, буквы и цифры" className={inputCls} />
+          </label>
+          <label className="block">
+            <span className={labelCls}>Confirm Password</span>
+            <input type="password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} className={inputCls} />
+          </label>
+        </div>
+        {error && <div className="mt-3 rounded border border-sell/40 bg-sell-soft px-2.5 py-1.5 text-2xs text-sell">{error}</div>}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button type="submit" disabled={changePassword.isPending} className="btn-fx tap-sm rounded bg-accent-fill px-4 py-1.5 text-2xs font-semibold text-white hover:brightness-110 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent">
+            {changePassword.isPending ? "Сохранение…" : "Update Password"}
+          </button>
+          <span className="text-2xs text-txt-3">Смена пароля завершит все ваши сессии.</span>
+        </div>
+      </form>
+    </Panel>
+  );
+}
+
 /** Everything about who can get into this account and what they can do once
  * they are in — kept together, because that is how someone thinks about it
  * when they come looking. */
 export function SecurityTab() {
   return (
     <div className="flex flex-col gap-3">
+      <PasswordPanel />
       <TwoFactorPanel />
       <EmailPanel />
       <KycPanel />

@@ -250,6 +250,15 @@ body:has(.app-shell) { overscroll-behavior-y: contain; }
 ::-webkit-scrollbar-thumb { background: rgb(var(--c-line)); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: rgb(var(--c-bg-4)); }
 
+/* For strips that scroll sideways only because they ran out of width — a tab
+ * row, a chip list. The 8px horizontal bar above would add a visible tenth of
+ * the control's own height under it and read as part of the control. The
+ * content is still scrollable by touch, wheel and keyboard; only the bar is
+ * hidden, so never use this where the scrollbar is the only hint that there
+ * is more to see. */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { width: 0; height: 0; }
+
 input, button, select, textarea { font-family: inherit; font-size: inherit; color: inherit; }
 /* Without these, a second tap on the same mobile button can register as a
  * text-selection gesture instead of a click — worse the more text nodes the

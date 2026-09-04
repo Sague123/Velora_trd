@@ -72,7 +72,12 @@ export function TradeHistoryTab() {
           <>
             <Stat label="Всего сделок" value={String(trades.length)} />
             <Stat label="Валовый P&L" value={fmtSigned(totals.pnl)} tone={totals.pnl >= 0 ? "buy" : "sell"} />
-            <Stat label="Комиссии всего" value={fmtUsd(totals.fees, 4)} tone="warn" />
+            {/* "Closing", not "all": a trade row carries only the fee booked
+                when the position closed. The entry fee is charged separately
+                at order placement and lands in the ledger, which is what
+                Account's own "Fees Paid" adds up — so the two totals differ
+                by design, and each now says which one it is. */}
+            <Stat label="Комиссии закрытия" value={fmtUsd(totals.fees, 4)} tone="warn" />
             <Stat label="Чистый результат" value={fmtSigned(totals.net)} tone={totals.net >= 0 ? "buy" : "sell"} />
             <Stat label="Winrate" value={totals.winRate === null ? "—" : `${totals.winRate}%`} />
           </>

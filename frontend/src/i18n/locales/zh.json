@@ -89,11 +89,11 @@
     "positionSize": "仓位规模"
   },
   "profileTabs": {
-    "wallet": "钱包",
-    "balance": "余额",
     "portfolio": "资产组合",
     "history": "历史",
-    "settings": "设置"
+    "settings": "设置",
+    "account": "账户",
+    "security": "安全"
   },
   "markets": {
     "searchPlaceholder": "搜索交易对…"

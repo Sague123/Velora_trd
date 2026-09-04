@@ -89,11 +89,11 @@
     "positionSize": "Розмір позиції"
   },
   "profileTabs": {
-    "wallet": "Гаманець",
-    "balance": "Баланс",
     "portfolio": "Портфель",
     "history": "Історія",
-    "settings": "Налаштування"
+    "settings": "Налаштування",
+    "account": "Рахунок",
+    "security": "Безпека"
   },
   "markets": {
     "searchPlaceholder": "Пошук інструменту…"

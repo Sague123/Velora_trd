@@ -19,7 +19,6 @@ const TILES: { method: WalletMethod; Icon: typeof IconWalletPlus; label: string;
 export function WalletActions() {
   const user = useAuthStore((s) => s.user);
   const { data: account } = useAccount(!!user);
-  const ledger = useLedger(true);
   const [open, setOpen] = useState<WalletMethod | null>(null);
 
   return (
@@ -83,27 +82,48 @@ export function WalletActions() {
         ))}
       </div>
 
-      <div className="rounded border border-line bg-bg-1">
-        <div className="border-b border-line-soft px-3 py-2 text-2xs font-semibold uppercase tracking-wide text-txt-2">Recent Wallet Activity</div>
-        <div className="max-h-72 overflow-y-auto">
-          {ledger.data?.entries?.length ? (
-            <table className="w-full text-2xs">
-              <tbody>
-                {ledger.data.entries.slice(0, 12).map((e) => (
-                  <tr key={e.id} className="border-b border-line-soft/60 tabular hover:bg-bg-2/60">
-                    <td className="px-3 py-1.5 text-txt-2">{fmtDateTime(e.createdAt)}</td>
-                    <td className="px-3 py-1.5 font-medium text-txt-0">{e.type.replace(/_/g, " ")}</td>
-                    <td className={classNames("px-3 py-1.5 text-right font-medium", Number(e.amount) >= 0 ? "text-buy" : "text-sell")}>{fmtSigned(e.amount)}</td>
-                    <td className="px-3 py-1.5 text-right text-txt-2">{fmtUsd(e.balanceAfter)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="px-3 py-6 text-center text-2xs text-txt-3">Пока нет операций</div>
-          )}
-        </div>
+    </div>
+  );
+}
+
+/**
+ * The last few account movements — enough to confirm a deposit landed, not a
+ * second copy of the ledger. It's a separate export from WalletActions so the
+ * Account tab can put it where it belongs: below the balance figures, at the
+ * bottom of the page, rather than between the deposit buttons and the
+ * numbers those buttons change. `onSeeAll` opens the History tab, which holds
+ * the full ledger.
+ */
+export function RecentWalletActivity({ onSeeAll }: { onSeeAll?: () => void } = {}) {
+  const ledger = useLedger(true);
+  const entries = ledger.data?.entries ?? [];
+
+  return (
+    <div className="rounded border border-line bg-bg-1">
+      <div className="flex items-center justify-between gap-2 border-b border-line-soft px-3 py-2">
+        <span className="text-2xs font-semibold uppercase tracking-wide text-txt-2">Recent Wallet Activity</span>
+        {onSeeAll && entries.length > 0 && (
+          <button onClick={onSeeAll} className="btn-fx tap-sm rounded px-1.5 text-2xs font-medium text-accent hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent">
+            Смотреть всё
+          </button>
+        )}
       </div>
+      {entries.length ? (
+        <table className="w-full text-2xs">
+          <tbody>
+            {entries.slice(0, 5).map((e) => (
+              <tr key={e.id} className="border-b border-line-soft/60 tabular last:border-b-0 hover:bg-bg-2/60">
+                <td className="px-3 py-1.5 text-txt-2">{fmtDateTime(e.createdAt)}</td>
+                <td className="px-3 py-1.5 font-medium text-txt-0">{e.type.replace(/_/g, " ")}</td>
+                <td className={classNames("px-3 py-1.5 text-right font-medium", Number(e.amount) >= 0 ? "text-buy" : "text-sell")}>{fmtSigned(e.amount)}</td>
+                <td className="px-3 py-1.5 text-right text-txt-2">{fmtUsd(e.balanceAfter)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <div className="px-3 py-6 text-center text-2xs text-txt-3">Пока нет операций</div>
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { useAccount, useLedger } from "../../hooks/useTrading";
 import { useAuthStore } from "../../store/auth";
 import { classNames, fmtRate, fmtSigned, fmtUsd } from "../../lib/format";
@@ -24,6 +24,22 @@ function StatSkeleton() {
         <SkeletonBar width="40%" height={18} />
       </div>
     </div>
+  );
+}
+
+/** One labelled cluster of figures. Twelve identically-sized cards in one
+ * flat grid read as a spreadsheet dump: nothing tells you that Equity and
+ * Total Deposited answer completely different questions. The heading is the
+ * cheapest thing that restores that. */
+function StatGroup({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+  return (
+    <section>
+      <div className="mb-1.5 flex items-baseline gap-2">
+        <h3 className="text-2xs font-semibold uppercase tracking-wide text-txt-2">{title}</h3>
+        {hint && <span className="text-2xs text-txt-3">{hint}</span>}
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -61,19 +77,41 @@ export function BalanceStats() {
   const a = account.data;
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-      <Stat label="Equity" value={fmtUsd(a.equity)} />
-      <Stat label="Realised PnL" value={fmtSigned(a.realisedPnl)} tone={Number(a.realisedPnl) >= 0 ? "buy" : "sell"} />
-      <Stat label="Unrealised PnL" value={fmtSigned(a.unrealisedPnl)} tone={Number(a.unrealisedPnl) >= 0 ? "buy" : "sell"} />
-      <Stat label="ROI (net contributions)" value={stats.roi !== null ? `${stats.roi >= 0 ? "+" : ""}${stats.roi.toFixed(1)}%` : "—"} tone={stats.roi !== null ? (stats.roi >= 0 ? "buy" : "sell") : undefined} />
-      <Stat label="Total Deposited" value={fmtUsd(stats.deposited)} />
-      <Stat label="Total Withdrawn" value={fmtUsd(stats.withdrawn)} />
-      <Stat label="Net Transfers" value={fmtSigned(stats.transferIn - stats.transferOut)} tone={stats.transferIn - stats.transferOut >= 0 ? "buy" : "sell"} />
-      <Stat label="Fees Paid" value={fmtUsd(stats.fees, 4)} />
-      <Stat label="Win Rate" value={a.winRatePct !== null ? fmtRate(a.winRatePct) : "—"} sub={`${a.totalTrades} trades`} />
-      <Stat label="Used Margin" value={fmtUsd(a.usedMargin)} sub={`${a.marginUsagePct.toFixed(1)}% of equity`} />
-      <Stat label="Open Positions" value={String(a.openPositions)} />
-      <Stat label="Open Orders" value={String(a.openOrders)} />
+    <div className="flex flex-col gap-4">
+      {/* Capital first, and on its own wider grid: "how much do I have and how
+          is it going" is the question this screen gets opened for. */}
+      <StatGroup title="Капитал и результат">
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+          <Stat label="Equity" value={fmtUsd(a.equity)} />
+          <Stat label="Realised PnL" value={fmtSigned(a.realisedPnl)} tone={Number(a.realisedPnl) >= 0 ? "buy" : "sell"} />
+          <Stat label="Unrealised PnL" value={fmtSigned(a.unrealisedPnl)} tone={Number(a.unrealisedPnl) >= 0 ? "buy" : "sell"} />
+          <Stat label="ROI (net contributions)" value={stats.roi !== null ? `${stats.roi >= 0 ? "+" : ""}${stats.roi.toFixed(1)}%` : "—"} tone={stats.roi !== null ? (stats.roi >= 0 ? "buy" : "sell") : undefined} />
+        </div>
+      </StatGroup>
+
+      <StatGroup title="Движение средств">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <Stat label="Total Deposited" value={fmtUsd(stats.deposited)} />
+          <Stat label="Total Withdrawn" value={fmtUsd(stats.withdrawn)} />
+          <Stat label="Net Transfers" value={fmtSigned(stats.transferIn - stats.transferOut)} tone={stats.transferIn - stats.transferOut >= 0 ? "buy" : "sell"} />
+        </div>
+      </StatGroup>
+
+      <StatGroup title="Торговая активность">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          {/* Every FEE ledger entry — one is booked when an order is placed
+              and another when the position closes (engine/execution.ts). The
+              History tab's own fee total sums the trade rows instead, which
+              only carry the closing fee, so the two figures legitimately
+              differ; both now say which half they count rather than showing
+              two unexplained numbers for "fees". */}
+          <Stat label="Fees Paid" value={fmtUsd(stats.fees, 4)} sub="вход + закрытие" />
+          <Stat label="Win Rate" value={a.winRatePct !== null ? fmtRate(a.winRatePct) : "—"} sub={`${a.totalTrades} trades`} />
+          <Stat label="Used Margin" value={fmtUsd(a.usedMargin)} sub={`${a.marginUsagePct.toFixed(1)}% of equity`} />
+          <Stat label="Open Positions" value={String(a.openPositions)} />
+          <Stat label="Open Orders" value={String(a.openOrders)} />
+        </div>
+      </StatGroup>
     </div>
   );
 }

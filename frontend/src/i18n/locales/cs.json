@@ -89,11 +89,11 @@
     "positionSize": "Velikost pozice"
   },
   "profileTabs": {
-    "wallet": "Peněženka",
-    "balance": "Zůstatek",
     "portfolio": "Portfolio",
     "history": "Historie",
-    "settings": "Nastavení"
+    "settings": "Nastavení",
+    "account": "Účet",
+    "security": "Zabezpečení"
   },
   "markets": {
     "searchPlaceholder": "Hledat nástroj…"

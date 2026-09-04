@@ -89,11 +89,11 @@
     "positionSize": "Dimensione posizione"
   },
   "profileTabs": {
-    "wallet": "Portafoglio",
-    "balance": "Saldo",
     "portfolio": "Portfolio",
     "history": "Storico",
-    "settings": "Impostazioni"
+    "settings": "Impostazioni",
+    "account": "Conto",
+    "security": "Sicurezza"
   },
   "markets": {
     "searchPlaceholder": "Cerca strumento…"
