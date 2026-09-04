@@ -13,6 +13,7 @@ const DARK: ChartTheme = {
   // kept in sync by hand since canvas needs a literal string, not a CSS var.
   ema9: "#c084fc",
   ema21: "#22d3ee",
+  axisLabelBg: "rgba(10, 13, 18, 0.82)",
 };
 
 const LIGHT: ChartTheme = {
@@ -25,6 +26,7 @@ const LIGHT: ChartTheme = {
   crosshair: "#9aa1ab",
   ema9: "#875db2",
   ema21: "#147b8b",
+  axisLabelBg: "rgba(255, 255, 255, 0.82)",
 };
 
 export function chartThemeFor(theme: Theme): ChartTheme {

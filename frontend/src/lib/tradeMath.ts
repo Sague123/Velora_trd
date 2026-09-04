@@ -33,3 +33,16 @@ export function estPnl(side: "BUY" | "SELL", qty: number, entry: number, mark: n
   const signed = side === "BUY" ? diff : -diff;
   return qty * signed;
 }
+
+const LEVERAGE_TICK_CANDIDATES = [1, 5, 10, 25, 50, 75, 100, 125];
+
+/** Tick marks for the leverage slider, adapted to the instrument's own cap —
+ * a fixed 1/10/25/50/75/100 set would either overshoot a 20x instrument or
+ * leave a 125x one without a mark near its ceiling. Always includes 1 and the
+ * cap itself. */
+export function leverageTicks(max: number): number[] {
+  if (max <= 1) return [1];
+  const picked = LEVERAGE_TICK_CANDIDATES.filter((v) => v <= max);
+  if (picked[picked.length - 1] !== max) picked.push(max);
+  return picked;
+}

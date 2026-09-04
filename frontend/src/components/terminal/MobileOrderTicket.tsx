@@ -2,7 +2,8 @@ import { useTranslation } from "react-i18next";
 import { useOrderTicketStore } from "../../store/orderTicket";
 import { useOrderTicket } from "../../hooks/useOrderTicket";
 import { classNames, fmtPrice, fmtQty, fmtUsd } from "../../lib/format";
-import { MAINTENANCE_MARGIN_RATIO } from "../../lib/tradeMath";
+import { leverageTicks, MAINTENANCE_MARGIN_RATIO } from "../../lib/tradeMath";
+import { RangeSlider } from "../common/RangeSlider";
 import type { OrderType } from "../../lib/types";
 
 const TYPES: OrderType[] = ["MARKET", "LIMIT", "STOP"];
@@ -90,11 +91,13 @@ export function MobileOrderTicket() {
 
       <div className="mb-1.5 flex items-center justify-between">
         <span className="text-2xs text-txt-3">{t("terminal.amount")}</span>
-        {/* A segmented control, not three words. These were bare labels whose
-            only "selected" cue was a bolder weight, so nothing about them said
-            they could be pressed — the group now carries its own border and
-            fill, matching the MARKET/LIMIT/STOP control directly below it,
-            which is the same kind of choice and should look like it. */}
+        {/* A segmented control, not three words — matching the MARKET/LIMIT/
+            STOP control beside it, which is the same kind of choice. No
+            `tap-sm` here: this is a mode switch for the field next to it, not
+            a primary action, so it trades the 38px touch floor (same call as
+            ChartToolbar's `denseLiftedCls`) for a footprint proportional to
+            what it does. What replaces size as the "selected" cue is a
+            brighter, glowing fill instead of a merely-tinted one. */}
         <div className="flex gap-0.5 rounded-lg border border-line bg-bg-2 p-0.5">
           {(["BASE", "QUOTE", "MARGIN"] as const).map((m) => (
             <button
@@ -103,8 +106,8 @@ export function MobileOrderTicket() {
               onClick={() => setAmountMode(m)}
               aria-pressed={amountMode === m}
               className={classNames(
-                "tap-sm rounded-md px-2 py-1 text-[10px] font-bold transition-colors",
-                amountMode === m ? "bg-accent-fill text-white" : "text-txt-3 hover:text-txt-1"
+                "rounded-md px-1.5 py-0.5 text-[10px] font-bold transition-[background-color,box-shadow,color]",
+                amountMode === m ? "glow-accent bg-accent-fill text-white" : "text-txt-3 hover:text-txt-1"
               )}
             >
               {m === "BASE" ? baseAsset || t("terminal.base") : m === "QUOTE" ? t("terminal.total") : t("terminal.margin")}
@@ -124,6 +127,9 @@ export function MobileOrderTicket() {
             className="min-w-0 flex-1 border-0 bg-transparent py-2.5 text-sm font-semibold tabular text-txt-0 outline-none"
           />
         </div>
+        {/* Same trade-off as the Amount switch above: no `tap-sm`, a
+            proportionally small footprint, and the accent glow carrying the
+            "selected" signal instead of size. */}
         <div className="flex shrink-0 items-center gap-0.5 rounded-lg border border-line bg-bg-2 p-1">
           {TYPES.map((ty) => (
             <button
@@ -131,8 +137,8 @@ export function MobileOrderTicket() {
               type="button"
               onClick={() => setType(ty)}
               className={classNames(
-                "tap-sm rounded px-2 py-1.5 text-[10px] font-bold transition-colors",
-                type === ty ? "bg-accent-fill text-white" : "text-txt-3"
+                "rounded px-1.5 py-0.5 text-[10px] font-bold transition-[background-color,box-shadow,color]",
+                type === ty ? "glow-accent bg-accent-fill text-white" : "text-txt-3"
               )}
             >
               {ty}
@@ -164,15 +170,21 @@ export function MobileOrderTicket() {
           <span className="text-txt-3">{t("terminal.positionSize")}</span>
           <span className="tabular text-txt-2">{sizePct}%</span>
         </div>
-        <input
-          type="range"
+        {/* Green: this is "how much capital to commit", not risk. step=1 lets
+            the pointer land anywhere; snapPoints pulls it onto 0/25/50/75/100
+            within 2 points instead of forcing an exact pixel, so a trader
+            aiming for "quarter of my account" gets it without hunting. */}
+        <RangeSlider
+          value={sizePct}
           min={0}
           max={100}
-          step={25}
-          value={sizePct}
-          onChange={(e) => applyPct(Number(e.target.value))}
-          className="w-full accent-accent"
-          aria-label={t("terminal.positionSize")}
+          step={1}
+          onChange={applyPct}
+          tone="buy"
+          ticks={SIZE_STEPS}
+          snapPoints={SIZE_STEPS}
+          snapTolerance={2}
+          ariaLabel={t("terminal.positionSize")}
         />
         <div className="flex justify-between text-[9px] text-txt-3">
           {SIZE_STEPS.map((s) => <span key={s}>{s}%</span>)}
@@ -226,16 +238,17 @@ export function MobileOrderTicket() {
           <span className="text-txt-3">{t("terminal.leverage")}</span>
           <strong className="tabular text-txt-0">{leverage}x</strong>
         </div>
-        <input
-          type="range"
+        <RangeSlider
+          value={leverage}
           min={1}
           max={inst?.maxLeverage ?? 1}
           step={1}
-          value={leverage}
-          onChange={(e) => setLeverage(Number(e.target.value))}
+          onChange={setLeverage}
+          tone="warn"
+          ticks={leverageTicks(inst?.maxLeverage ?? 1)}
+          tickLabel={(t) => `${t}x`}
           disabled={!inst || inst.maxLeverage <= 1}
-          className="w-full accent-accent"
-          aria-label={t("terminal.leverage")}
+          ariaLabel={t("terminal.leverage")}
         />
       </div>
 

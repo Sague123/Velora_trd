@@ -268,6 +268,48 @@ body:has(.app-shell) { overscroll-behavior-y: contain; }
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 .no-scrollbar::-webkit-scrollbar { width: 0; height: 0; }
 
+/* Leverage / position-size sliders (see components/common/RangeSlider.tsx).
+ * The track's fill colour is set inline per-instance as a plain computed
+ * background — it needs to react to the current value, which a static CSS
+ * gradient can't do. The thumb can't be reached from inline style at all
+ * (it's a pseudo-element), so its colour comes from --range-thumb, a custom
+ * property the component sets to a semantic token (--c-warn, --c-buy, ...)
+ * for the element to inherit down into ::-webkit-slider-thumb/::-moz-range-thumb.
+ * Radius and shadow match the rest of the form's interactive controls. */
+.range-slider {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 9999px;
+  outline: none;
+  cursor: pointer;
+}
+.range-slider:disabled { cursor: not-allowed; opacity: 0.5; }
+.range-slider::-webkit-slider-runnable-track { height: 6px; border-radius: 9999px; }
+.range-slider::-moz-range-track { height: 6px; border-radius: 9999px; background: transparent; }
+.range-slider::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -5px;
+  border-radius: 9999px;
+  background: rgb(var(--range-thumb, var(--c-accent)));
+  border: 2px solid rgb(var(--c-bg-1));
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.35), 0 0 0 3px rgb(var(--range-thumb, var(--c-accent)) / 0.25);
+  transition: transform 120ms ease-out;
+}
+.range-slider::-webkit-slider-thumb:active { transform: scale(1.15); }
+.range-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgb(var(--c-bg-1));
+  border-radius: 9999px;
+  background: rgb(var(--range-thumb, var(--c-accent)));
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.35), 0 0 0 3px rgb(var(--range-thumb, var(--c-accent)) / 0.25);
+}
+
 input, button, select, textarea { font-family: inherit; font-size: inherit; color: inherit; }
 /* Without these, a second tap on the same mobile button can register as a
  * text-selection gesture instead of a click — worse the more text nodes the

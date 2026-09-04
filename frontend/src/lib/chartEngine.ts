@@ -2,8 +2,10 @@
  * Dependency-free canvas candlestick chart engine. Built to replace
  * lightweight-charts (its license requires a permanent TradingView
  * attribution mark we were asked to drop) while keeping full control over
- * rendering — grid-bot planned levels, trendlines, and precise pan/zoom that
- * accounts for the reserved price-axis gutter.
+ * rendering — grid-bot planned levels, trendlines, and precise pan/zoom.
+ * The price scale is a floating label column, not a reserved, undrawn strip:
+ * candles/lines/grid run the full canvas width, and axis labels sit on top
+ * of them in a translucent pill (see `axisLabelX`/`plotW` below).
  *
  * Owns its own canvas and re-renders imperatively; no React state involved,
  * so panning/zooming/live ticks never trigger a React re-render.
@@ -76,6 +78,10 @@ export interface ChartTheme {
   // color. Terminal-only, same as everything else in this theme object.
   ema9: string;
   ema21: string;
+  // Backdrop for a price-scale label/pill floating over the candles — the
+  // chart's own `bg` at ~0.8 alpha, so the number stays legible without the
+  // axis needing to be a solid, undrawn strip.
+  axisLabelBg: string;
 }
 
 const DEFAULT_THEME: ChartTheme = {
@@ -88,6 +94,7 @@ const DEFAULT_THEME: ChartTheme = {
   crosshair: "#4a515c",
   ema9: "#c084fc",
   ema21: "#22d3ee",
+  axisLabelBg: "rgba(10, 13, 18, 0.82)",
 };
 
 const OSC_BAND_RATIO = 0.26; // fraction of plot height reserved for the oscillator
@@ -151,6 +158,10 @@ export class ChartEngine {
   private lastMinP = 0;
   private lastMaxP = 1;
   private lastPlotW = 0;
+  // Separate from lastPlotW since the axis-drag zone stayed a fixed 62px at
+  // the right edge while lastPlotW grew to the full canvas — see
+  // `axisLabelX`. Only the pointer-gating checks below use this one.
+  private lastAxisX = 0;
   private lastPriceH = 0;
 
   private crosshair: { x: number; y: number } | null = null;
@@ -405,10 +416,23 @@ export class ChartEngine {
     }
   }
 
-  /** plot area excludes the price-axis gutter — every pointer calculation
-   * must use this, not the full canvas width, or pan/zoom drift near the
-   * right edge (this was the root of "can't zoom/move freely"). */
+  /** Plot area = the full canvas. Every pointer <-> index/price conversion
+   * must use this, not a narrower value, or pan/zoom/click drift from what's
+   * actually drawn (this was the root of the original "can't zoom/move
+   * freely" bug this getter used to guard against with a reserved gutter).
+   * The price-scale labels no longer reserve their own undrawn strip — see
+   * `axisLabelX` for where they anchor instead. */
   private get plotW() {
+    return Math.max(1, this.cssW);
+  }
+
+  /** x where price-scale labels/pills anchor, and the pointer-down boundary
+   * for the "drag to compress/stretch the Y scale" gesture — a fixed-width
+   * zone at the right edge, independent of `plotW` now that candles are
+   * drawn full-bleed underneath it. Same offset as the gutter used to be, so
+   * labels and the drag handle stay exactly where traders already expect
+   * them; only the candles behind them changed. */
+  private get axisLabelX() {
     return Math.max(1, this.cssW - PRICE_SCALE_W);
   }
 
@@ -537,14 +561,14 @@ export class ChartEngine {
     // dragging the price-axis gutter stretches/compresses the Y scale,
     // independent of the horizontal pan/zoom — a standard terminal control
     // this chart was missing entirely.
-    if (x > this.lastPlotW) {
+    if (x > this.lastAxisX) {
       this.priceDragging = true;
       this.priceDragLastY = e.clientY;
       this.canvas.setPointerCapture(e.pointerId);
       return;
     }
 
-    if (this.tool === "cursor" && this.position && x <= this.lastPlotW) {
+    if (this.tool === "cursor" && this.position && x <= this.lastAxisX) {
       const hs = this.entryCloseHotspot;
       if (hs && x >= hs.x && x <= hs.x + hs.w && y >= hs.y - hs.h / 2 && y <= hs.y + hs.h / 2) {
         this.positionHandlers.onClose?.();
@@ -564,12 +588,12 @@ export class ChartEngine {
       }
     }
 
-    if (this.tool === "hline" && x <= this.lastPlotW) {
+    if (this.tool === "hline" && x <= this.lastAxisX) {
       this.addDrawing({ id: crypto.randomUUID(), type: "hline", price: this.priceForY(y) });
       this.scheduleRender();
       return;
     }
-    if (this.tool === "trendline" && x <= this.lastPlotW) {
+    if (this.tool === "trendline" && x <= this.lastAxisX) {
       const idx = this.xToIndex(x);
       const point = { time: this.timeForIndex(idx), price: this.priceForY(y) };
       if (!this.pendingPoint) {
@@ -657,11 +681,11 @@ export class ChartEngine {
         this.priceOffset = Math.max(-limit, Math.min(limit, this.priceOffset));
       }
     }
-    const nearPosLine = this.tool === "cursor" && !!this.position && x <= this.lastPlotW && (
+    const nearPosLine = this.tool === "cursor" && !!this.position && x <= this.lastAxisX && (
       (this.position.tp !== null && Math.abs(y - this.yForPriceCached(this.position.tp)) < HIT_PX) ||
       (this.position.sl !== null && Math.abs(y - this.yForPriceCached(this.position.sl)) < HIT_PX)
     );
-    this.canvas.style.cursor = x > this.lastPlotW ? "ns-resize" : nearPosLine ? "ns-resize" : this.tool === "cursor" ? "crosshair" : "copy";
+    this.canvas.style.cursor = x > this.lastAxisX ? "ns-resize" : nearPosLine ? "ns-resize" : this.tool === "cursor" ? "crosshair" : "copy";
     this.crosshair = { x, y };
     this.scheduleRender();
     this.emitCrosshairBar(x);
@@ -721,7 +745,7 @@ export class ChartEngine {
   private onDoubleClick = (e: MouseEvent) => {
     const rect = this.canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
-    if (x > this.lastPlotW) {
+    if (x > this.lastAxisX) {
       this.priceScaleFactor = 1;
       this.priceOffset = 0;
       this.scheduleRender();
@@ -777,6 +801,20 @@ export class ChartEngine {
 
     const hasOsc = !!this.oscillator;
     const plotW = this.plotW;
+    const axisLabelX = this.axisLabelX;
+    // A price-scale label, in its own small translucent pill, anchored at
+    // the fixed axis column rather than the true canvas edge — see
+    // `axisLabelX`. Shared by every kind of axis label (grid ticks, drawn
+    // hlines, grid-bot levels, TP/SL) so they all read the same way now that
+    // there's chart data behind them instead of blank canvas.
+    const drawAxisLabel = (label: string, y: number, color: string) => {
+      const w = ctx.measureText(label).width;
+      ctx.fillStyle = theme.axisLabelBg;
+      ctx.fillRect(axisLabelX + 2, y - 7, w + 8, 14);
+      ctx.fillStyle = color;
+      ctx.textAlign = "left";
+      ctx.fillText(label, axisLabelX + 6, y + 3);
+    };
     const totalPlotH = cssH - TIME_SCALE_H;
     const oscH = hasOsc ? totalPlotH * OSC_BAND_RATIO : 0;
     const priceH = totalPlotH - oscH;
@@ -840,25 +878,28 @@ export class ChartEngine {
     this.lastMinP = minP;
     this.lastMaxP = maxP;
     this.lastPlotW = plotW;
+    this.lastAxisX = axisLabelX;
     this.lastPriceH = priceH;
 
     const yForPrice = (p: number) => ((maxP - p) / (maxP - minP)) * priceH;
 
     // ---- grid lines + price axis ----
+    // The grid line itself runs the full width (plotW) — candles are drawn
+    // under the axis column now, so the line should be too. Only the label
+    // stays anchored at the fixed axisLabelX column, in its own pill.
     ctx.strokeStyle = theme.grid;
-    ctx.fillStyle = theme.text;
     ctx.font = "10px 'JetBrains Mono', monospace";
     ctx.lineWidth = 1;
     const priceStep = niceStep(maxP - minP, 6);
     const firstTick = Math.ceil(minP / priceStep) * priceStep;
     for (let p = firstTick; p <= maxP; p += priceStep) {
       const y = yForPrice(p) + 0.5;
+      ctx.strokeStyle = theme.grid;
       ctx.beginPath();
       ctx.moveTo(0, y);
       ctx.lineTo(plotW, y);
       ctx.stroke();
-      ctx.textAlign = "left";
-      ctx.fillText(p.toFixed(this.priceDecimals), plotW + 6, y + 3);
+      drawAxisLabel(p.toFixed(this.priceDecimals), y, theme.text);
     }
 
     // ---- current price marker ----
@@ -891,11 +932,13 @@ export class ChartEngine {
         const h = 14;
         // Clamp so the tag stays fully on-canvas at the very top/bottom.
         const boxY = Math.max(0, Math.min(priceH - h, y - h / 2));
+        ctx.globalAlpha = 0.85;
         ctx.fillStyle = color;
-        ctx.fillRect(plotW + 2, boxY, w, h);
+        ctx.fillRect(axisLabelX + 2, boxY, w, h);
+        ctx.globalAlpha = 1;
         ctx.fillStyle = up ? "#06231a" : "#ffffff";
         ctx.textAlign = "left";
-        ctx.fillText(label, plotW + 2 + padX, boxY + h - 4);
+        ctx.fillText(label, axisLabelX + 2 + padX, boxY + h - 4);
         ctx.fillStyle = theme.text;
       }
     }
@@ -936,9 +979,7 @@ export class ChartEngine {
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.globalAlpha = 1;
-      ctx.fillStyle = g.side === "BUY" ? theme.buy : theme.sell;
-      ctx.textAlign = "left";
-      ctx.fillText(g.price.toFixed(this.priceDecimals), plotW + 6, y + 3);
+      drawAxisLabel(g.price.toFixed(this.priceDecimals), y, g.side === "BUY" ? theme.buy : theme.sell);
     }
 
     // ---- clip candles/overlays/drawings/position-lines to the plot's
@@ -1022,9 +1063,7 @@ export class ChartEngine {
         ctx.moveTo(0, y);
         ctx.lineTo(plotW, y);
         ctx.stroke();
-        ctx.fillStyle = theme.accent;
-        ctx.textAlign = "left";
-        ctx.fillText(d.price.toFixed(this.priceDecimals), plotW + 6, y + 3);
+        drawAxisLabel(d.price.toFixed(this.priceDecimals), y, theme.accent);
       } else {
         const x1 = xForIndex(this.indexForTime(d.t1)), y1 = yForPrice(d.p1);
         const x2 = xForIndex(this.indexForTime(d.t2)), y2 = yForPrice(d.p2);
@@ -1095,17 +1134,15 @@ export class ChartEngine {
         ctx.lineTo(plotW, y);
         ctx.stroke();
         ctx.setLineDash([]);
-        // a small drag handle at the right edge of the plot area
+        // a small drag handle at the axis column, same anchor as every other label
         ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.moveTo(plotW - 12, y - 5);
-        ctx.lineTo(plotW, y);
-        ctx.lineTo(plotW - 12, y + 5);
+        ctx.moveTo(axisLabelX - 12, y - 5);
+        ctx.lineTo(axisLabelX, y);
+        ctx.lineTo(axisLabelX - 12, y + 5);
         ctx.closePath();
         ctx.fill();
-        ctx.fillStyle = color;
-        ctx.textAlign = "left";
-        ctx.fillText(`${kind === "tp" ? "TP" : "SL"} ${live.toFixed(this.priceDecimals)}`, plotW + 6, y + 3);
+        drawAxisLabel(`${kind === "tp" ? "TP" : "SL"} ${live.toFixed(this.priceDecimals)}`, y, color);
       };
       if (pos.tp !== null) drawDraggableLine(pos.tp, "tp");
       if (pos.sl !== null) drawDraggableLine(pos.sl, "sl");
@@ -1193,13 +1230,15 @@ export class ChartEngine {
 
         if (y <= priceH) {
           const price = maxP - (y / priceH) * (maxP - minP);
-          ctx.fillStyle = theme.accent;
           const label = price.toFixed(this.priceDecimals);
           const w = ctx.measureText(label).width + 8;
-          ctx.fillRect(plotW, y - 8, w, 16);
+          ctx.globalAlpha = 0.85;
+          ctx.fillStyle = theme.accent;
+          ctx.fillRect(axisLabelX, y - 8, w, 16);
+          ctx.globalAlpha = 1;
           ctx.fillStyle = "#fff";
           ctx.textAlign = "left";
-          ctx.fillText(label, plotW + 4, y + 3);
+          ctx.fillText(label, axisLabelX + 4, y + 3);
         }
       }
     }

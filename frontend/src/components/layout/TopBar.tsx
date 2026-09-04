@@ -96,7 +96,10 @@ export function TopBar() {
     return (
       // sticky + z-20: the bar stays pinned to the top of the shell instead of
       // being able to drift out of reach behind the mobile browser chrome.
-      <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b border-line-soft bg-bg-0 px-3.5 text-[13px]">
+      // h-11 matches the desktop bar's own height — this is a system strip
+      // (logo, connection dot, identity), not content, so it doesn't need
+      // more air than its own icons and text require.
+      <header className="sticky top-0 z-20 flex h-11 shrink-0 items-center gap-2 border-b border-line-soft bg-bg-0 px-3.5 text-[13px]">
         <Link to="/" className="tap-sm flex items-center gap-2" aria-label="Velora — Home">
           <Logo />
           <span className="text-sm font-extrabold tracking-[0.08em] text-txt-0">VELORA</span>

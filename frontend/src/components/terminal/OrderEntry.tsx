@@ -2,7 +2,8 @@ import { useTranslation } from "react-i18next";
 import { useOrderTicketStore } from "../../store/orderTicket";
 import { useOrderTicket } from "../../hooks/useOrderTicket";
 import { classNames, fmtPrice, fmtQty, fmtUsd } from "../../lib/format";
-import { estMargin, estNotional, MAINTENANCE_MARGIN_RATIO } from "../../lib/tradeMath";
+import { estMargin, estNotional, leverageTicks, MAINTENANCE_MARGIN_RATIO } from "../../lib/tradeMath";
+import { RangeSlider } from "../common/RangeSlider";
 import { Tooltip } from "../common/Tooltip";
 import { IconBearMarket, IconBullMarket } from "../icons/Icon";
 import type { OrderType } from "../../lib/types";
@@ -46,14 +47,17 @@ export function OrderEntry() {
     // The root no longer scrolls; only the field area between the type
     // selector and the pinned submit bar does, so Buy/Sell stay on screen.
     <div className="flex h-full flex-col overflow-hidden bg-bg-1">
+      {/* A mode selector, not a primary action — sized down accordingly, with
+          the active segment carrying the same accent-fill + glow language as
+          the mobile mode switch so shrinking it doesn't read as dimming it. */}
       <div className="flex shrink-0 gap-0.5 border-b border-line p-1">
         {TYPES.map((ty) => (
           <button
             key={ty}
             onClick={() => setType(ty)}
             className={classNames(
-              "btn-fx flex-1 rounded px-2 py-1.5 text-2xs font-medium transition-colors",
-              type === ty ? "bg-bg-3 text-txt-0" : "text-txt-2 hover:text-txt-0"
+              "btn-fx flex-1 rounded px-1.5 py-1 text-2xs font-semibold transition-[background-color,box-shadow,color] duration-150",
+              type === ty ? "glow-accent bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0"
             )}
           >
             {ty}
@@ -91,7 +95,7 @@ export function OrderEntry() {
                 type="button"
                 onClick={() => setAmountMode("BASE")}
                 aria-pressed={amountMode === "BASE"}
-                className={classNames("rounded px-1.5 py-0.5 text-2xs font-semibold transition-colors", amountMode === "BASE" ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}
+                className={classNames("rounded px-1.5 py-0.5 text-2xs font-semibold transition-[background-color,box-shadow,color]", amountMode === "BASE" ? "glow-accent bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}
               >
                 {baseAsset || t("terminal.base")}
               </button>
@@ -99,7 +103,7 @@ export function OrderEntry() {
                 type="button"
                 onClick={() => setAmountMode("QUOTE")}
                 aria-pressed={amountMode === "QUOTE"}
-                className={classNames("rounded px-1.5 py-0.5 text-2xs font-semibold transition-colors", amountMode === "QUOTE" ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}
+                className={classNames("rounded px-1.5 py-0.5 text-2xs font-semibold transition-[background-color,box-shadow,color]", amountMode === "QUOTE" ? "glow-accent bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}
               >
                 {t("terminal.total")}
               </button>
@@ -108,7 +112,7 @@ export function OrderEntry() {
                   type="button"
                   onClick={() => setAmountMode("MARGIN")}
                   aria-pressed={amountMode === "MARGIN"}
-                  className={classNames("cursor-help rounded px-1.5 py-0.5 text-2xs font-semibold underline decoration-dotted transition-colors", amountMode === "MARGIN" ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}
+                  className={classNames("cursor-help rounded px-1.5 py-0.5 text-2xs font-semibold underline decoration-dotted transition-[background-color,box-shadow,color]", amountMode === "MARGIN" ? "glow-accent bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}
                 >
                   {t("terminal.margin")}
                 </button>
@@ -161,20 +165,21 @@ export function OrderEntry() {
             <span>{t("terminal.leverage")}</span>
             <span className="tabular text-txt-0">{leverage}x</span>
           </span>
-          <input
-            type="range"
+          {/* Orange/warn, not accent blue: leverage is risk, and the track's
+              rising saturation toward the thumb doubles as a heat cue —
+              higher leverage reads visually "hotter". */}
+          <RangeSlider
+            value={leverage}
             min={1}
             max={inst?.maxLeverage ?? 1}
             step={1}
-            value={leverage}
-            onChange={(e) => setLeverage(Number(e.target.value))}
-            className="w-full accent-accent"
+            onChange={setLeverage}
+            tone="warn"
+            ticks={leverageTicks(inst?.maxLeverage ?? 1)}
+            tickLabel={(t) => `${t}x`}
             disabled={!inst || inst.maxLeverage <= 1}
+            ariaLabel={t("terminal.leverage")}
           />
-          <div className="mt-0.5 flex justify-between text-2xs text-txt-3">
-            <span>1x</span>
-            <span>{inst?.maxLeverage ?? 1}x</span>
-          </div>
         </label>
 
         <div className={classNames("transition-colors", useTpSl && "rounded-lg border border-line-soft bg-bg-2/40 p-2.5")}>

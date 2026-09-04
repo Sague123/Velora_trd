@@ -47,7 +47,7 @@ function IndicatorLegend() {
   }, [data, showSma20, showSma50, showEma9, showEma21]);
 
   return (
-    <div className="flex items-center gap-3 px-3.5 pb-1.5 pt-2">
+    <div className="flex items-center gap-3 px-3.5 pb-1 pt-1">
       <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden text-[10px] tabular">
         {items.length === 0 ? (
           <span className="text-txt-3">Индикаторы выключены</span>
@@ -90,7 +90,7 @@ function HeaderOhlc() {
   // right — and there's room now to run this at the same size as the SMA
   // legend below it rather than the smallest size the type scale allows.
   return (
-    <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0.5 text-2xs leading-tight tabular text-txt-3">
+    <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-2xs leading-tight tabular text-txt-3">
       <span>O <span className="text-txt-1">{fmtPrice(bar.open, inst.priceDecimals)}</span></span>
       <span>H <span className="text-buy">{fmtPrice(bar.high, inst.priceDecimals)}</span></span>
       <span>L <span className="text-sell">{fmtPrice(bar.low, inst.priceDecimals)}</span></span>
@@ -175,8 +175,11 @@ export function MobileTerminal() {
         className={classNames("flex min-h-0 flex-1 flex-col", mode === "history" ? "overflow-hidden" : "overflow-y-auto")}
       >
         {/* Symbol, price, timeframe and the mode switch — one row, and the
-            only chrome above the chart. */}
-        <section className="flex shrink-0 items-start justify-between border-b border-line-soft px-3.5 pb-2.5 pt-3">
+            only chrome above the chart. Tight vertical padding: this row,
+            the OHLC line under it and the SMA/toolbar row below are meant to
+            sit almost flush, separated only by the border-line-soft hairline
+            at the bottom of each, not by open space. */}
+        <section className="flex shrink-0 items-start justify-between border-b border-line-soft px-3.5 pb-1.5 pt-2">
           <div className="min-w-0">
             <button
               onClick={() => setPickerOpen(true)}
