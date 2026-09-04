@@ -90,13 +90,22 @@ export function MobileOrderTicket() {
 
       <div className="mb-1.5 flex items-center justify-between">
         <span className="text-2xs text-txt-3">{t("terminal.amount")}</span>
-        <div className="flex gap-3 text-2xs">
+        {/* A segmented control, not three words. These were bare labels whose
+            only "selected" cue was a bolder weight, so nothing about them said
+            they could be pressed — the group now carries its own border and
+            fill, matching the MARKET/LIMIT/STOP control directly below it,
+            which is the same kind of choice and should look like it. */}
+        <div className="flex gap-0.5 rounded-lg border border-line bg-bg-2 p-0.5">
           {(["BASE", "QUOTE", "MARGIN"] as const).map((m) => (
             <button
               key={m}
               type="button"
               onClick={() => setAmountMode(m)}
-              className={classNames("tap-sm", amountMode === m ? "font-bold text-txt-0" : "text-txt-3")}
+              aria-pressed={amountMode === m}
+              className={classNames(
+                "tap-sm rounded-md px-2 py-1 text-[10px] font-bold transition-colors",
+                amountMode === m ? "bg-accent-fill text-white" : "text-txt-3 hover:text-txt-1"
+              )}
             >
               {m === "BASE" ? baseAsset || t("terminal.base") : m === "QUOTE" ? t("terminal.total") : t("terminal.margin")}
             </button>

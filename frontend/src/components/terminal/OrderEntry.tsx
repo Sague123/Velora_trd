@@ -83,18 +83,23 @@ export function OrderEntry() {
         <label className="block">
           <span className="mb-1 flex items-center justify-between text-2xs text-txt-2">
             <span>{t("terminal.amount")}</span>
-            <div className="flex gap-0.5 rounded border border-line p-0.5">
+            {/* Solid fill on the active segment, matching the MARKET/LIMIT/STOP
+                row above: a tinted -soft background reads as "hovered", not as
+                "chosen", when it sits next to a control that fills solid. */}
+            <div className="flex gap-0.5 rounded border border-line bg-bg-2 p-0.5">
               <button
                 type="button"
                 onClick={() => setAmountMode("BASE")}
-                className={classNames("rounded px-1.5 py-0.5 text-2xs font-medium", amountMode === "BASE" ? "bg-accent-soft text-accent" : "text-txt-2")}
+                aria-pressed={amountMode === "BASE"}
+                className={classNames("rounded px-1.5 py-0.5 text-2xs font-semibold transition-colors", amountMode === "BASE" ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}
               >
                 {baseAsset || t("terminal.base")}
               </button>
               <button
                 type="button"
                 onClick={() => setAmountMode("QUOTE")}
-                className={classNames("rounded px-1.5 py-0.5 text-2xs font-medium", amountMode === "QUOTE" ? "bg-accent-soft text-accent" : "text-txt-2")}
+                aria-pressed={amountMode === "QUOTE"}
+                className={classNames("rounded px-1.5 py-0.5 text-2xs font-semibold transition-colors", amountMode === "QUOTE" ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}
               >
                 {t("terminal.total")}
               </button>
@@ -102,7 +107,8 @@ export function OrderEntry() {
                 <button
                   type="button"
                   onClick={() => setAmountMode("MARGIN")}
-                  className={classNames("cursor-help rounded px-1.5 py-0.5 text-2xs font-medium underline decoration-dotted", amountMode === "MARGIN" ? "bg-accent-soft text-accent" : "text-txt-2")}
+                  aria-pressed={amountMode === "MARGIN"}
+                  className={classNames("cursor-help rounded px-1.5 py-0.5 text-2xs font-semibold underline decoration-dotted transition-colors", amountMode === "MARGIN" ? "bg-accent-fill text-white" : "text-txt-2 hover:text-txt-0")}
                 >
                   {t("terminal.margin")}
                 </button>

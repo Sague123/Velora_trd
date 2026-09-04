@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MarketWatch } from "./MarketWatch";
 import { ChartPanel } from "./ChartPanel";
-import { ChartToolbar, mobileCtrlCls, mobileCtrlTone } from "./ChartToolbar";
+import { ChartToolbar } from "./ChartToolbar";
 import { BottomPanel } from "./BottomPanel";
 import { OrderBookPanel } from "./OrderBookPanel";
 import { MobileOrderTicket } from "./MobileOrderTicket";
@@ -202,17 +202,17 @@ export function MobileTerminal() {
             {mode === "chart" && <HeaderOhlc />}
           </div>
 
-          {/* Mode switch only now (see IndicatorLegend for where the OHLC
-              line moved) — each button gets the same visible border+fill
-              mobileCtrlTone gives every other mobile control, in BOTH states,
-              not just the active one, so an unselected button still reads as
-              a button rather than a bare icon. ~1.3x bigger than the old
-              h-8 w-11 (now h-[42px] w-[54px]), rounder (rounded-xl, from
-              liftedCls), and liftedCls's shadow-lift is always on rather than
-              only appearing on the active button. scale-105 on the active
-              button plus liftedCls's own active:scale-95 tap-down is the
-              switch animation — the selected one visibly grows into place. */}
-          <div className="flex shrink-0 gap-1.5">
+          {/* One capsule holding three segments, not three separate tiles
+              pushed together: the shared track is what makes it read as a
+              single switch with three positions.
+
+              The selected segment is marked by light rather than by size —
+              accent fill plus a soft glow of the same colour under it, so it
+              sits above the track; the other two stay flat, unfilled and
+              dimmed. Sizing is unchanged: this is a control reached constantly
+              and it has earned its footprint, so the emphasis comes from how
+              it is drawn, not from the selected one growing. */}
+          <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-line bg-bg-2 p-1">
             {MODES.map(({ id, Icon, label }) => (
               <button
                 key={id}
@@ -221,9 +221,11 @@ export function MobileTerminal() {
                 title={label}
                 aria-pressed={mode === id}
                 className={classNames(
-                  mobileCtrlCls, mobileCtrlTone(mode === id),
-                  "h-[42px] w-[54px] transition-[transform,background-color,border-color,box-shadow] duration-200",
-                  mode === id && "scale-[1.05]"
+                  "tap-sm flex h-9 w-[52px] items-center justify-center rounded-full",
+                  "transition-[background-color,color,box-shadow,transform] duration-200 active:scale-95",
+                  mode === id
+                    ? "glow-accent bg-accent-fill text-white"
+                    : "text-txt-3 hover:text-txt-1"
                 )}
               >
                 <Icon size={18} />

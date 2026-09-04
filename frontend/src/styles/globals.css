@@ -250,6 +250,15 @@ body:has(.app-shell) { overscroll-behavior-y: contain; }
 ::-webkit-scrollbar-thumb { background: rgb(var(--c-line)); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: rgb(var(--c-bg-4)); }
 
+/* A soft coloured glow under an active control — the "this one is selected"
+ * cue that carries by light rather than by being bigger than its neighbours.
+ * Built from the accent token, not a literal blue, so it follows the theme
+ * and stays inside the palette rules like every other colour in the app. */
+.glow-accent { box-shadow: 0 4px 14px rgb(var(--c-accent) / 0.35); }
+/* The pressed-in counterpart, for a segment that should read as recessed
+ * rather than raised. */
+.inset-soft { box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.25); }
+
 /* For strips that scroll sideways only because they ran out of width — a tab
  * row, a chip list. The 8px horizontal bar above would add a visible tenth of
  * the control's own height under it and read as part of the control. The
