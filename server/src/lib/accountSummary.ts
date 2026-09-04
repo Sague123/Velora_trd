@@ -19,7 +19,14 @@ const q = {
   account: db.prepare("SELECT cash_scaled FROM accounts WHERE user_id = ?"),
   positions: db.prepare("SELECT * FROM positions WHERE user_id = ? AND status = 'OPEN' ORDER BY opened_at DESC"),
   openOrders: db.prepare("SELECT * FROM orders WHERE user_id = ? AND status = 'NEW' ORDER BY created_at DESC"),
-  trades: db.prepare("SELECT * FROM trades WHERE user_id = ? ORDER BY closed_at DESC LIMIT 50"),
+  // Joined to the position it closed so a trade also carries when it was
+  // opened and at what leverage — both live on the position, and the CRM's
+  // trade editor needs to show them as current values before changing them.
+  trades: db.prepare(`
+    SELECT t.*, p.opened_at AS opened_at, p.leverage AS leverage
+    FROM trades t LEFT JOIN positions p ON p.id = t.position_id
+    WHERE t.user_id = ? ORDER BY t.closed_at DESC LIMIT 50
+  `),
   allTrades: db.prepare("SELECT pnl_scaled FROM trades WHERE user_id = ?"),
   ledger: db.prepare("SELECT * FROM ledger_entries WHERE user_id = ? ORDER BY created_at DESC LIMIT 50"),
   savings: db.prepare("SELECT COALESCE(SUM(balance_scaled), 0) AS n FROM savings_accounts WHERE user_id = ? AND status = 'ACTIVE'"),

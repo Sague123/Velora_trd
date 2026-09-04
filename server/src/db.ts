@@ -573,6 +573,20 @@ export async function migrate(): Promise<void> {
   // must set their own before anything else works. See the login flow in
   // routes/auth.ts.
   await addColumnIfMissing("users", "password_change_required", "password_change_required BOOLEAN NOT NULL DEFAULT FALSE");
+  // The client's consent for their assigned manager to act on their trades,
+  // recorded by the manager who obtained it (on a call — Velora has no
+  // channel that would let the client tick a box themselves). Null means no
+  // consent on file, which is what a manager without one is blocked by; see
+  // requireTradeEditAccess() in routes/crm.ts.
+  //
+  // Deliberately three columns rather than a boolean: "consent exists" is
+  // worth nothing on its own when the question later is who obtained it and
+  // when. `manager_consent_for` pins it to the manager it was given for, so
+  // reassigning the lead cannot silently hand an old consent to a new
+  // manager — the check compares it against the current assignee.
+  await addColumnIfMissing("leads", "manager_consent_at", "manager_consent_at TEXT");
+  await addColumnIfMissing("leads", "manager_consent_by", "manager_consent_by TEXT REFERENCES users(id) ON DELETE SET NULL");
+  await addColumnIfMissing("leads", "manager_consent_for", "manager_consent_for TEXT REFERENCES users(id) ON DELETE SET NULL");
   await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_account_number ON users(account_number)");
   await backfillAccountNumbers();
   await backfillLeadsForUsers();

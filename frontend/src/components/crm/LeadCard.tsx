@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import {
-  useAssignLead, useCrmMeta, useEditLead, useLead, useSetLeadStatus, useSetLeadVerification,
+  useAssignLead, useCrmMeta, useEditLead, useLead, useSetLeadConsent, useSetLeadStatus, useSetLeadVerification,
 } from "../../hooks/useCrm";
 import { useAuthStore } from "../../store/auth";
 import { classNames, fmtDateTime, fmtUsd } from "../../lib/format";
@@ -18,7 +18,7 @@ import { ViewTokenButton } from "./ViewTokenButton";
 import {
   LEAD_STATUS_LABEL, LEAD_STATUS_TONE, TONE_TEXT_CLASS, VERIFICATION_LABEL, VERIFICATION_TONE,
 } from "./leadLabels";
-import type { LeadStatus, LeadVerificationStatus } from "../../lib/types";
+import type { LeadDetail, LeadStatus, LeadVerificationStatus } from "../../lib/types";
 import { IconClose, IconPencil } from "../icons/Icon";
 
 const selectCls =
@@ -31,10 +31,95 @@ type Tab = "main" | "account" | "kyc";
  * way the selects above it do, not in database vocabulary. Unknown values fall
  * through as-is rather than rendering blank — a stage removed from the enum
  * later still has to be readable in the log of what happened. */
+const HISTORY_KIND_LABEL: Record<string, string> = {
+  STATUS: "статус",
+  VERIFICATION: "верификация",
+  CONSENT: "согласие клиента",
+  TRADE_EDIT: "правка сделки",
+};
+
 function historyLabel(kind: "STATUS" | "VERIFICATION", value: string | null): string {
   if (!value) return "—";
   const map: Record<string, string> = kind === "STATUS" ? LEAD_STATUS_LABEL : VERIFICATION_LABEL;
   return map[value] ?? value;
+}
+
+/**
+ * The client's consent for their assigned manager to act on their trades.
+ *
+ * Recorded by the desk, not given by the client — Velora has no channel that
+ * would let them tick it themselves — so the row is written as what it is: a
+ * note of a conversation, naming who recorded it and when. That framing is
+ * the point. A bare green tick would read as though the client pressed
+ * something, and the whole value of this record is that someone can be asked
+ * about it later.
+ *
+ * Consent belongs to one named manager. Reassigning the lead clears it
+ * server-side, and a consent left over from a previous assignee is shown as
+ * no longer valid rather than quietly ignored.
+ */
+function ConsentRow({ lead }: { lead: LeadDetail }) {
+  const setConsent = useSetLeadConsent();
+  const consent = lead.managerConsent;
+  const assignedName = lead.assignedManager?.name;
+
+  async function toggle(granted: boolean) {
+    try {
+      await setConsent.mutateAsync({ id: lead.id, granted });
+      toast.success(granted ? "Согласие клиента отмечено" : "Согласие отозвано");
+    } catch (e) {
+      toast.error("Не удалось изменить согласие", e instanceof ApiError ? e.message : undefined);
+    }
+  }
+
+  return (
+    <div className="mb-4 rounded-lg border border-line-soft bg-bg-2/30 p-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-2xs font-semibold uppercase tracking-wide text-txt-2">
+            Согласие клиента на управление сделками
+          </div>
+          <div className="mt-0.5 text-2xs text-txt-3">
+            {!lead.assignedManager ? (
+              "Сначала назначьте ответственного — согласие даётся на конкретного менеджера"
+            ) : consent?.valid ? (
+              <>
+                Отмечено {fmtDateTime(consent.at)}
+                {consent.byName ? <> · записал {consent.byName}</> : null} · для {assignedName}
+              </>
+            ) : consent ? (
+              <span className="text-warn">
+                Согласие получено для другого менеджера и больше не действует — отметьте заново для {assignedName}
+              </span>
+            ) : (
+              <>Нет согласия — {assignedName} не сможет править сделки этого клиента</>
+            )}
+          </div>
+        </div>
+
+        <div className="flex shrink-0 gap-1.5">
+          {consent?.valid ? (
+            <button
+              onClick={() => toggle(false)}
+              disabled={setConsent.isPending}
+              className="btn-fx tap-sm rounded-lg border border-line px-2.5 py-1 text-2xs text-txt-2 hover:border-sell hover:text-sell disabled:opacity-50"
+            >
+              Отозвать
+            </button>
+          ) : (
+            <button
+              onClick={() => toggle(true)}
+              disabled={setConsent.isPending || !lead.assignedManager}
+              title={!lead.assignedManager ? "Сначала назначьте ответственного" : undefined}
+              className="btn-fx tap-sm rounded-lg border border-accent/40 bg-accent-soft px-2.5 py-1 text-2xs font-medium text-accent hover:brightness-110 disabled:opacity-40"
+            >
+              Клиент согласен
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function Field({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
@@ -322,6 +407,8 @@ export function LeadCard({ leadId, onClose }: { leadId: string; onClose: () => v
                     </label>
                   </div>
 
+                  <ConsentRow lead={lead} />
+
                   {isAdmin && lead.platform && (
                     <div className="mb-4 space-y-3">
                       <div className="text-2xs font-semibold uppercase tracking-wide text-txt-2">Доступ</div>
@@ -335,10 +422,22 @@ export function LeadCard({ leadId, onClose }: { leadId: string; onClose: () => v
                       {history.map((h) => (
                         <div key={h.id} className="flex flex-wrap items-center gap-1.5 text-2xs text-txt-2">
                           <span className="tabular text-txt-3">{fmtDateTime(h.createdAt)}</span>
-                          <span className="text-txt-3">{h.kind === "STATUS" ? "статус" : "верификация"}:</span>
-                          <span>
-                            {historyLabel(h.kind, h.oldStatus)} → <span className="text-txt-0">{historyLabel(h.kind, h.newStatus)}</span>
-                          </span>
+                          <span className="text-txt-3">{HISTORY_KIND_LABEL[h.kind] ?? h.kind}:</span>
+                          {/* Consent and trade edits don't move between two
+                              enum values, so they carry the whole sentence in
+                              newStatus — rendering them as "X → Y" would print
+                              a dash and half a message. */}
+                          {h.kind === "STATUS" || h.kind === "VERIFICATION" ? (
+                            <span>
+                              {historyLabel(h.kind, h.oldStatus)} → <span className="text-txt-0">{historyLabel(h.kind, h.newStatus)}</span>
+                            </span>
+                          ) : (
+                            <span className={classNames("text-txt-0", h.kind === "TRADE_EDIT" && "text-warn")}>
+                              {h.kind === "CONSENT"
+                                ? (h.newStatus === "GRANTED" ? "получено" : "отозвано")
+                                : h.newStatus}
+                            </span>
+                          )}
                           {h.manager && <span className="text-txt-3">· {h.manager.name}</span>}
                         </div>
                       ))}

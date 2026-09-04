@@ -232,6 +232,11 @@ export interface Trade {
   fee: string;
   closeReason: CloseReason;
   closedAt: string;
+  /** From the position this trade closed — present where the API joined it
+   * in (the CRM account snapshot does; the terminal's own trades list does
+   * not). Null means "not loaded", not "1x" or "unknown time". */
+  openedAt?: string | null;
+  leverage?: number | null;
 }
 
 export interface Account {
@@ -484,6 +489,17 @@ export interface LeadPlatformInfo {
 
 export interface LeadDetail extends Lead {
   platform: LeadPlatformInfo | null;
+  /** The client's consent for their assigned manager to act on their trades,
+   * recorded by the desk after a call — Velora has no channel through which
+   * the client could give it themselves. `valid` goes false once the lead is
+   * reassigned: consent is given for one named manager, not for the role. */
+  managerConsent: {
+    at: string;
+    by: string | null;
+    byName: string | null;
+    forManagerId: string | null;
+    valid: boolean;
+  } | null;
 }
 
 export interface LeadComment {
@@ -495,7 +511,9 @@ export interface LeadComment {
 
 export interface LeadHistoryEntry {
   id: string;
-  kind: "STATUS" | "VERIFICATION";
+  /** CONSENT and TRADE_EDIT carry a rendered sentence in `newStatus` rather
+   * than an enum value — see the card's history renderer. */
+  kind: "STATUS" | "VERIFICATION" | "CONSENT" | "TRADE_EDIT";
   oldStatus: string | null;
   newStatus: string;
   manager: { id: string; name: string } | null;

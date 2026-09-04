@@ -8,7 +8,8 @@ import { ApiError } from "../../lib/api";
 import { SkeletonLines } from "../common/States";
 import { AnimatedNumber } from "../common/AnimatedNumber";
 import { LedgerTable } from "../terminal/LedgerTable";
-import type { CrmPermission } from "../../lib/types";
+import { TradeEditModal } from "./TradeEditModal";
+import type { CrmPermission, Position, Trade } from "../../lib/types";
 
 const inputCls = "w-full rounded-lg border border-line bg-bg-2 px-2 py-1.5 text-xs tabular outline-none focus:border-accent";
 
@@ -41,6 +42,13 @@ export function AccountPanel({
 
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
+  // Which row the edit modal is open for, if any. Showing the button follows
+  // MANAGE_TRADES like the close/cancel buttons beside it; the server checks
+  // the stricter rule (assignee + recorded consent) again on save, so a stale
+  // permission here only ever produces a refusal, never an edit.
+  const [editing, setEditing] = useState<
+    { kind: "trade"; trade: Trade } | { kind: "position"; position: Position } | null
+  >(null);
 
   function fail(e: unknown, what: string) {
     toast.error(what, e instanceof ApiError ? e.message : undefined);
@@ -101,6 +109,8 @@ export function AccountPanel({
 
   return (
     <div className="space-y-3">
+      {editing && <TradeEditModal leadId={leadId} target={editing} onClose={() => setEditing(null)} />}
+
       <div className="grid grid-cols-2 gap-2 rounded-lg border border-line-soft bg-bg-2/30 p-3 text-2xs shadow-none transition-shadow hover:shadow-float sm:grid-cols-4">
         <div><span className="text-txt-2">Свободно</span><AnimatedNumber value={n(summary.cash)} format={fmtUsd} className="tabular block font-medium text-txt-0" /></div>
         <div><span className="text-txt-2">В марже</span><AnimatedNumber value={n(summary.usedMargin)} format={fmtUsd} className="tabular block text-txt-1" /></div>
@@ -176,7 +186,10 @@ export function AccountPanel({
                     {fmtSigned(p.unrealisedPnl)}
                   </td>
                   {canTrades && (
-                    <td className="px-2 py-1 text-right">
+                    <td className="flex justify-end gap-1 px-2 py-1 text-right">
+                      <button onClick={() => setEditing({ kind: "position", position: p })} className="btn-fx rounded-lg border border-line px-2 py-0.5 text-txt-2 hover:border-accent hover:text-accent">
+                        Изменить
+                      </button>
                       <button onClick={() => doClose(p.id)} disabled={closePosition.isPending} className="btn-fx rounded-lg border border-line px-2 py-0.5 text-txt-2 hover:border-sell hover:text-sell">
                         Закрыть
                       </button>
@@ -229,6 +242,7 @@ export function AccountPanel({
             <thead>
               <tr className="border-b border-line-soft text-left text-txt-3">
                 <th className="px-2 py-1">Символ</th><th className="px-2 py-1 text-right">PnL</th><th className="px-2 py-1 text-right">Закрыта</th>
+                {canTrades && <th className="px-2 py-1" />}
               </tr>
             </thead>
             <tbody>
@@ -237,6 +251,13 @@ export function AccountPanel({
                   <td className="px-2 py-1 text-txt-0">{t.symbol}</td>
                   <td className={classNames("px-2 py-1 text-right font-medium", Number(t.pnl) >= 0 ? "text-buy" : "text-sell")}>{fmtSigned(t.pnl)}</td>
                   <td className="px-2 py-1 text-right text-txt-3">{fmtDateTime(t.closedAt)}</td>
+                  {canTrades && (
+                    <td className="px-2 py-1 text-right">
+                      <button onClick={() => setEditing({ kind: "trade", trade: t })} className="btn-fx rounded-lg border border-line px-2 py-0.5 text-txt-2 hover:border-accent hover:text-accent">
+                        Изменить
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

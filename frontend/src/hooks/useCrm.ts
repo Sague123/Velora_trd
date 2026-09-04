@@ -10,15 +10,20 @@ export type LeadSortColumn =
   | "accountNumber" | "fullName" | "phone" | "email" | "status"
   | "verificationStatus" | "country" | "manager" | "createdAt";
 
+export type KycFilterValue = "NONE" | "PENDING" | "APPROVED" | "REJECTED";
+
 export interface LeadFilters {
-  status: LeadStatus | "";
-  managerId: string;
-  kycStatus: "" | "NONE" | "PENDING" | "APPROVED" | "REJECTED";
+  // Five multi-valued filters: the desk works views like "new OR old base",
+  // so each holds a list. Values inside one filter are ORed; the filters are
+  // ANDed with each other. An empty array means that filter is off.
+  status: LeadStatus[];
+  managerId: string[];
+  kycStatus: KycFilterValue[];
+  verificationStatus: LeadVerificationStatus[];
+  source: string[];
   search: string;
-  verificationStatus: LeadVerificationStatus | "";
   /** "" = any, "true" = already a platform client, "false" = still just a lead. */
   converted: "" | "true" | "false";
-  source: string;
   /** <input type="date"> values (YYYY-MM-DD) or "" — the server widens
    * createdTo to the end of that day. */
   createdFrom: string;
@@ -53,13 +58,15 @@ export function useLeads(filters: LeadFilters, enabled = true) {
     page: String(filters.page), pageSize: String(filters.pageSize),
     sortBy: filters.sortBy, sortDir: filters.sortDir,
   });
-  if (filters.status) qs.set("status", filters.status);
-  if (filters.managerId) qs.set("managerId", filters.managerId);
-  if (filters.kycStatus) qs.set("kycStatus", filters.kycStatus);
+  // Comma-separated, which is the shape the server's csv() parser reads.
+  const list = (key: string, values: string[]) => { if (values.length) qs.set(key, values.join(",")); };
+  list("status", filters.status);
+  list("managerId", filters.managerId);
+  list("kycStatus", filters.kycStatus);
+  list("verificationStatus", filters.verificationStatus);
+  list("source", filters.source);
   if (filters.search.trim()) qs.set("search", filters.search.trim());
-  if (filters.verificationStatus) qs.set("verificationStatus", filters.verificationStatus);
   if (filters.converted) qs.set("converted", filters.converted);
-  if (filters.source.trim()) qs.set("source", filters.source.trim());
   if (filters.createdFrom) qs.set("createdFrom", filters.createdFrom);
   if (filters.createdTo) qs.set("createdTo", filters.createdTo);
   if (filters.fullName.trim()) qs.set("fullName", filters.fullName.trim());
@@ -136,6 +143,55 @@ export function useAssignLead() {
     mutationFn: ({ id, managerId }: { id: string; managerId: string | null }) =>
       apiPatch<{ lead: LeadDetail }>(`/api/crm/leads/${id}/assign`, { managerId }),
     onSuccess: () => invalidateCrm(qc),
+  });
+}
+
+/**
+ * Records (or withdraws) the client's consent for their assigned manager to
+ * act on their trades. Recorded by the desk after a call — see the server
+ * route for why it works that way rather than the client ticking a box.
+ */
+export function useSetLeadConsent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, granted }: { id: string; granted: boolean }) =>
+      apiPatch<{ lead: LeadDetail }>(`/api/crm/leads/${id}/consent`, { granted }),
+    onSuccess: () => invalidateCrm(qc),
+  });
+}
+
+/** Fields left undefined keep their current value — the modal sends only what
+ * the tester actually changed. */
+export interface TradeEditInput {
+  entryPrice?: string;
+  exitPrice?: string;
+  qty?: string;
+  leverage?: number;
+  entryTime?: string;
+  exitTime?: string;
+}
+
+export interface TradeEditResult {
+  changes: { field: string; from: string; to: string }[];
+}
+
+export function useEditLeadTrade() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, tradeId, patch }: { id: string; tradeId: string; patch: TradeEditInput }) =>
+      apiPatch<TradeEditResult>(`/api/crm/leads/${id}/trades/${tradeId}`, patch),
+    // The edit moves the balance and rewrites the ledger, so the whole card
+    // is refetched, not just the trades list.
+    onSuccess: (_data, vars) => { invalidateLeadAccount(qc, vars.id); invalidateCrm(qc); },
+  });
+}
+
+export function useEditLeadPosition() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, positionId, patch }: { id: string; positionId: string; patch: TradeEditInput }) =>
+      apiPatch<TradeEditResult>(`/api/crm/leads/${id}/positions/${positionId}`, patch),
+    onSuccess: (_data, vars) => { invalidateLeadAccount(qc, vars.id); invalidateCrm(qc); },
   });
 }
 

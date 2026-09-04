@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db, newId, now, tx, asNum, newAccountNumber } from "../db.js";
 import { config } from "../config.js";
 import { postLedger, audit } from "../lib/ledger.js";
-import { badRequest, notFound, conflict } from "../lib/errors.js";
+import { badRequest, notFound, conflict, forbidden } from "../lib/errors.js";
 import { toScaled, out } from "../lib/money.js";
 import { hashPassword, revokeAllForUser } from "../lib/auth.js";
 import { closePositionById, cancelOrder } from "../engine/execution.js";
@@ -11,6 +11,7 @@ import { requireCrmPermission, getCrmPermissions, CRM_PERMISSIONS } from "../lib
 import { issueViewToken } from "../lib/crmViewTokens.js";
 import { accountSnapshot } from "../lib/accountSummary.js";
 import { generateTempPassword } from "../lib/tempPassword.js";
+import { rewriteClosedTrade, rewriteOpenPosition } from "../lib/tradeRewrite.js";
 import { sLead, sLeadDetail, sLeadComment, sLeadHistory, sOrder, sTrade } from "./serialize.js";
 
 /**
@@ -61,10 +62,12 @@ const q = {
            k.document_type  AS kyc_document_type,
            k.rejection_reason AS kyc_rejection_reason,
            k.reviewed_at    AS kyc_reviewed_at,
-           k.created_at     AS kyc_submitted_at
+           k.created_at     AS kyc_submitted_at,
+           cb.name          AS consent_by_name
     FROM leads l
     LEFT JOIN users m ON m.id = l.assigned_manager_id
     LEFT JOIN users u ON u.id = l.platform_user_id
+    LEFT JOIN users cb ON cb.id = l.manager_consent_by
     LEFT JOIN accounts a ON a.user_id = u.id
     -- Latest submission only: the card shows current standing, not history —
     -- see routes/kyc.ts's own "latest" query for the same rule.
@@ -75,6 +78,7 @@ const q = {
     WHERE l.id = ?
   `),
   bare: db.prepare("SELECT * FROM leads WHERE id = ?"),
+  userRole: db.prepare("SELECT role FROM users WHERE id = ?"),
   insert: db.prepare(`
     INSERT INTO leads (id, full_name, phone, email, country, source, status,
                        verification_status, assigned_manager_id, platform_user_id,
@@ -95,7 +99,26 @@ const q = {
     WHERE id = @id AND verification_status = @current
     RETURNING id
   `),
-  assign: db.prepare("UPDATE leads SET assigned_manager_id = ?, updated_at = ? WHERE id = ?"),
+  // Reassigning clears the consent in the same statement rather than in a
+  // follow-up: a consent given for manager A must never survive the lead
+  // moving to manager B, and splitting that into two writes leaves a window
+  // where it has.
+  assign: db.prepare(`
+    UPDATE leads
+    SET assigned_manager_id = ?, updated_at = ?,
+        manager_consent_at = NULL, manager_consent_by = NULL, manager_consent_for = NULL
+    WHERE id = ?
+  `),
+  setConsent: db.prepare(`
+    UPDATE leads SET manager_consent_at = @ts, manager_consent_by = @by,
+                     manager_consent_for = @for, updated_at = @ts
+    WHERE id = @id
+  `),
+  clearConsent: db.prepare(`
+    UPDATE leads SET manager_consent_at = NULL, manager_consent_by = NULL,
+                     manager_consent_for = NULL, updated_at = @ts
+    WHERE id = @id
+  `),
   insHistory: db.prepare(`
     INSERT INTO lead_status_history (id, lead_id, manager_id, kind, old_status, new_status, created_at)
     VALUES (@id, @leadId, @managerId, @kind, @old, @new, @ts)
@@ -201,17 +224,38 @@ const SORT_COLUMNS: Record<string, string> = {
 };
 
 interface LeadsQueryInput {
-  status?: string; managerId?: string; kycStatus?: string; search?: string;
+  /** The five enum-ish filters take a list, not one value: the desk works
+   * "new AND old-base" as a single view. Values within one of these are ORed,
+   * and each filter is ANDed with the others — so {status: [NEW, OLD_BASE],
+   * kycStatus: [APPROVED]} means "(new or old base) and KYC approved". An
+   * empty array is "no filter", the same as the key being absent. */
+  status?: string[]; managerId?: string[]; kycStatus?: string[];
+  verificationStatus?: string[]; source?: string[];
+  search?: string;
   fullName?: string; phone?: string; email?: string; country?: string; accountNumber?: string;
-  verificationStatus?: string;
   /** "true" = already a platform client, "false" = still just a lead. */
   converted?: "true" | "false";
-  source?: string;
   /** <input type="date"> values (YYYY-MM-DD) — widened to the whole day on
    * the "to" end, see the createdTo clause below. */
   createdFrom?: string; createdTo?: string;
   sortBy: string; sortDir: "asc" | "desc";
   page: number; pageSize: number;
+}
+
+/**
+ * A comma-separated query parameter as a validated list: `?status=NEW,OLD_BASE`
+ * → `["NEW", "OLD_BASE"]`. Absent or empty means "no filter" (undefined), so
+ * the caller can leave the key out entirely or send it blank while the user
+ * is clearing checkboxes. Each element is checked against `item`, which is
+ * what keeps an unknown status a 400 instead of a filter that matches nothing.
+ */
+function csv<T extends z.ZodTypeAny>(item: T) {
+  return z
+    .string()
+    .optional()
+    .transform((raw) => (raw ?? "").split(",").map((s) => s.trim()).filter(Boolean))
+    .pipe(z.array(item))
+    .transform((list) => (list.length ? list : undefined));
 }
 
 /**
@@ -228,12 +272,32 @@ function buildLeadsQuery(p: LeadsQueryInput): { sql: { list: string; count: stri
   const clauses: string[] = [];
   const args: Record<string, unknown> = {};
 
-  if (p.status) { clauses.push("l.status = @status"); args.status = p.status; }
-  if (p.managerId) { clauses.push("l.assigned_manager_id = @managerId"); args.managerId = p.managerId; }
-  if (p.kycStatus) { clauses.push("COALESCE(u.kyc_status, 'NONE') = @kycStatus"); args.kycStatus = p.kycStatus; }
-  if (p.verificationStatus) { clauses.push("l.verification_status = @verificationStatus"); args.verificationStatus = p.verificationStatus; }
+  /**
+   * One multi-valued filter: `col IN (@key0, @key1, …)`, with every value
+   * still a bound parameter — only the placeholder names are generated, and
+   * they are generated here, never taken from the request. A single selected
+   * value produces the same SQL as the old equality clause did.
+   */
+  const anyOf = (sqlCol: string, key: string, values: string[] | undefined) => {
+    const list = (values ?? []).filter((v) => v !== "");
+    if (list.length === 0) return;
+    const names = list.map((v, i) => {
+      args[`${key}${i}`] = v;
+      return `@${key}${i}`;
+    });
+    clauses.push(`${sqlCol} IN (${names.join(", ")})`);
+  };
+
+  anyOf("l.status", "status", p.status);
+  anyOf("l.assigned_manager_id", "managerId", p.managerId);
+  anyOf("COALESCE(u.kyc_status, 'NONE')", "kycStatus", p.kycStatus);
+  anyOf("l.verification_status", "verificationStatus", p.verificationStatus);
+  // Source is picked from the server's own DISTINCT list, so it matches
+  // exactly here rather than by LIKE — a substring match would make
+  // "Facebook" also select "Facebook Ads", which is not what ticking one
+  // box in a list of known sources means.
+  anyOf("l.source", "source", p.source);
   if (p.converted) { clauses.push(p.converted === "true" ? "l.platform_user_id IS NOT NULL" : "l.platform_user_id IS NULL"); }
-  if (p.source?.trim()) { clauses.push("LOWER(COALESCE(l.source, '')) LIKE @source"); args.source = `%${p.source.trim().toLowerCase()}%`; }
   if (p.createdFrom) { clauses.push("l.created_at >= @createdFrom"); args.createdFrom = `${p.createdFrom}T00:00:00.000Z`; }
   if (p.createdTo) { clauses.push("l.created_at <= @createdTo"); args.createdTo = `${p.createdTo}T23:59:59.999Z`; }
 
@@ -298,6 +362,30 @@ async function requirePlatformUser(leadId: string): Promise<string> {
   return row.platform_user_id as string;
 }
 
+/**
+ * Gate for rewriting a client's trade history — the one CRM action that
+ * changes figures the client already saw as final.
+ *
+ * An admin passes on their role, as they do everywhere else in this file. A
+ * manager needs three things at once, and each is doing different work:
+ * MANAGE_TRADES (an admin decided this manager may touch trades at all),
+ * being the assignee (so it is their own client, not any client), and a
+ * consent recorded for them specifically (so the client agreed to it, and to
+ * them). Losing the assignment drops the consent with it — see q.assign.
+ */
+async function requireTradeEditAccess(userId: string, lead: any): Promise<void> {
+  const role = (await q.userRole.get(userId)) as { role: string } | undefined;
+  if (role?.role === "ADMIN") return;
+
+  await requireCrmPermission(userId, "MANAGE_TRADES");
+  if (lead.assigned_manager_id !== userId) {
+    throw forbidden("Править сделки может только менеджер, назначенный ответственным по этому клиенту");
+  }
+  if (!lead.manager_consent_at || lead.manager_consent_for !== userId) {
+    throw forbidden("Нет согласия клиента на управление его сделками — отметьте его в карточке после разговора с клиентом");
+  }
+}
+
 /** Records a transition. Called inside the same transaction as the update, so
  * a status can never move without the history row that explains it. */
 async function logTransition(entry: {
@@ -331,16 +419,19 @@ export default async function crmRoutes(app: FastifyInstance) {
 
   app.get("/leads", async (req) => {
     const p = z.object({
-      status: leadStatus.optional(),
-      managerId: z.string().optional(),
-      kycStatus: z.enum(["NONE", "PENDING", "APPROVED", "REJECTED"]).optional(),
+      // Multi-valued filters arrive comma-separated ("NEW,OLD_BASE"). Each
+      // value is validated against its own enum, so an unknown one is a 400
+      // rather than a clause that silently matches nothing.
+      status: csv(leadStatus),
+      managerId: csv(z.string().min(1).max(64)),
+      kycStatus: csv(z.enum(["NONE", "PENDING", "APPROVED", "REJECTED"])),
+      verificationStatus: csv(verificationStatus),
+      source: csv(z.string().min(1).max(120)),
       search: z.string().max(120).optional(),
-      verificationStatus: verificationStatus.optional(),
       // "true"/"false" rather than z.coerce.boolean(): a query string "false"
       // would otherwise coerce to true (any non-empty string is truthy), and
       // the frontend just needs the tri-state select the string already gives.
       converted: z.enum(["true", "false"]).optional(),
-      source: z.string().max(120).optional(),
       createdFrom: z.string().optional(),
       createdTo: z.string().optional(),
       // Per-column filters, additional to (and ANDed with) the general
@@ -487,9 +578,50 @@ export default async function crmRoutes(app: FastifyInstance) {
       }
     }
 
+    // Note this drops any consent on file (see q.assign): it was given for
+    // the previous manager, and consent is not transferable.
     await q.assign.run(managerId, now(), id);
     await audit({ actorId: req.user.sub, targetUserId: managerId ?? undefined,
       action: "CRM_LEAD_ASSIGNED", meta: { leadId: id, managerId }, ip: req.ip });
+    return { lead: sLeadDetail((await q.one.get(id)) as any) };
+  });
+
+  /**
+   * Records that the client agreed to let their assigned manager act on their
+   * trades — or withdraws it. Velora has no channel through which the client
+   * could tick this themselves, so it is the desk stating what was agreed on
+   * a call: an audit record of a conversation, not consent collected in the
+   * product. It is written that way everywhere it surfaces (who recorded it,
+   * when) rather than as an anonymous green tick, because the only thing that
+   * makes it worth anything later is being able to say who stands behind it.
+   */
+  app.patch("/leads/:id/consent", async (req) => {
+    const { id } = z.object({ id: z.string() }).parse(req.params);
+    const { granted } = z.object({ granted: z.boolean() }).parse(req.body);
+
+    const lead = (await q.bare.get(id)) as any;
+    if (!lead) throw notFound("Лид не найден");
+    if (granted && !lead.assigned_manager_id) {
+      throw badRequest("NO_MANAGER", "Сначала назначьте ответственного менеджера — согласие даётся на конкретного человека");
+    }
+
+    const ts = now();
+    if (granted) await q.setConsent.run({ id, ts, by: req.user.sub, for: lead.assigned_manager_id });
+    else await q.clearConsent.run({ id, ts });
+
+    // Lands in the card's own history, not only the admin audit log: the
+    // manager reading the card is the one who needs to see that this was
+    // recorded, and by whom.
+    await q.insHistory.run({
+      id: newId(), leadId: id, managerId: req.user.sub, kind: "CONSENT",
+      old: lead.manager_consent_at ? "GRANTED" : "NONE",
+      new: granted ? "GRANTED" : "NONE", ts,
+    });
+    await audit({
+      actorId: req.user.sub, targetUserId: lead.platform_user_id ?? undefined,
+      action: granted ? "CRM_CONSENT_RECORDED" : "CRM_CONSENT_WITHDRAWN",
+      meta: { leadId: id, forManagerId: lead.assigned_manager_id }, ip: req.ip,
+    });
     return { lead: sLeadDetail((await q.one.get(id)) as any) };
   });
 
@@ -592,6 +724,95 @@ export default async function crmRoutes(app: FastifyInstance) {
       meta: { leadId: id, positionId, pnl: out(trade.pnl_scaled, 2) }, ip: req.ip });
 
     return { trade: sTrade(trade) };
+  });
+
+  /**
+   * Rewrites a closed trade or an open position and everything derived from
+   * it — see lib/tradeRewrite.ts for what that touches and why this is the
+   * one place allowed to write over history. A testing instrument: it exists
+   * to drive the engine's own P&L / fee / margin / liquidation arithmetic
+   * through scenarios that would otherwise take a market to reproduce.
+   */
+  const editTradeBody = z.object({
+    // Sent as decimal strings and scaled here, like every other money field
+    // in this API — a float would already have lost precision by the time it
+    // arrived, which is the opposite of what a precision-testing tool needs.
+    entryPrice: z.string().optional(),
+    exitPrice: z.string().optional(),
+    qty: z.string().optional(),
+    // Bounded by the same ceiling the admin instrument editor uses, not by
+    // the instrument's own max: the point of this tool is to push the
+    // arithmetic into scenarios the order form would refuse, and a leverage
+    // the platform can't represent at all is not one of them.
+    leverage: z.coerce.number().int().min(1).max(125).optional(),
+    entryTime: z.string().datetime().optional(),
+    exitTime: z.string().datetime().optional(),
+  });
+
+  async function applyTradeEdit(
+    req: any,
+    leadId: string,
+    run: (userId: string, patch: any) => Promise<{ changes: { field: string; from: string; to: string }[] }>,
+    label: string,
+    meta: Record<string, unknown>
+  ) {
+    const lead = (await q.bare.get(leadId)) as any;
+    if (!lead) throw notFound("Лид не найден");
+    await requireTradeEditAccess(req.user.sub, lead);
+    const userId = await requirePlatformUser(leadId);
+
+    const body = editTradeBody.parse(req.body);
+    const patch = {
+      entryPrice: body.entryPrice !== undefined ? toScaled(body.entryPrice) : undefined,
+      exitPrice: body.exitPrice !== undefined ? toScaled(body.exitPrice) : undefined,
+      qty: body.qty !== undefined ? toScaled(body.qty) : undefined,
+      leverage: body.leverage,
+      entryTime: body.entryTime,
+      exitTime: body.exitTime,
+    };
+
+    // One transaction covering both the rewrite and the record of it. A
+    // half-applied edit would leave the journal disagreeing with the trade it
+    // describes — precisely the state this tool exists to detect in the
+    // engine, not to create itself — and an edit that committed without its
+    // history row would be exactly the silent rewrite this whole feature is
+    // built to avoid.
+    const { changes } = await tx(async () => {
+      const result = await run(userId, patch);
+      if (result.changes.length > 0) {
+        const summary = result.changes.map((c) => `${c.field} ${c.from} → ${c.to}`).join(" · ");
+        await q.insHistory.run({
+          id: newId(), leadId, managerId: req.user.sub, kind: "TRADE_EDIT",
+          old: null, new: `${label}: ${summary}`, ts: now(),
+        });
+        await audit({
+          actorId: req.user.sub, targetUserId: userId, action: "CRM_TRADE_EDITED",
+          meta: { leadId, ...meta, changes: result.changes }, ip: req.ip,
+        });
+      }
+      return result;
+    });
+    return { changes };
+  }
+
+  app.patch("/leads/:id/trades/:tradeId", async (req) => {
+    const { id, tradeId } = z.object({ id: z.string(), tradeId: z.string() }).parse(req.params);
+    return applyTradeEdit(
+      req, id,
+      (userId, patch) => rewriteClosedTrade(tradeId, patch, userId),
+      `Сделка #${tradeId.slice(0, 8)}`,
+      { tradeId },
+    );
+  });
+
+  app.patch("/leads/:id/positions/:positionId", async (req) => {
+    const { id, positionId } = z.object({ id: z.string(), positionId: z.string() }).parse(req.params);
+    return applyTradeEdit(
+      req, id,
+      (userId, patch) => rewriteOpenPosition(positionId, patch, userId),
+      `Позиция #${positionId.slice(0, 8)}`,
+      { positionId },
+    );
   });
 
   app.delete("/leads/:id/trades/orders/:orderId", async (req) => {

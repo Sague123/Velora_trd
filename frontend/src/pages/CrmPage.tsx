@@ -10,8 +10,9 @@ import { SiteFooter } from "../components/layout/SiteFooter";
 import { classNames, fmtDateTime } from "../lib/format";
 import { toast } from "../store/toast";
 import { ApiError } from "../lib/api";
-import type { KycStatus, LeadStatus } from "../lib/types";
-import { IconChevron, IconClipboard } from "../components/icons/Icon";
+import { MultiSelect } from "../components/crm/MultiSelect";
+import type { CrmMeta, KycStatus, LeadStatus } from "../lib/types";
+import { IconChevron, IconClipboard, IconClose } from "../components/icons/Icon";
 
 const inputCls =
   "w-full rounded-lg border border-line bg-bg-2 px-2.5 py-1.5 text-xs text-txt-0 outline-none placeholder:text-txt-3 focus:border-accent";
@@ -23,8 +24,8 @@ const KYC_LABEL: Record<KycStatus, string> = {
 };
 
 const DEFAULT_FILTERS: LeadFilters = {
-  status: "", managerId: "", kycStatus: "", search: "",
-  verificationStatus: "", converted: "", source: "", createdFrom: "", createdTo: "",
+  status: [], managerId: [], kycStatus: [], verificationStatus: [], source: [],
+  search: "", converted: "", createdFrom: "", createdTo: "",
   fullName: "", phone: "", email: "", country: "", accountNumber: "",
   sortBy: "createdAt", sortDir: "desc", page: 1, pageSize: 25,
 };
@@ -144,9 +145,11 @@ export function CrmPage() {
     }));
   }
 
-  const hasAnyFilter = !!(filters.status || filters.managerId || filters.kycStatus || filters.search
+  const hasAnyFilter = !!(filters.search
     || filters.fullName || filters.phone || filters.email || filters.country || filters.accountNumber
-    || filters.verificationStatus || filters.converted || filters.source || filters.createdFrom || filters.createdTo);
+    || filters.converted || filters.createdFrom || filters.createdTo)
+    || filters.status.length > 0 || filters.managerId.length > 0 || filters.kycStatus.length > 0
+    || filters.verificationStatus.length > 0 || filters.source.length > 0;
 
   function resetAll() {
     setDrafts({ search: "", fullName: "", phone: "", email: "", country: "", accountNumber: "" });
@@ -205,39 +208,35 @@ export function CrmPage() {
           </form>
         </label>
 
-        <label className="min-w-[150px]">
+        <div className="min-w-[150px]">
           <span className="mb-1 block text-2xs font-medium text-txt-2">Статус</span>
-          <select value={filters.status} onChange={(e) => patch({ status: e.target.value as LeadStatus | "" })} className={inputCls}>
-            <option value="">Все</option>
-            {(meta.data?.statuses ?? []).map((s) => (
-              <option key={s} value={s}>{LEAD_STATUS_LABEL[s] ?? s}</option>
-            ))}
-          </select>
-        </label>
+          <MultiSelect
+            label="Статус"
+            selected={filters.status}
+            onChange={(v) => patch({ status: v as LeadStatus[] })}
+            options={(meta.data?.statuses ?? []).map((s) => ({ value: s, label: LEAD_STATUS_LABEL[s] ?? s }))}
+          />
+        </div>
 
-        <label className="min-w-[150px]">
+        <div className="min-w-[150px]">
           <span className="mb-1 block text-2xs font-medium text-txt-2">Верификация</span>
-          <select
-            value={filters.verificationStatus}
-            onChange={(e) => patch({ verificationStatus: e.target.value as LeadFilters["verificationStatus"] })}
-            className={inputCls}
-          >
-            <option value="">Все</option>
-            {(meta.data?.verificationStatuses ?? []).map((s) => (
-              <option key={s} value={s}>{VERIFICATION_LABEL[s] ?? s}</option>
-            ))}
-          </select>
-        </label>
+          <MultiSelect
+            label="Верификация"
+            selected={filters.verificationStatus}
+            onChange={(v) => patch({ verificationStatus: v as LeadFilters["verificationStatus"] })}
+            options={(meta.data?.verificationStatuses ?? []).map((s) => ({ value: s, label: VERIFICATION_LABEL[s] ?? s }))}
+          />
+        </div>
 
-        <label className="min-w-[150px]">
+        <div className="min-w-[150px]">
           <span className="mb-1 block text-2xs font-medium text-txt-2">KYC</span>
-          <select value={filters.kycStatus} onChange={(e) => patch({ kycStatus: e.target.value as LeadFilters["kycStatus"] })} className={inputCls}>
-            <option value="">Все</option>
-            {(["NONE", "PENDING", "APPROVED", "REJECTED"] as KycStatus[]).map((s) => (
-              <option key={s} value={s}>{KYC_LABEL[s]}</option>
-            ))}
-          </select>
-        </label>
+          <MultiSelect
+            label="KYC"
+            selected={filters.kycStatus}
+            onChange={(v) => patch({ kycStatus: v as LeadFilters["kycStatus"] })}
+            options={(["NONE", "PENDING", "APPROVED", "REJECTED"] as KycStatus[]).map((s) => ({ value: s, label: KYC_LABEL[s] }))}
+          />
+        </div>
 
         <label className="min-w-[150px]">
           <span className="mb-1 block text-2xs font-medium text-txt-2">Клиент</span>
@@ -252,25 +251,25 @@ export function CrmPage() {
           </select>
         </label>
 
-        <label className="min-w-[150px]">
+        <div className="min-w-[150px]">
           <span className="mb-1 block text-2xs font-medium text-txt-2">Источник</span>
-          <select value={filters.source} onChange={(e) => patch({ source: e.target.value })} className={inputCls}>
-            <option value="">Все</option>
-            {(meta.data?.sources ?? []).map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-        </label>
+          <MultiSelect
+            label="Источник"
+            selected={filters.source}
+            onChange={(v) => patch({ source: v })}
+            options={(meta.data?.sources ?? []).map((s) => ({ value: s, label: s }))}
+          />
+        </div>
 
-        <label className="min-w-[170px]">
+        <div className="min-w-[170px]">
           <span className="mb-1 block text-2xs font-medium text-txt-2">Отв.</span>
-          <select value={filters.managerId} onChange={(e) => patch({ managerId: e.target.value })} className={inputCls}>
-            <option value="">Все</option>
-            {(meta.data?.managers ?? []).map((m) => (
-              <option key={m.id} value={m.id}>{m.name}</option>
-            ))}
-          </select>
-        </label>
+          <MultiSelect
+            label="Ответственный"
+            selected={filters.managerId}
+            onChange={(v) => patch({ managerId: v })}
+            options={(meta.data?.managers ?? []).map((m) => ({ value: m.id, label: m.name }))}
+          />
+        </div>
 
         <label className="min-w-[130px]">
           <span className="mb-1 block text-2xs font-medium text-txt-2">Создан с</span>
@@ -288,6 +287,8 @@ export function CrmPage() {
           </button>
         )}
       </div>
+
+      <FilterChips filters={filters} meta={meta.data} onChange={patch} />
 
       <div className="anim-rise-3 min-h-0 flex-1 overflow-x-auto rounded-lg border border-line bg-bg-1">
         {!isLoading && (data?.leads.length ?? 0) === 0 && (
@@ -379,6 +380,84 @@ export function CrmPage() {
       )}
 
       <SiteFooter compact />
+    </div>
+  );
+}
+
+
+/**
+ * What is actually filtering the list right now, one removable chip per value.
+ *
+ * With multi-select the controls above can no longer answer this: a button
+ * reading "Выбрано: 3" says how many, not which, and a filter set across five
+ * dropdowns has no single place showing the whole picture. Each chip removes
+ * exactly its own value, so narrowing down doesn't mean reopening a menu to
+ * hunt for the one box to untick.
+ */
+function FilterChips({
+  filters, meta, onChange,
+}: {
+  filters: LeadFilters;
+  meta: CrmMeta | undefined;
+  onChange: (next: Partial<LeadFilters>) => void;
+}) {
+  const managerName = (id: string) => meta?.managers.find((m) => m.id === id)?.name ?? id;
+
+  const chips: { key: string; label: string; onRemove: () => void }[] = [];
+  const addList = <T extends string>(
+    group: string,
+    values: T[],
+    labelOf: (v: T) => string,
+    apply: (next: T[]) => Partial<LeadFilters>
+  ) => {
+    for (const v of values) {
+      chips.push({
+        key: `${group}:${v}`,
+        label: `${group}: ${labelOf(v)}`,
+        onRemove: () => onChange(apply(values.filter((x) => x !== v))),
+      });
+    }
+  };
+
+  addList("Статус", filters.status, (s) => LEAD_STATUS_LABEL[s] ?? s, (next) => ({ status: next }));
+  addList("Верификация", filters.verificationStatus, (s) => VERIFICATION_LABEL[s] ?? s, (next) => ({ verificationStatus: next }));
+  addList("KYC", filters.kycStatus, (s) => KYC_LABEL[s as KycStatus] ?? s, (next) => ({ kycStatus: next }));
+  addList("Источник", filters.source, (s) => s, (next) => ({ source: next }));
+  addList("Отв.", filters.managerId, managerName, (next) => ({ managerId: next }));
+
+  const addOne = (group: string, value: string, label: string, clear: Partial<LeadFilters>) => {
+    if (!value) return;
+    chips.push({ key: group, label: `${group}: ${label}`, onRemove: () => onChange(clear) });
+  };
+  addOne("Поиск", filters.search, filters.search, { search: "" });
+  addOne("ФИО", filters.fullName, filters.fullName, { fullName: "" });
+  addOne("Телефон", filters.phone, filters.phone, { phone: "" });
+  addOne("Email", filters.email, filters.email, { email: "" });
+  addOne("Страна", filters.country, filters.country, { country: "" });
+  addOne("Счёт", filters.accountNumber, filters.accountNumber, { accountNumber: "" });
+  addOne("Клиент", filters.converted, filters.converted === "true" ? "уже клиент" : "ещё лид", { converted: "" });
+  addOne("Создан с", filters.createdFrom, filters.createdFrom, { createdFrom: "" });
+  addOne("Создан по", filters.createdTo, filters.createdTo, { createdTo: "" });
+
+  if (chips.length === 0) return null;
+
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-1.5">
+      {chips.map((c) => (
+        <span
+          key={c.key}
+          className="inline-flex items-center gap-1 rounded-full border border-accent/40 bg-accent-soft py-0.5 pl-2 pr-1 text-2xs text-accent"
+        >
+          {c.label}
+          <button
+            onClick={c.onRemove}
+            aria-label={`Убрать фильтр ${c.label}`}
+            className="btn-fx rounded-full p-0.5 hover:bg-accent/20"
+          >
+            <IconClose size={10} />
+          </button>
+        </span>
+      ))}
     </div>
   );
 }

@@ -32,6 +32,11 @@ export const sTrade = (t: any) => ({
   qty: out(asBig(t.qty_scaled)), entryPrice: out(asBig(t.entry_scaled)),
   exitPrice: out(asBig(t.exit_scaled)), pnl: out(asBig(t.pnl_scaled), 2),
   fee: out(asBig(t.fee_scaled), 4), closeReason: t.close_reason, closedAt: t.closed_at,
+  // Both belong to the position this trade closed, and are present only when
+  // the query joined it in (see lib/accountSummary.ts). Null elsewhere rather
+  // than invented, so a caller can tell "not loaded" from "was 1x".
+  openedAt: t.opened_at ?? null,
+  leverage: t.leverage ?? null,
 });
 
 export const sLedger = (e: any) => ({
@@ -76,6 +81,22 @@ export const sLead = (l: any) => ({
  */
 export const sLeadDetail = (l: any) => ({
   ...sLead(l),
+  /**
+   * The client's consent for their assigned manager to act on their trades.
+   * `valid` is the only field the UI should gate on: consent recorded for a
+   * manager who is no longer the assignee doesn't carry over to whoever holds
+   * the lead now, and the raw columns are kept alongside so the card can say
+   * exactly that instead of silently showing "no consent".
+   */
+  managerConsent: l.manager_consent_at
+    ? {
+        at: l.manager_consent_at,
+        by: l.manager_consent_by ?? null,
+        byName: l.consent_by_name ?? null,
+        forManagerId: l.manager_consent_for ?? null,
+        valid: !!l.assigned_manager_id && l.manager_consent_for === l.assigned_manager_id,
+      }
+    : null,
   platform: l.platform_user_id
     ? {
         userId: l.platform_user_id,
