@@ -101,6 +101,17 @@ const OSC_BAND_RATIO = 0.26; // fraction of plot height reserved for the oscilla
 const PRICE_SCALE_W = 62;
 const TIME_SCALE_H = 22;
 const HIT_PX = 6;
+// A fresh load or timeframe switch shows the most recent INITIAL_VISIBLE_BARS
+// bars — enough to read price action without candles turning into hairlines,
+// never "every bar currently loaded" (which could be a handful or a
+// thousand depending on how much history happens to be cached). Kept well
+// inside the 20-30 asked for so it isn't knocked out of range by rounding.
+const INITIAL_VISIBLE_BARS = 25;
+// Empty space reserved to the right of the last candle on that same fresh
+// fit, so it doesn't sit flush against the container's edge — computed as
+// part of the view (see fitContent), not a layout margin, since the canvas
+// itself still spans the full container width.
+const INITIAL_RIGHT_PAD_PX = 80;
 
 function niceStep(range: number, targetTicks: number): number {
   if (range <= 0) return 1;
@@ -356,10 +367,21 @@ export class ChartEngine {
     if (n === 0) {
       this.viewStart = 0;
       this.viewEnd = 100;
-    } else {
-      this.viewStart = 0;
-      this.viewEnd = n;
+      this.priceOffset = 0;
+      this.scheduleRender();
+      return;
     }
+    // Show the most recent INITIAL_VISIBLE_BARS bars (or all of them, if
+    // there aren't that many yet), with INITIAL_RIGHT_PAD_PX of empty space
+    // held past the last one. barWidth is sized so exactly that many bars
+    // fill everything except the pad; the pad itself is just whatever
+    // fraction of a bar-width equals that many pixels at that size — see the
+    // class doc comment for the algebra this keeps consistent with render().
+    const visibleBars = Math.min(INITIAL_VISIBLE_BARS, n);
+    const barWidth = Math.max(1, (this.plotW - INITIAL_RIGHT_PAD_PX) / visibleBars);
+    const padBars = INITIAL_RIGHT_PAD_PX / barWidth;
+    this.viewStart = n - visibleBars;
+    this.viewEnd = n + padBars;
     this.priceOffset = 0;
     this.scheduleRender();
     // Fitting to content always parks viewStart at 0 — that's just "show

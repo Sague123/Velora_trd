@@ -237,12 +237,10 @@ export function MobileTerminal() {
           </div>
         </section>
 
-        {/* data-swipe-nav-ignore: a horizontal drag here pans the chart or
-            reads the ladder — it must never be taken for a page swipe. */}
         {mode === "chart" && (
           <>
             <IndicatorLegend />
-            <div className="h-[38vh] min-h-[200px] shrink-0 px-2.5" data-swipe-nav-ignore="">
+            <div className="h-[38vh] min-h-[200px] shrink-0 px-2.5">
               <div className="h-full overflow-hidden rounded-xl border border-line-soft">
                 <ChartPanel compact />
               </div>
@@ -250,7 +248,7 @@ export function MobileTerminal() {
           </>
         )}
         {mode === "book" && (
-          <div className="shrink-0" data-swipe-nav-ignore="">
+          <div className="shrink-0">
             <OrderBookPanel compact onPickPrice={pickPriceFromBook} />
           </div>
         )}

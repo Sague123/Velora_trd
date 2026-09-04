@@ -6,7 +6,6 @@ import { NAV_ORDER } from "./lib/navOrder";
 import { useEnsurePriceSocket } from "./hooks/useLivePrices";
 import { useBinanceTickerFeed } from "./hooks/useBinanceTickerFeed";
 import { useIsMobile } from "./hooks/useIsMobile";
-import { useSwipeNav } from "./hooks/useSwipeNav";
 import { TopBar } from "./components/layout/TopBar";
 import { MobileBottomStack } from "./components/layout/MobileBottomStack";
 import { ActiveBotsBanner } from "./components/layout/ActiveBotsBanner";
@@ -33,14 +32,15 @@ import { Spinner } from "./components/common/States";
 
 function AppLayout() {
   const location = useLocation();
-  const user = useAuthStore((s) => s.user);
   const isMobile = useIsMobile();
   // Read before this render's pathname overwrites it (the write happens in
   // the effect below, after commit) — so `prevPathRef.current` is still the
   // *previous* route while `location.pathname` is already the new one. That
-  // lets the slide direction match which way a nav click (or swipe) actually
-  // moved, the same way switching tabs on a phone slides toward the tab you
-  // tapped rather than always sliding the same way.
+  // lets the slide direction match which way a nav click actually moved, the
+  // same way switching tabs on a phone slides toward the tab you tapped
+  // rather than always sliding the same way. Tap-only: there is no swipe
+  // gesture on this shell any more (see git history if that's ever wanted
+  // back), so this only ever reacts to a route change from a nav click.
   const prevPathRef = useRef(location.pathname);
   const prevIdx = NAV_ORDER.indexOf(prevPathRef.current);
   const curIdx = NAV_ORDER.indexOf(location.pathname);
@@ -49,16 +49,6 @@ function AppLayout() {
   useEffect(() => {
     prevPathRef.current = location.pathname;
   }, [location.pathname]);
-
-  // Only the tabs this user can actually reach — swiping past the end of
-  // the visible set (e.g. a non-manager swiping right off Savings) simply
-  // does nothing, same as there being no next tab to click.
-  const visibleOrder = NAV_ORDER.filter((path) => {
-    if (path === "/crm") return user?.role === "MANAGER" || user?.role === "ADMIN";
-    if (path === "/admin") return user?.role === "ADMIN";
-    return true;
-  });
-  const swipe = useSwipeNav(visibleOrder, location.pathname, isMobile);
 
   return (
     <div className="app-shell flex flex-col bg-bg-0 text-txt-0">
@@ -79,8 +69,6 @@ function AppLayout() {
         // it instead of hiding underneath — and so the reservation follows the
         // block when it grows an extra tier on the terminal.
         style={isMobile ? { paddingBottom: "var(--mobile-stack-h, 0px)" } : undefined}
-        onTouchStart={swipe.onTouchStart}
-        onTouchEnd={swipe.onTouchEnd}
       >
         <div key={location.pathname} className={`${slideClass} h-full`}>
           <Outlet />

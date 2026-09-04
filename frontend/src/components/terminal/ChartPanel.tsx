@@ -383,10 +383,7 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
         </div>
       )}
 
-      {/* data-swipe-nav-ignore: see useSwipeNav.ts — a horizontal drag to pan
-          the chart is not an overflow-x scroll, so without this the page-swipe
-          tab-switcher would fire underneath it on mobile. */}
-      <div className="relative min-h-0 flex-1" data-swipe-nav-ignore="">
+      <div className="relative min-h-0 flex-1">
         <div ref={containerRef} className="absolute inset-0" />
 
         {/* Faint enough (3.5% opacity, see .chart-watermark) that it never
