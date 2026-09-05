@@ -27,18 +27,18 @@ const q = {
   orderForPosition: db.prepare("SELECT * FROM orders WHERE position_id = ? ORDER BY created_at LIMIT 1"),
 
   updTrade: db.prepare(`
-    UPDATE trades SET qty_scaled = @qty, entry_scaled = @entry, exit_scaled = @exit,
+    UPDATE trades SET side = @side, qty_scaled = @qty, entry_scaled = @entry, exit_scaled = @exit,
                       pnl_scaled = @pnl, fee_scaled = @fee, closed_at = @closedAt
     WHERE id = @id
   `),
   updPosition: db.prepare(`
-    UPDATE positions SET qty_scaled = @qty, entry_scaled = @entry, margin_scaled = @margin,
+    UPDATE positions SET side = @side, qty_scaled = @qty, entry_scaled = @entry, margin_scaled = @margin,
                          leverage = @leverage, liq_scaled = @liq,
                          opened_at = @openedAt, closed_at = @closedAt
     WHERE id = @id
   `),
   updOrder: db.prepare(`
-    UPDATE orders SET qty_scaled = @qty, price_scaled = @price, leverage = @leverage,
+    UPDATE orders SET side = @side, qty_scaled = @qty, price_scaled = @price, leverage = @leverage,
                       margin_scaled = @margin, fee_scaled = @fee, created_at = @createdAt
     WHERE id = @id
   `),
@@ -71,6 +71,7 @@ const q = {
 };
 
 export interface TradeEditPatch {
+  side?: Side;
   entryPrice?: bigint;
   exitPrice?: bigint;
   qty?: bigint;
@@ -78,6 +79,8 @@ export interface TradeEditPatch {
   entryTime?: string;
   exitTime?: string;
 }
+
+const directionLabel = (side: Side) => (side === "BUY" ? "Long" : "Short");
 
 export interface FieldChange {
   field: string;
@@ -112,6 +115,7 @@ async function recomputeBalances(userId: string): Promise<bigint> {
  * beats an `!` at each of the dozen call sites below. */
 const money = (v: bigint): string => out(v, 2) as string;
 const qtyText = (v: bigint): string => out(v, 8) as string;
+const priceOrDash = (v: bigint | null): string => (v === null ? "—" : out(v, 8) as string);
 
 /**
  * Applies `patch` to a closed trade and brings everything derived from it back
@@ -134,7 +138,8 @@ export async function rewriteClosedTrade(
   const position = trade.position_id ? ((await q.position.get(trade.position_id)) as any) : null;
   const order = position ? ((await q.orderForPosition.get(position.id)) as any) : null;
 
-  const side = trade.side as Side;
+  const oldSide = trade.side as Side;
+  const side = patch.side ?? oldSide;
   const oldQty = asBig(trade.qty_scaled);
   const oldEntry = asBig(trade.entry_scaled);
   const oldExit = asBig(trade.exit_scaled);
@@ -143,6 +148,7 @@ export async function rewriteClosedTrade(
   const oldLeverage: number = position?.leverage ?? order?.leverage ?? 1;
   const oldMargin = position ? asBig(position.margin_scaled) : order ? asBig(order.margin_scaled) : 0n;
   const oldEntryFee = order ? asBig(order.fee_scaled) : 0n;
+  const oldLiq: bigint | null = position?.liq_scaled != null ? asBig(position.liq_scaled) : null;
 
   const qty = patch.qty ?? oldQty;
   const entry = patch.entryPrice ?? oldEntry;
@@ -174,6 +180,7 @@ export async function rewriteClosedTrade(
   const track = (field: string, from: string, to: string) => {
     if (from !== to) changes.push({ field, from, to });
   };
+  track("Direction", directionLabel(oldSide), directionLabel(side));
   track("Entry Price", money(oldEntry), money(entry));
   track("Exit Price", money(oldExit), money(exit));
   track("Qty", qtyText(oldQty), qtyText(qty));
@@ -184,22 +191,23 @@ export async function rewriteClosedTrade(
   track("Комиссия закрытия", money(oldExitFee), money(newExitFee));
   if (order) track("Комиссия входа", money(oldEntryFee), money(newEntryFee));
   track("Маржа", money(oldMargin), money(newMargin));
+  if (position) track("Ликвидация", priceOrDash(oldLiq), priceOrDash(newLiq));
 
   if (changes.length === 0) return { changes, balance: await recomputeBalances(expectUserId) };
 
   await q.updTrade.run({
-    id: tradeId, qty, entry, exit, pnl: newPnl, fee: newExitFee, closedAt,
+    id: tradeId, side, qty, entry, exit, pnl: newPnl, fee: newExitFee, closedAt,
   });
 
   if (position) {
     await q.updPosition.run({
-      id: position.id, qty, entry, margin: newMargin, leverage,
+      id: position.id, side, qty, entry, margin: newMargin, leverage,
       liq: newLiq, openedAt, closedAt,
     });
   }
   if (order) {
     await q.updOrder.run({
-      id: order.id, qty, price: entry, leverage,
+      id: order.id, side, qty, price: entry, leverage,
       margin: newMargin, fee: newEntryFee, createdAt: openedAt,
     });
   }
@@ -265,12 +273,14 @@ export async function rewriteOpenPosition(
   if (position.status !== "OPEN") throw badRequest("NOT_OPEN", "Позиция уже закрыта — правьте её как сделку");
 
   const order = (await q.orderForPosition.get(position.id)) as any;
-  const side = position.side as Side;
+  const oldSide = position.side as Side;
+  const side = patch.side ?? oldSide;
   const oldQty = asBig(position.qty_scaled);
   const oldEntry = asBig(position.entry_scaled);
   const oldMargin = asBig(position.margin_scaled);
   const oldLeverage: number = position.leverage ?? 1;
   const oldEntryFee = order ? asBig(order.fee_scaled) : 0n;
+  const oldLiq: bigint | null = position.liq_scaled != null ? asBig(position.liq_scaled) : null;
 
   const qty = patch.qty ?? oldQty;
   const entry = patch.entryPrice ?? oldEntry;
@@ -289,22 +299,24 @@ export async function rewriteOpenPosition(
   const track = (field: string, from: string, to: string) => {
     if (from !== to) changes.push({ field, from, to });
   };
+  track("Direction", directionLabel(oldSide), directionLabel(side));
   track("Entry Price", money(oldEntry), money(entry));
   track("Qty", qtyText(oldQty), qtyText(qty));
   track("Leverage", `${oldLeverage}x`, `${leverage}x`);
   track("Entry Time", position.opened_at, openedAt);
   track("Маржа", money(oldMargin), money(newMargin));
+  track("Ликвидация", priceOrDash(oldLiq), priceOrDash(newLiq));
   if (order) track("Комиссия входа", money(oldEntryFee), money(newEntryFee));
 
   if (changes.length === 0) return { changes, balance: await recomputeBalances(expectUserId) };
 
   await q.updPosition.run({
-    id: position.id, qty, entry, margin: newMargin, leverage,
+    id: position.id, side, qty, entry, margin: newMargin, leverage,
     liq: newLiq, openedAt, closedAt: position.closed_at,
   });
   if (order) {
     await q.updOrder.run({
-      id: order.id, qty, price: entry, leverage,
+      id: order.id, side, qty, price: entry, leverage,
       margin: newMargin, fee: newEntryFee, createdAt: openedAt,
     });
 

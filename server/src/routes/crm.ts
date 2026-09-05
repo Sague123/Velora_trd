@@ -734,6 +734,7 @@ export default async function crmRoutes(app: FastifyInstance) {
    * through scenarios that would otherwise take a market to reproduce.
    */
   const editTradeBody = z.object({
+    side: z.enum(["BUY", "SELL"]).optional(),
     // Sent as decimal strings and scaled here, like every other money field
     // in this API — a float would already have lost precision by the time it
     // arrived, which is the opposite of what a precision-testing tool needs.
@@ -763,6 +764,7 @@ export default async function crmRoutes(app: FastifyInstance) {
 
     const body = editTradeBody.parse(req.body);
     const patch = {
+      side: body.side,
       entryPrice: body.entryPrice !== undefined ? toScaled(body.entryPrice) : undefined,
       exitPrice: body.exitPrice !== undefined ? toScaled(body.exitPrice) : undefined,
       qty: body.qty !== undefined ? toScaled(body.qty) : undefined,

@@ -3,7 +3,7 @@ import { apiDelete, apiGet, apiPatch, apiPost } from "../lib/api";
 import type {
   ConvertLeadResponse, CrmAccountSnapshot, CrmMeta, CrmPermission, CrmViewSnapshot,
   CrmViewTokenResponse, EditLeadInput, ImportLeadInput, LeadComment, LeadCommentsResponse,
-  LeadDetail, LeadHistoryEntry, LeadStatus, LeadVerificationStatus, LeadsResponse, Order, Trade,
+  LeadDetail, LeadHistoryEntry, LeadStatus, LeadVerificationStatus, LeadsResponse, Order, OrderSide, Trade,
 } from "../lib/types";
 
 export type LeadSortColumn =
@@ -163,6 +163,7 @@ export function useSetLeadConsent() {
 /** Fields left undefined keep their current value — the modal sends only what
  * the tester actually changed. */
 export interface TradeEditInput {
+  side?: OrderSide;
   entryPrice?: string;
   exitPrice?: string;
   qty?: string;
