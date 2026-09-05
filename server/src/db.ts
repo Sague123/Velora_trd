@@ -446,6 +446,45 @@ CREATE TABLE IF NOT EXISTS savings_accounts (
 CREATE INDEX IF NOT EXISTS idx_savings_user ON savings_accounts(user_id, status);
 CREATE INDEX IF NOT EXISTS idx_savings_active ON savings_accounts(status);
 
+-- Spot wallet: what the trader actually owns, asset by asset. Deliberately not
+-- a column on accounts — accounts.cash_scaled is the *futures* wallet, the
+-- collateral behind leveraged positions, and the whole point of this table is
+-- that the two are different money with different rules. Spot has no leverage,
+-- no margin and no liquidation; a row here is a real quantity of a real asset.
+-- USD is one of those assets (the quote asset), which is why the deposit,
+-- withdrawal and conversion routes all read and write it the same way.
+CREATE TABLE IF NOT EXISTS spot_balances (
+  user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  asset      TEXT NOT NULL,
+  qty_scaled BIGINT NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (user_id, asset)
+);
+
+-- The spot wallet's own append-only journal, the same contract ledger_entries
+-- has for cash: every quantity in spot_balances must be reconstructible by
+-- replaying these rows. Separate table rather than a column on ledger_entries
+-- because these amounts are quantities of an asset (0.42 BTC), not dollars,
+-- and putting both in one column would make a SUM over it meaningless.
+-- Nothing outside lib/spot.ts may write to either of these two tables.
+CREATE TABLE IF NOT EXISTS spot_ledger (
+  id                   TEXT PRIMARY KEY,
+  user_id              TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  asset                TEXT NOT NULL,
+  type                 TEXT NOT NULL,
+  qty_scaled           BIGINT NOT NULL,
+  balance_after_scaled BIGINT NOT NULL,
+  -- USD value of this leg at the moment it happened, for history that still
+  -- reads sensibly a month later when the price has moved. Null for legs
+  -- whose asset is USD itself, where the quantity already is the value.
+  usd_value_scaled     BIGINT,
+  ref_type             TEXT,
+  ref_id               TEXT,
+  note                 TEXT,
+  created_at           TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_spot_ledger_user ON spot_ledger(user_id, created_at);
+
 -- Identity verification. The *_url columns hold object PATHS inside a private
 -- Supabase Storage bucket, never public URLs: a passport scan reachable by URL
 -- is the exact failure this design exists to prevent. Documents are only ever

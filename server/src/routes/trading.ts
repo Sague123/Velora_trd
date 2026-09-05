@@ -6,6 +6,7 @@ import { pnlFor, type Side } from "../engine/risk.js";
 import { placeOrder, cancelOrder, closePositionById, changeLeverage, markPrice } from "../engine/execution.js";
 import { getCandles, feedStatus, quoteIsFresh } from "../engine/prices.js";
 import { postLedger, audit } from "../lib/ledger.js";
+import { postSpot, spotTotalValue, SPOT_QUOTE } from "../lib/spot.js";
 import { notFound, badRequest, conflict } from "../lib/errors.js";
 import { requireApprovedKyc } from "./kyc.js";
 import { sOrder, sPosition, sTrade, sLedger } from "./serialize.js";
@@ -184,6 +185,12 @@ export default async function tradingRoutes(app: FastifyInstance) {
     const equity = cash + usedMargin + lockedMargin + unrealised + savings;
     const wins = trades.filter((t) => asBig(t.pnl_scaled) > 0n).length;
 
+    // The spot wallet is the trader's other pocket: assets held outright,
+    // valued at the current mark. `equity` above stays exactly what it always
+    // was — the futures wallet — so nothing that reads it starts silently
+    // counting spot too; the combined figure gets its own name.
+    const spot = await spotTotalValue(req.user.sub);
+
     return {
       cash: out(cash, 2), usedMargin: out(usedMargin, 2), lockedMargin: out(lockedMargin, 2),
       savings: out(savings, 2),
@@ -192,6 +199,15 @@ export default async function tradingRoutes(app: FastifyInstance) {
       openPositions: positions.length, openOrders: openOrders.length,
       totalTrades: trades.length,
       winRatePct: trades.length ? Math.round((wins / trades.length) * 100) : null,
+      /** Everything the account holds: spot assets at market + futures equity. */
+      totalBalance: out(spot.total + equity, 2),
+      /** Value of the spot wallet (all assets, in USD). */
+      spotValue: out(spot.total, 2),
+      /** Free spot USD — and therefore exactly what a withdrawal can take.
+       * Deliberately not the futures wallet's free margin: that is collateral,
+       * it cannot leave the platform, and showing it here as "available" is
+       * the confusion this whole split exists to remove. */
+      availableToWithdraw: out(spot.usd, 2),
     };
   });
 
@@ -200,9 +216,14 @@ export default async function tradingRoutes(app: FastifyInstance) {
   }));
 
   /* ---------------------------- wallet (demo money) ------------------------ */
-  // Self-service top-up/cash-out/transfer of the demo balance. Money never
-  // leaves postLedger()'s single choke point, so the ledger stays the one
-  // source of truth these routes just add new entry types to.
+  // Self-service top-up/cash-out/transfer. Money arrives in and leaves from
+  // the SPOT wallet, never the futures one: futures cash is collateral behind
+  // leveraged positions, and letting a withdrawal reach straight into it would
+  // mean money backing an open position could walk out from under it. Getting
+  // between the two wallets is an explicit transfer (POST /api/spot/transfer).
+  //
+  // Spot moves go through postSpot() for the same reason cash moves go through
+  // postLedger(): one writer, one journal, balance always reconstructible.
   app.post("/account/deposit", { preHandler: [app.authenticate] }, async (req, reply) => {
     const body = z.object({ amount: decimal, note: z.string().max(200).optional() }).parse(req.body);
     const amount = toScaled(body.amount);
@@ -210,7 +231,10 @@ export default async function tradingRoutes(app: FastifyInstance) {
     if (amount > SELF_SERVICE_MAX) throw badRequest("AMOUNT_TOO_LARGE", `Депозит ограничен ${out(SELF_SERVICE_MAX, 2)}`);
 
     const balance = await tx(async () => {
-      const b = await postLedger({ userId: req.user.sub, type: "DEPOSIT", amountScaled: amount, note: body.note ?? "Пополнение" });
+      const b = await postSpot({
+        userId: req.user.sub, asset: SPOT_QUOTE, type: "DEPOSIT",
+        qtyScaled: amount, note: body.note ?? "Пополнение",
+      });
       await audit({ actorId: req.user.sub, targetUserId: req.user.sub, action: "SELF_DEPOSIT", meta: { amount: body.amount }, ip: req.ip });
       return b;
     });
@@ -228,7 +252,10 @@ export default async function tradingRoutes(app: FastifyInstance) {
     await requireApprovedKyc(req.user.sub);
 
     const balance = await tx(async () => {
-      const b = await postLedger({ userId: req.user.sub, type: "WITHDRAWAL", amountScaled: -amount, note: body.note ?? "Вывод" });
+      const b = await postSpot({
+        userId: req.user.sub, asset: SPOT_QUOTE, type: "WITHDRAWAL",
+        qtyScaled: -amount, note: body.note ?? "Вывод",
+      });
       await audit({ actorId: req.user.sub, targetUserId: req.user.sub, action: "SELF_WITHDRAWAL", meta: { amount: body.amount }, ip: req.ip });
       return b;
     });
@@ -252,13 +279,16 @@ export default async function tradingRoutes(app: FastifyInstance) {
     if (recipient.id === req.user.sub) throw badRequest("SELF_TRANSFER", "Нельзя перевести самому себе");
     if (recipient.status !== "ACTIVE") throw conflict("RECIPIENT_INACTIVE", "Аккаунт получателя заблокирован");
 
+    // Spot USD on both sides, for the same reason withdrawals moved there:
+    // this is money leaving one person's wallet for another's, and it must not
+    // be able to reach into collateral that is holding an open position up.
     const balance = await tx(async () => {
-      const b = await postLedger({
-        userId: req.user.sub, type: "TRANSFER_OUT", amountScaled: -amount,
+      const b = await postSpot({
+        userId: req.user.sub, asset: SPOT_QUOTE, type: "WITHDRAWAL", qtyScaled: -amount,
         refType: "TRANSFER", refId: recipient.id, note: body.note ?? `Перевод пользователю ${recipient.email}`,
       });
-      await postLedger({
-        userId: recipient.id, type: "TRANSFER_IN", amountScaled: amount,
+      await postSpot({
+        userId: recipient.id, asset: SPOT_QUOTE, type: "DEPOSIT", qtyScaled: amount,
         refType: "TRANSFER", refId: req.user.sub, note: body.note ?? `Перевод от ${req.user.email}`,
       });
       await audit({ actorId: req.user.sub, targetUserId: recipient.id, action: "USER_TRANSFER", meta: { amount: body.amount, to: recipient.email }, ip: req.ip });

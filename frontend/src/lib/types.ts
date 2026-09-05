@@ -254,12 +254,92 @@ export interface Account {
   openOrders: number;
   totalTrades: number;
   winRatePct: number | null;
+  /** Spot assets at market plus futures equity — everything the account
+   * holds, in one figure. */
+  totalBalance: string;
+  /** What the spot wallet is worth in USD, all assets included. */
+  spotValue: string;
+  /** Free spot USD, and therefore exactly what a withdrawal can take. Not the
+   * futures wallet's free margin: that is collateral and cannot leave. */
+  availableToWithdraw: string;
 }
 
 export type LedgerType =
   | "DEPOSIT" | "WITHDRAWAL" | "TRANSFER_OUT" | "TRANSFER_IN"
   | "MARGIN_HOLD" | "MARGIN_RELEASE" | "FEE" | "PNL" | "ADMIN_ADJUSTMENT"
-  | "SAVINGS_DEPOSIT" | "SAVINGS_WITHDRAWAL" | "SAVINGS_INTEREST";
+  | "SAVINGS_DEPOSIT" | "SAVINGS_WITHDRAWAL" | "SAVINGS_INTEREST"
+  | "SPOT_TRANSFER_IN" | "SPOT_TRANSFER_OUT";
+
+/* ------------------------------ spot wallet ------------------------------- */
+
+/** One asset the spot wallet can hold. USD is one of them — it is the quote
+ * asset everything else is priced in, and has no instrument of its own. */
+export interface SpotAsset {
+  asset: string;
+  name: string;
+  symbol: string | null;
+  category: string;
+  priceDecimals: number;
+  price: string | null;
+}
+
+export interface SpotHolding extends SpotAsset {
+  qty: string | null;
+  value: string | null;
+  /** False when there is no usable quote, in which case `value` is null
+   * rather than a stale guess. */
+  priced: boolean;
+}
+
+export interface SpotWallet {
+  quoteAsset: string;
+  holdings: SpotHolding[];
+  availableUsd: string;
+  totalValueUsd: string;
+  /** False when at least one holding could not be valued, so the total is
+   * known to be incomplete. */
+  pricedFully: boolean;
+}
+
+export type SpotLedgerType =
+  | "DEPOSIT" | "WITHDRAWAL"
+  | "TRANSFER_TO_FUTURES" | "TRANSFER_FROM_FUTURES"
+  | "BUY" | "SELL" | "CONVERT_IN" | "CONVERT_OUT" | "ADMIN_ADJUSTMENT";
+
+export interface SpotLedgerEntry {
+  id: string;
+  asset: string;
+  type: SpotLedgerType;
+  qty: string;
+  balanceAfter: string;
+  usdValue: string | null;
+  refType: string | null;
+  refId: string | null;
+  note: string | null;
+  createdAt: string;
+}
+
+export interface SpotQuote {
+  fromAsset: string;
+  toAsset: string;
+  available: string;
+  grossUsd: string;
+  feeUsd: string;
+  receive: string;
+  rate: string;
+  fromPrice: string;
+  toPrice: string;
+}
+
+export interface SpotExchangeResult {
+  fromAsset: string;
+  toAsset: string;
+  fromQty: string;
+  toQty: string;
+  grossUsd: string;
+  feeUsd: string;
+  rate: string;
+}
 
 export interface LedgerEntry {
   id: string;

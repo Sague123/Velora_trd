@@ -8,7 +8,12 @@ export type LedgerType =
   // account, so it goes through this journal like everything else: the cash
   // balance stays reconstructible from these rows alone, and the savings
   // principal is the running total of DEPOSIT minus WITHDRAWAL against it.
-  | "SAVINGS_DEPOSIT" | "SAVINGS_WITHDRAWAL" | "SAVINGS_INTEREST";
+  | "SAVINGS_DEPOSIT" | "SAVINGS_WITHDRAWAL" | "SAVINGS_INTEREST"
+  // The futures side of a spot<->futures transfer. The spot side is journalled
+  // separately in spot_ledger (quantities of an asset, not dollars), so these
+  // two rows are what keeps the *cash* balance reconstructible from this
+  // table alone, exactly as before spot existed.
+  | "SPOT_TRANSFER_IN" | "SPOT_TRANSFER_OUT";
 
 export interface LedgerMove {
   userId: string;

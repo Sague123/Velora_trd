@@ -15,6 +15,10 @@ const TYPE_LABEL: Record<LedgerEntry["type"], string> = {
   SAVINGS_DEPOSIT: "To savings",
   SAVINGS_WITHDRAWAL: "From savings",
   SAVINGS_INTEREST: "Savings interest",
+  // The futures side of a wallet transfer. Named from this journal's point of
+  // view — it is the cash ledger, so "in" means cash arrived here from spot.
+  SPOT_TRANSFER_IN: "From spot wallet",
+  SPOT_TRANSFER_OUT: "To spot wallet",
 };
 
 export function LedgerTable({ entries }: { entries: LedgerEntry[] }) {

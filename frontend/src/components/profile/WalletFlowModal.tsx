@@ -100,7 +100,15 @@ export function WalletFlowModal({ method, onClose }: { method: WalletMethod; onC
         <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-txt-0">
           <meta.Icon size={18} /> {meta.title}
         </div>
-        {account && <div className="mb-4 text-2xs text-txt-3">Доступно: <span className="tabular text-txt-1">{fmtUsd(account.cash)}</span></div>}
+        {/* Spot USD, not futures cash: deposits land in the spot wallet and
+            withdrawals leave from it, so this is the figure that actually
+            bounds what the form can do. */}
+        {account && (
+          <div className="mb-4 text-2xs text-txt-3">
+            {method === "deposit" ? "В спот-кошельке" : "Доступно к выводу"}:{" "}
+            <span className="tabular text-txt-1">{fmtUsd(account.availableToWithdraw)}</span>
+          </div>
+        )}
 
         {phase === "method" && (
           <div className="flex flex-col gap-2">

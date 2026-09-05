@@ -8,6 +8,8 @@ import { useLedger, useOrders, usePositions, useTrades } from "../hooks/useTradi
 import { useUpdateProfile } from "../hooks/useProfile";
 import { BalanceChart } from "../components/profile/BalanceChart";
 import { BalanceStats } from "../components/profile/BalanceStats";
+import { SpotWalletCard } from "../components/profile/SpotWalletCard";
+import { SpotHoldingsPanel } from "../components/profile/SpotHoldingsPanel";
 import { WalletActions, RecentWalletActivity } from "../components/profile/WalletActions";
 import { TradeHistoryTab } from "../components/profile/TradeHistoryTab";
 import { AvatarUpload } from "../components/profile/AvatarUpload";
@@ -159,7 +161,7 @@ function SettingsTab() {
 }
 
 function PortfolioTab({ onGoTrade }: { onGoTrade: () => void }) {
-  const [sub, setSub] = useState<"positions" | "orders" | "history" | "ledger">("positions");
+  const [sub, setSub] = useState<"positions" | "spot" | "orders" | "history" | "ledger">("positions");
   const [orderStatus, setOrderStatus] = useState<OrderStatus | "ALL">("NEW");
   const positions = usePositions(sub === "positions");
   const orders = useOrders(orderStatus, sub === "orders");
@@ -175,7 +177,13 @@ function PortfolioTab({ onGoTrade }: { onGoTrade: () => void }) {
       <div className="flex shrink-0 flex-wrap items-center gap-0.5 border-b border-line px-1">
         {(
           [
+            // Positions are the futures/perp side — leveraged contracts that
+            // track a price. Spot Holdings are the assets themselves. They sit
+            // side by side rather than merged because they are not the same
+            // kind of thing: one has leverage and a liquidation price, the
+            // other cannot be liquidated at all.
             ["positions", "Positions"],
+            ["spot", "Spot Holdings"],
             ["orders", "Orders"],
             ["history", "Trade History"],
             ["ledger", "Ledger"],
@@ -214,6 +222,7 @@ function PortfolioTab({ onGoTrade }: { onGoTrade: () => void }) {
             )}
           </>
         )}
+        {sub === "spot" && <SpotHoldingsPanel onGoTrade={onGoTrade} />}
         {sub === "orders" && (
           <>
             {orders.isLoading && <LoadingRow />}
@@ -331,6 +340,7 @@ export function ProfilePage() {
         {tab === "account" && (
           <div className="flex flex-col gap-4">
             <WalletActions />
+            <SpotWalletCard />
             <BalanceStats />
             <BalanceChart />
             <RecentWalletActivity onSeeAll={() => setTab("history")} />

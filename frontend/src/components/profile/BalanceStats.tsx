@@ -1,5 +1,6 @@
 import { useMemo, type ReactNode } from "react";
 import { useAccount, useLedger } from "../../hooks/useTrading";
+import { useSpotLedger } from "../../hooks/useSpot";
 import { useAuthStore } from "../../store/auth";
 import { classNames, fmtRate, fmtSigned, fmtUsd } from "../../lib/format";
 import { ErrorRow, SkeletonBar } from "../common/States";
@@ -47,11 +48,19 @@ export function BalanceStats() {
   const user = useAuthStore((s) => s.user);
   const account = useAccount(!!user);
   const ledger = useLedger(!!user);
+  const spot = useSpotLedger(!!user);
 
   const stats = useMemo(() => {
-    const entries = ledger.data?.entries ?? [];
     let deposited = 0, withdrawn = 0, transferIn = 0, transferOut = 0, fees = 0;
-    for (const e of entries) {
+
+    // The cash journal. Deposits and withdrawals only appear here for accounts
+    // funded before money moved to the spot wallet (and for the registration
+    // credit, which still lands in futures) — they are counted because that
+    // money is just as real, not because new ones arrive this way.
+    // SPOT_TRANSFER_* rows are deliberately skipped: moving money between two
+    // of your own wallets is not a contribution, and counting it would make
+    // ROI swing every time someone topped up their margin.
+    for (const e of ledger.data?.entries ?? []) {
       const amt = Number(e.amount);
       if (e.type === "DEPOSIT") deposited += amt;
       else if (e.type === "WITHDRAWAL") withdrawn += Math.abs(amt);
@@ -59,20 +68,34 @@ export function BalanceStats() {
       else if (e.type === "TRANSFER_OUT") transferOut += Math.abs(amt);
       else if (e.type === "FEE") fees += Math.abs(amt);
     }
-    const netContributions = deposited - withdrawn + transferIn - transferOut;
-    const equity = account.data ? Number(account.data.equity) : null;
-    const roi = equity !== null && netContributions > 0 ? ((equity - netContributions) / netContributions) * 100 : null;
-    return { deposited, withdrawn, transferIn, transferOut, fees, netContributions, roi };
-  }, [ledger.data, account.data]);
 
-  if (account.isLoading || ledger.isLoading) {
+    // The spot journal, where deposits, withdrawals and peer transfers live
+    // now. Only its USD rows: a BTC purchase moves value between two assets
+    // the account already owns, so it is neither money in nor money out.
+    for (const e of spot.data?.entries ?? []) {
+      if (e.asset !== "USD") continue;
+      const qty = Number(e.qty);
+      if (e.type === "DEPOSIT") deposited += qty;
+      else if (e.type === "WITHDRAWAL") withdrawn += Math.abs(qty);
+    }
+
+    const netContributions = deposited - withdrawn + transferIn - transferOut;
+    // Measured against everything the account holds, not against futures
+    // equity alone — otherwise moving money into the spot wallet reads as a
+    // catastrophic loss, which is exactly what it looked like before.
+    const total = account.data ? Number(account.data.totalBalance) : null;
+    const roi = total !== null && netContributions > 0 ? ((total - netContributions) / netContributions) * 100 : null;
+    return { deposited, withdrawn, transferIn, transferOut, fees, netContributions, roi };
+  }, [ledger.data, spot.data, account.data]);
+
+  if (account.isLoading || ledger.isLoading || spot.isLoading) {
     return (
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
         {Array.from({ length: 11 }).map((_, i) => <StatSkeleton key={i} />)}
       </div>
     );
   }
-  if (account.isError || ledger.isError) return <ErrorRow label="Не удалось загрузить статистику" onRetry={() => { account.refetch(); ledger.refetch(); }} />;
+  if (account.isError || ledger.isError) return <ErrorRow label="Не удалось загрузить статистику" onRetry={() => { account.refetch(); ledger.refetch(); spot.refetch(); }} />;
   if (!account.data) return null;
   const a = account.data;
 
@@ -81,8 +104,9 @@ export function BalanceStats() {
       {/* Capital first, and on its own wider grid: "how much do I have and how
           is it going" is the question this screen gets opened for. */}
       <StatGroup title="Капитал и результат">
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-          <Stat label="Equity" value={fmtUsd(a.equity)} />
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">
+          <Stat label="Total Balance" value={fmtUsd(a.totalBalance)} sub="спот + фьючерсы" />
+          <Stat label="Futures Equity" value={fmtUsd(a.equity)} sub="залог под позиции" />
           <Stat label="Realised PnL" value={fmtSigned(a.realisedPnl)} tone={Number(a.realisedPnl) >= 0 ? "buy" : "sell"} />
           <Stat label="Unrealised PnL" value={fmtSigned(a.unrealisedPnl)} tone={Number(a.unrealisedPnl) >= 0 ? "buy" : "sell"} />
           <Stat label="ROI (net contributions)" value={stats.roi !== null ? `${stats.roi >= 0 ? "+" : ""}${stats.roi.toFixed(1)}%` : "—"} tone={stats.roi !== null ? (stats.roi >= 0 ? "buy" : "sell") : undefined} />

@@ -17,6 +17,7 @@ import adminRoutes from "./routes/admin.js";
 import strategyRoutes from "./routes/strategies.js";
 import kycRoutes from "./routes/kyc.js";
 import savingsRoutes from "./routes/savings.js";
+import spotRoutes from "./routes/spot.js";
 import crmRoutes from "./routes/crm.js";
 import crmViewRoutes from "./routes/crmView.js";
 import { onPriceUpdate, allPrices, feedStatus } from "./engine/prices.js";
@@ -140,6 +141,7 @@ export async function buildApp() {
   await app.register(strategyRoutes, { prefix: "/api/strategies" });
   await app.register(kycRoutes, { prefix: "/api/kyc" });
   await app.register(savingsRoutes, { prefix: "/api/savings" });
+  await app.register(spotRoutes, { prefix: "/api/spot" });
   await app.register(crmRoutes, { prefix: "/api/crm" });
   // Public: consuming a one-time support link needs no manager session — see
   // routes/crmView.ts for why this sits outside the /api/crm plugin.
