@@ -97,6 +97,11 @@ export const IconHistory = (p: IconProps) => base({ ...p, children: <><circle cx
 export const IconSliders = (p: IconProps) => base({ ...p, children: <><path d="M4 6h6M14 6h6M4 12h10M18 12h2M4 18h13M21 18h-1" /><circle cx="10" cy="6" r="2" /><circle cx="16" cy="12" r="2" /><circle cx="20" cy="18" r="2" /></> });
 export const IconDots = (p: IconProps) => base({ ...p, children: <><circle cx="5" cy="12" r="1.3" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none" /><circle cx="19" cy="12" r="1.3" fill="currentColor" stroke="none" /></> });
 export const IconShield = (p: IconProps) => base({ ...p, children: <><path d="M12 3l7 3v5.5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6Z" /><path d="M9 12l2 2 4-4" /></> });
+// Transport controls for a running bot. Filled, not outlined: at 12-13px an
+// outlined pause reads as two hairlines and loses against the label beside it.
+export const IconPlay = (p: IconProps) => base({ ...p, children: <path d="M8 5.5v13l11-6.5Z" fill="currentColor" /> });
+export const IconPause = (p: IconProps) => base({ ...p, children: <><rect x="7" y="5" width="3.5" height="14" rx="1" fill="currentColor" stroke="none" /><rect x="13.5" y="5" width="3.5" height="14" rx="1" fill="currentColor" stroke="none" /></> });
+export const IconStop = (p: IconProps) => base({ ...p, children: <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none" /> });
 
 // Solid glyphs: a small set of filled (not stroked) icons for spots that
 // want a heavier, more literal mark than the line set above — direction
