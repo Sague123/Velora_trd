@@ -1,56 +1,78 @@
 import { useState } from "react";
 import { useSpotWallet } from "../../hooks/useSpot";
-import { useAccount } from "../../hooks/useTrading";
-import { classNames, fmtPrice, fmtUsd, n } from "../../lib/format";
+import { fmtPrice, fmtUsd, n } from "../../lib/format";
 import { ErrorRow, SkeletonLines } from "../common/States";
-import { Tooltip } from "../common/Tooltip";
-import { SpotExchangeModal, type ExchangeMode } from "./SpotExchangeModal";
-import { SpotTransferModal } from "./SpotTransferModal";
-import { IconCoin, IconSwap, IconTrendDown, IconTrendUp, IconWarning } from "../icons/Icon";
+import { IconChevron, IconWarning } from "../icons/Icon";
 
-const actionCls =
-  "btn-fx tap-sm flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-2xs font-semibold transition-colors";
+const HIDE_THRESHOLD_USD = 1;
 
 /**
- * The spot wallet on the Account screen: what is actually owned, asset by
- * asset, and the three things that can be done with it.
+ * The Spot section of the Account screen: a summary, three of the largest
+ * holdings as quick tiles, and — behind "Показать все" — the full list.
  *
- * It sits beside the futures figures rather than replacing them, because the
- * two answer different questions — "what do I own" versus "what is backing my
- * open positions" — and the account's headline numbers are built from both.
+ * Deliberately holds no actions of its own (Buy/Sell/Convert live in the
+ * shared actions row below it) and no futures figures — this card answers
+ * exactly one question, "what do I own", the same way Positions and Spot
+ * Holdings stay two separate tabs on Portfolio rather than one merged table.
  */
-export function SpotWalletCard({ compact = false }: { compact?: boolean }) {
+export function SpotWalletCard({ onTrade }: { onTrade?: (asset: string) => void }) {
   const wallet = useSpotWallet();
-  const { data: account } = useAccount(true);
-  const [exchange, setExchange] = useState<{ mode: ExchangeMode; asset?: string } | null>(null);
-  const [transferOpen, setTransferOpen] = useState(false);
+  const [hideSmall, setHideSmall] = useState(true);
+  const [expanded, setExpanded] = useState(false);
 
   if (wallet.isLoading) return <SkeletonLines lines={4} />;
   if (wallet.isError) return <ErrorRow label="Не удалось загрузить спот-кошелёк" onRetry={() => wallet.refetch()} />;
   if (!wallet.data) return null;
 
-  const { holdings, availableUsd, totalValueUsd, pricedFully, quoteAsset } = wallet.data;
-  const assetsHeld = holdings.filter((h) => h.asset !== quoteAsset && n(h.qty) > 0);
+  const { holdings, totalValueUsd, pricedFully, quoteAsset } = wallet.data;
+  // What's actually "held": USD always counts as the wallet's cash line, even
+  // at zero; anything else only counts once there is a real, non-zero amount.
+  const held = holdings.filter((h) => h.asset === quoteAsset || n(h.qty) > 0);
+  // A handful of rows at most — sorting them fresh each render is cheaper
+  // than the bookkeeping a memo would need, and skipping it keeps every hook
+  // above the component's early returns instead of after them.
+  const quickAssets = [...held].sort((a, b) => n(b.value) - n(a.value)).slice(0, 3);
+
+  // A holding with no usable quote is never hidden by the threshold — there is
+  // no value to compare against $1, and hiding it would silently drop an asset
+  // the trader still owns off the screen.
+  const visible = held.filter((h) => h.asset === quoteAsset || !hideSmall || h.value === null || n(h.value) >= HIDE_THRESHOLD_USD);
 
   return (
     <section className="rounded-lg border border-line bg-bg-1">
-      {exchange && (
-        <SpotExchangeModal mode={exchange.mode} initialAsset={exchange.asset} onClose={() => setExchange(null)} />
-      )}
-      {transferOpen && <SpotTransferModal onClose={() => setTransferOpen(false)} />}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line-soft px-3.5 py-3">
+        <div>
+          <div className="text-sm font-semibold text-txt-0">Спот</div>
+          <div className="text-2xs text-txt-3">Доступные активы</div>
+        </div>
+        <div className="text-right">
+          <div className="tabular text-sm font-bold text-txt-0">{fmtUsd(totalValueUsd)}</div>
+          <div className="text-2xs text-txt-3">{held.length} {held.length === 1 ? "актив" : "активов"}</div>
+        </div>
+      </div>
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-line-soft px-3 py-2.5">
-        <span className="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wide text-txt-2">
-          <IconCoin size={13} /> Спот-кошелёк
-        </span>
-        <span className="ml-auto text-right">
-          <span className="block text-[9px] uppercase tracking-wide text-txt-3">Стоимость активов</span>
-          <span className="tabular text-sm font-bold text-txt-0">{fmtUsd(totalValueUsd)}</span>
-        </span>
-        <span className="text-right">
-          <span className="block text-[9px] uppercase tracking-wide text-txt-3">Свободно {quoteAsset}</span>
-          <span className="tabular text-sm font-bold text-txt-0">{fmtUsd(availableUsd)}</span>
-        </span>
+      {/* Three widest holdings, always visible — the answer to "what do I
+          mostly hold" without opening the full list. */}
+      <div className="grid grid-cols-3 divide-x divide-line-soft border-b border-line-soft">
+        {quickAssets.map((a) => (
+          <div key={a.asset} className="min-w-0 px-2 py-3">
+            <div className="mb-1.5 flex items-center gap-1.5">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-bg-3 text-[9px] font-bold text-txt-1">
+                {a.asset.slice(0, 1)}
+              </span>
+              <span className="truncate text-2xs font-bold text-txt-0">{a.asset}</span>
+            </div>
+            <div className="truncate text-xs font-semibold tabular text-txt-0">{a.qty}</div>
+            <div className="mt-0.5 truncate text-2xs tabular text-txt-3">{a.value === null ? "—" : fmtUsd(a.value)}</div>
+          </div>
+        ))}
+        {/* Fewer than 3 assets held (a brand-new wallet) — empty cells rather
+            than stretching the remaining tiles, so the grid stays a fixed
+            3-column reference and the tap targets don't shift as assets get
+            bought and sold. */}
+        {Array.from({ length: Math.max(0, 3 - quickAssets.length) }).map((_, i) => (
+          <div key={`empty-${i}`} className="px-2 py-3" />
+        ))}
       </div>
 
       {!pricedFully && (
@@ -60,48 +82,28 @@ export function SpotWalletCard({ compact = false }: { compact?: boolean }) {
         </div>
       )}
 
-      <div className="flex flex-wrap gap-1.5 border-b border-line-soft px-3 py-2">
-        <button onClick={() => setExchange({ mode: "buy" })} className={classNames(actionCls, "border-buy/50 text-buy hover:bg-buy-soft")}>
-          <IconTrendUp size={12} /> Купить
-        </button>
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5">
+        <label className="flex cursor-pointer items-center gap-1.5 text-2xs text-txt-3">
+          <input
+            type="checkbox"
+            checked={hideSmall}
+            onChange={(e) => setHideSmall(e.target.checked)}
+            className="accent-accent"
+          />
+          Скрывать активы дешевле ${HIDE_THRESHOLD_USD}
+        </label>
         <button
-          onClick={() => setExchange({ mode: "sell", asset: assetsHeld[0]?.asset })}
-          disabled={assetsHeld.length === 0}
-          className={classNames(actionCls, "border-sell/50 text-sell hover:bg-sell-soft disabled:opacity-40")}
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="btn-fx flex items-center gap-1 text-2xs font-semibold text-accent hover:underline"
         >
-          <IconTrendDown size={12} /> Продать
-        </button>
-        <button
-          onClick={() => setExchange({ mode: "convert", asset: assetsHeld[0]?.asset })}
-          className={classNames(actionCls, "border-line text-txt-2 hover:text-txt-0")}
-        >
-          <IconSwap size={12} /> Конвертировать
-        </button>
-        <button
-          onClick={() => setTransferOpen(true)}
-          className={classNames(actionCls, "ml-auto border-accent/50 text-accent hover:bg-accent-soft")}
-        >
-          <IconSwap size={12} /> Перевод ↔ Фьючерсы
+          {expanded ? "Свернуть" : `Показать все (${visible.length})`}
+          <IconChevron size={11} direction={expanded ? "up" : "down"} />
         </button>
       </div>
 
-      <SpotHoldingsList holdings={holdings} quoteAsset={quoteAsset} onTrade={(asset) => setExchange({ mode: "sell", asset })} compact={compact} />
-
-      {/* The futures wallet gets one line here, not a second panel: this card
-          is about spot, and the only thing worth saying is that the other
-          pocket exists and how much is in it. */}
-      {account && (
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line-soft px-3 py-2 text-2xs">
-          <span className="text-txt-3">
-            Фьючерсный кошелёк (залог под позиции):{" "}
-            <span className="tabular text-txt-1">{fmtUsd(account.equity)}</span>
-          </span>
-          <Tooltip label="Свободная маржа — это залог, а не свободные деньги: вывести её напрямую нельзя, сначала нужен перевод в спот.">
-            <span className="cursor-help text-txt-3 underline decoration-dotted">
-              свободно {fmtUsd(account.cash)}
-            </span>
-          </Tooltip>
-        </div>
+      {expanded && (
+        <SpotHoldingsList holdings={visible} quoteAsset={quoteAsset} onTrade={onTrade} />
       )}
     </section>
   );
@@ -134,7 +136,7 @@ export function SpotHoldingsList({
     <div className="overflow-x-auto">
       <table className="w-full text-2xs">
         <thead>
-          <tr className="border-b border-line-soft text-left text-txt-3">
+          <tr className="border-b border-t border-line-soft text-left text-txt-3">
             <th className="px-3 py-1.5 font-medium">Актив</th>
             <th className="px-3 py-1.5 text-right font-medium">Количество</th>
             {!compact && <th className="px-3 py-1.5 text-right font-medium">Цена</th>}

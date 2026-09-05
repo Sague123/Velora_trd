@@ -61,7 +61,13 @@ export function BalanceChart() {
     <div className="rounded border border-line bg-bg-1 p-3">
       <div className="mb-2 flex items-center justify-between">
         <div>
-          <div className="text-2xs font-semibold uppercase tracking-wide text-txt-2">Cash Balance History</div>
+          {/* Explicitly "Futures Cash", not "Balance" — this traces one
+              journal (accounts.cash_scaled), and since deposits/withdrawals
+              and Spot<->Futures transfers now move money through the spot
+              wallet, a transfer out reads here as a sharp cash drop even
+              though nothing was lost. Total Balance above is the honest
+              combined figure; this chart is deliberately narrower than that. */}
+          <div className="text-2xs font-semibold uppercase tracking-wide text-txt-2">Futures Cash History</div>
           {change !== null && (
             <div className={classNames("tabular text-xs font-medium", change >= 0 ? "text-buy" : "text-sell")}>
               {change >= 0 ? "+" : ""}{fmtUsd(change)} ({changePct?.toFixed(1)}%) за {range === "7D" ? "7 дней" : "30 дней"}

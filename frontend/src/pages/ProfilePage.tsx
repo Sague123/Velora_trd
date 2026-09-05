@@ -6,11 +6,8 @@ import { useSettingsStore } from "../store/settings";
 import { useThemeStore } from "../store/theme";
 import { useLedger, useOrders, usePositions, useTrades } from "../hooks/useTrading";
 import { useUpdateProfile } from "../hooks/useProfile";
-import { BalanceChart } from "../components/profile/BalanceChart";
-import { BalanceStats } from "../components/profile/BalanceStats";
-import { SpotWalletCard } from "../components/profile/SpotWalletCard";
+import { AccountOverview } from "../components/profile/AccountOverview";
 import { SpotHoldingsPanel } from "../components/profile/SpotHoldingsPanel";
-import { WalletActions, RecentWalletActivity } from "../components/profile/WalletActions";
 import { TradeHistoryTab } from "../components/profile/TradeHistoryTab";
 import { AvatarUpload } from "../components/profile/AvatarUpload";
 import { SecurityTab } from "../components/profile/SecurityTab";
@@ -338,13 +335,7 @@ export function ProfilePage() {
             the last few movements — the sequence someone actually reads,
             instead of two tabs each holding half of it. */}
         {tab === "account" && (
-          <div className="flex flex-col gap-4">
-            <WalletActions />
-            <SpotWalletCard />
-            <BalanceStats />
-            <BalanceChart />
-            <RecentWalletActivity onSeeAll={() => setTab("history")} />
-          </div>
+          <AccountOverview onSeeAllHistory={() => setTab("history")} />
         )}
 
         {tab === "portfolio" && <PortfolioTab onGoTrade={() => navigate("/terminal")} />}

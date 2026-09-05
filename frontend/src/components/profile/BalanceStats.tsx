@@ -101,12 +101,11 @@ export function BalanceStats() {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Capital first, and on its own wider grid: "how much do I have and how
-          is it going" is the question this screen gets opened for. */}
-      <StatGroup title="Капитал и результат">
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">
-          <Stat label="Total Balance" value={fmtUsd(a.totalBalance)} sub="спот + фьючерсы" />
-          <Stat label="Futures Equity" value={fmtUsd(a.equity)} sub="залог под позиции" />
+      {/* Total Balance and Futures Equity already lead the screen (the header
+          card and the Futures card below), so this group leads with the
+          result those two don't show on their own: realised, unrealised, ROI. */}
+      <StatGroup title="Результат">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           <Stat label="Realised PnL" value={fmtSigned(a.realisedPnl)} tone={Number(a.realisedPnl) >= 0 ? "buy" : "sell"} />
           <Stat label="Unrealised PnL" value={fmtSigned(a.unrealisedPnl)} tone={Number(a.unrealisedPnl) >= 0 ? "buy" : "sell"} />
           <Stat label="ROI (net contributions)" value={stats.roi !== null ? `${stats.roi >= 0 ? "+" : ""}${stats.roi.toFixed(1)}%` : "—"} tone={stats.roi !== null ? (stats.roi >= 0 ? "buy" : "sell") : undefined} />
