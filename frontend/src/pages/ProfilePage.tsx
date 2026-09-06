@@ -306,13 +306,15 @@ export function ProfilePage() {
         </button>
       </div>
 
-      {/* Scrolls rather than wraps: five tabs don't fit one line on a 375px
-          phone, and wrapping them cost the persistent header a second row of
-          height on exactly the screens with least of it to give. No popovers
-          live in here, so the overflow-x doesn't clip anything vertically. */}
+      {/* Wraps rather than scrolls. Five tabs don't fit one line on a 375px
+          phone; scrolling them was cheaper in height but it put a second
+          sideways-draggable strip on a screen that is meant to move only
+          vertically — and it clipped "Настройки" off the right edge, so the
+          last tab was findable only by dragging. A wrapped second row costs
+          one line and hides nothing. */}
       <div
-        className="no-scrollbar mt-3 flex shrink-0 gap-0.5 overflow-x-auto rounded border border-line bg-bg-1 p-0.5"
-        style={{ width: "fit-content", maxWidth: "100%" }}
+        className="mt-3 flex shrink-0 flex-wrap gap-0.5 rounded-lg border border-line bg-bg-1 p-0.5"
+        style={{ maxWidth: "100%" }}
       >
         {(
           [
@@ -323,7 +325,7 @@ export function ProfilePage() {
             ["settings", t("profileTabs.settings")],
           ] as [Tab, string][]
         ).map(([id, label]) => (
-          <button key={id} onClick={() => setTab(id)} className={classNames("btn-fx tap-sm shrink-0 whitespace-nowrap rounded px-3 py-1.5 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent", tab === id ? "bg-accent-soft text-accent" : "text-txt-2")}>
+          <button key={id} onClick={() => setTab(id)} className={classNames("btn-fx tap-sm whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent", tab === id ? "bg-accent-soft text-accent" : "text-txt-2")}>
             {label}
           </button>
         ))}

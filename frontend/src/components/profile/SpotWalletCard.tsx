@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { useSpotWallet } from "../../hooks/useSpot";
-import { fmtPrice, fmtUsd, n } from "../../lib/format";
+import { classNames, fmtAmount, fmtPrice, fmtUsd, n } from "../../lib/format";
 import { ErrorRow, SkeletonLines } from "../common/States";
 import { IconChevron, IconWarning } from "../icons/Icon";
 
 const HIDE_THRESHOLD_USD = 1;
 
 /**
- * The Spot section of the Account screen: a summary, three of the largest
- * holdings as quick tiles, and — behind "Показать все" — the full list.
+ * The Spot section of the Account screen: a summary, every holding as a
+ * sideways-scrolling ribbon, and — behind "Показать все" — the full table.
  *
  * Deliberately holds no actions of its own (Buy/Sell/Convert live in the
  * shared actions row below it) and no futures figures — this card answers
@@ -31,7 +31,7 @@ export function SpotWalletCard({ onTrade }: { onTrade?: (asset: string) => void 
   // A handful of rows at most — sorting them fresh each render is cheaper
   // than the bookkeeping a memo would need, and skipping it keeps every hook
   // above the component's early returns instead of after them.
-  const quickAssets = [...held].sort((a, b) => n(b.value) - n(a.value)).slice(0, 3);
+  const ribbon = [...held].sort((a, b) => n(b.value) - n(a.value));
 
   // A holding with no usable quote is never hidden by the threshold — there is
   // no value to compare against $1, and hiding it would silently drop an asset
@@ -51,27 +51,35 @@ export function SpotWalletCard({ onTrade }: { onTrade?: (asset: string) => void 
         </div>
       </div>
 
-      {/* Three widest holdings, always visible — the answer to "what do I
-          mostly hold" without opening the full list. */}
-      <div className="grid grid-cols-3 divide-x divide-line-soft border-b border-line-soft">
-        {quickAssets.map((a) => (
-          <div key={a.asset} className="min-w-0 px-2 py-3">
+      {/* A ribbon rather than a fixed grid: holdings are a list of unknown
+          length, and a 3-cell grid either hid the rest or squeezed the
+          quantities into ellipses. Every held asset gets a card of its own
+          width here and the strip scrolls sideways *within itself* — the one
+          place on this screen where sideways movement is intended. */}
+      <div className="no-scrollbar flex gap-2 overflow-x-auto border-b border-line-soft px-3 py-3">
+        {ribbon.map((a) => (
+          <button
+            key={a.asset}
+            type="button"
+            onClick={a.asset === quoteAsset || !a.symbol ? undefined : () => onTrade?.(a.asset)}
+            className={classNames(
+              "w-[132px] shrink-0 rounded-xl border border-line-soft bg-bg-2 px-2.5 py-2 text-left",
+              a.asset !== quoteAsset && a.symbol && "btn-fx hover:border-accent/50"
+            )}
+          >
             <div className="mb-1.5 flex items-center gap-1.5">
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-bg-3 text-[9px] font-bold text-txt-1">
                 {a.asset.slice(0, 1)}
               </span>
               <span className="truncate text-2xs font-bold text-txt-0">{a.asset}</span>
             </div>
-            <div className="truncate text-xs font-semibold tabular text-txt-0">{a.qty}</div>
-            <div className="mt-0.5 truncate text-2xs tabular text-txt-3">{a.value === null ? "—" : fmtUsd(a.value)}</div>
-          </div>
-        ))}
-        {/* Fewer than 3 assets held (a brand-new wallet) — empty cells rather
-            than stretching the remaining tiles, so the grid stays a fixed
-            3-column reference and the tap targets don't shift as assets get
-            bought and sold. */}
-        {Array.from({ length: Math.max(0, 3 - quickAssets.length) }).map((_, i) => (
-          <div key={`empty-${i}`} className="px-2 py-3" />
+            <div className="truncate text-xs font-semibold tabular text-txt-0">
+              {fmtAmount(a.qty, a.asset === quoteAsset)}
+            </div>
+            <div className="mt-0.5 truncate text-2xs tabular text-txt-3">
+              {a.value === null ? "—" : fmtUsd(a.value)}
+            </div>
+          </button>
         ))}
       </div>
 
@@ -132,50 +140,56 @@ export function SpotHoldingsList({
     );
   }
 
+  // No horizontal scroll container here on purpose. Five columns did not fit a
+  // 375px phone and the table quietly grew to 435px, which is what made the
+  // whole screen feel draggable sideways. The price column and the per-row
+  // action are the two least essential, so they appear only once there is
+  // width for them; below that the quantity carries the price implicitly via
+  // the value beside it.
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-2xs">
-        <thead>
-          <tr className="border-b border-t border-line-soft text-left text-txt-3">
-            <th className="px-3 py-1.5 font-medium">Актив</th>
-            <th className="px-3 py-1.5 text-right font-medium">Количество</th>
-            {!compact && <th className="px-3 py-1.5 text-right font-medium">Цена</th>}
-            <th className="px-3 py-1.5 text-right font-medium">Стоимость</th>
-            {onTrade && <th className="px-3 py-1.5" />}
+    <table className="w-full table-fixed text-2xs">
+      <thead>
+        <tr className="border-b border-t border-line-soft text-left text-txt-3">
+          <th className="px-2.5 py-1.5 font-medium">Актив</th>
+          <th className="px-2.5 py-1.5 text-right font-medium">Количество</th>
+          {!compact && <th className="hidden px-2.5 py-1.5 text-right font-medium sm:table-cell">Цена</th>}
+          <th className="px-2.5 py-1.5 text-right font-medium">Стоимость</th>
+          {onTrade && <th className="hidden px-2.5 py-1.5 sm:table-cell" />}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((h) => (
+          <tr key={h.asset} className="border-b border-line-soft/60 last:border-b-0 hover:bg-bg-2/50">
+            <td className="px-2.5 py-2">
+              <div className="font-semibold text-txt-0">{h.asset}</div>
+              <div className="truncate text-[9px] text-txt-3">{h.name}</div>
+            </td>
+            <td className="truncate px-2.5 py-2 text-right tabular text-txt-1">
+              {fmtAmount(h.qty, h.asset === quoteAsset)}
+            </td>
+            {!compact && (
+              <td className="hidden px-2.5 py-2 text-right tabular text-txt-2 sm:table-cell">
+                {h.asset === quoteAsset ? "—" : h.priced ? fmtPrice(h.price, h.priceDecimals) : "нет котировки"}
+              </td>
+            )}
+            <td className="px-2.5 py-2 text-right tabular font-medium text-txt-0">
+              {h.value === null ? "—" : fmtUsd(h.value)}
+            </td>
+            {onTrade && (
+              <td className="hidden px-2.5 py-2 text-right sm:table-cell">
+                {h.asset !== quoteAsset && h.symbol && (
+                  <button
+                    onClick={() => onTrade(h.asset)}
+                    className="btn-fx tap-sm rounded-lg border border-line px-2 py-0.5 text-txt-2 hover:border-accent hover:text-accent"
+                  >
+                    Обменять
+                  </button>
+                )}
+              </td>
+            )}
           </tr>
-        </thead>
-        <tbody>
-          {rows.map((h) => (
-            <tr key={h.asset} className="border-b border-line-soft/60 last:border-b-0 hover:bg-bg-2/50">
-              <td className="px-3 py-2">
-                <div className="font-semibold text-txt-0">{h.asset}</div>
-                <div className="text-[9px] text-txt-3">{h.name}</div>
-              </td>
-              <td className="px-3 py-2 text-right tabular text-txt-1">{h.qty ?? "—"}</td>
-              {!compact && (
-                <td className="px-3 py-2 text-right tabular text-txt-2">
-                  {h.asset === quoteAsset ? "—" : h.priced ? fmtPrice(h.price, h.priceDecimals) : "нет котировки"}
-                </td>
-              )}
-              <td className="px-3 py-2 text-right tabular font-medium text-txt-0">
-                {h.value === null ? "—" : fmtUsd(h.value)}
-              </td>
-              {onTrade && (
-                <td className="px-3 py-2 text-right">
-                  {h.asset !== quoteAsset && h.symbol && (
-                    <button
-                      onClick={() => onTrade(h.asset)}
-                      className="btn-fx tap-sm rounded border border-line px-2 py-0.5 text-txt-2 hover:border-accent hover:text-accent"
-                    >
-                      Обменять
-                    </button>
-                  )}
-                </td>
-              )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+        ))}
+      </tbody>
+    </table>
   );
 }

@@ -3,13 +3,19 @@ import { useSpotAssets, useSpotConvert, useSpotQuote, useSpotTrade, useSpotWalle
 import { useModalExit } from "../../hooks/useModalExit";
 import { toast } from "../../store/toast";
 import { ApiError } from "../../lib/api";
-import { classNames, fmtPrice, fmtUsd, n } from "../../lib/format";
+import { classNames, fmtAmount, fmtPrice, fmtUsd, n } from "../../lib/format";
 import { IconSwap } from "../icons/Icon";
 
+// No `w-full` in either of these: both are used inside a flex row where the
+// caller sets the width, and Tailwind resolves conflicting width utilities by
+// stylesheet order rather than class order — `w-full` here beat the `w-28`
+// added at the call site, so the asset select took the whole row and squeezed
+// the amount input down to 22px. It looked like a dead grey rectangle, which
+// is exactly what it was: an input with no room to render anything in.
 const inputCls =
-  "w-full rounded-lg border border-line bg-bg-2 px-2.5 py-2 text-sm font-semibold tabular text-txt-0 outline-none focus:border-accent";
+  "min-w-0 rounded-xl border border-line bg-bg-2 px-3 py-2.5 text-base font-semibold tabular text-txt-0 outline-none focus:border-accent";
 const selectCls =
-  "w-full rounded-lg border border-line bg-bg-2 px-2 py-2 text-xs font-semibold text-txt-0 outline-none focus:border-accent";
+  "shrink-0 rounded-xl border border-line bg-bg-3 px-2 py-2.5 text-xs font-bold text-txt-0 outline-none focus:border-accent";
 
 export type ExchangeMode = "buy" | "sell" | "convert";
 
@@ -123,7 +129,7 @@ export function SpotExchangeModal({
                 onClick={() => setAmount(held)}
                 className="btn-fx text-2xs text-accent hover:underline"
               >
-                Доступно: <span className="tabular">{held}</span> {fromAsset}
+                Доступно: <span className="tabular">{fmtAmount(held, fromAsset === quoteAsset)}</span> {fromAsset}
               </button>
             </div>
             <div className="flex gap-2">
@@ -135,7 +141,7 @@ export function SpotExchangeModal({
                 autoFocus
                 className={classNames(inputCls, "flex-1", overBalance && "border-sell")}
               />
-              <select value={fromAsset} onChange={(e) => setFromAsset(e.target.value)} className={classNames(selectCls, "w-28 shrink-0")}>
+              <select value={fromAsset} onChange={(e) => setFromAsset(e.target.value)} className={classNames(selectCls, "w-24")}>
                 {assets.map((a) => <option key={a.asset} value={a.asset}>{a.asset}</option>)}
               </select>
             </div>
@@ -156,10 +162,12 @@ export function SpotExchangeModal({
           <div>
             <span className="mb-1 block text-2xs text-txt-2">Получаете</span>
             <div className="flex gap-2">
-              <div className={classNames(inputCls, "flex flex-1 items-center text-txt-1")}>
-                {quote.data ? quote.data.receive : quote.isFetching ? "…" : "—"}
+              <div className={classNames(inputCls, "flex flex-1 items-center overflow-hidden")}>
+                <span className="truncate">
+                  {quote.data ? fmtAmount(quote.data.receive, toAsset === quoteAsset) : quote.isFetching ? "…" : "—"}
+                </span>
               </div>
-              <select value={toAsset} onChange={(e) => setToAsset(e.target.value)} className={classNames(selectCls, "w-28 shrink-0")}>
+              <select value={toAsset} onChange={(e) => setToAsset(e.target.value)} className={classNames(selectCls, "w-24")}>
                 {assets.map((a) => <option key={a.asset} value={a.asset}>{a.asset}</option>)}
               </select>
             </div>
@@ -206,14 +214,14 @@ export function SpotExchangeModal({
             <button
               type="submit"
               disabled={pending || !quote.data || overBalance}
-              className="btn-fx tap flex-1 rounded-lg bg-accent-fill py-2.5 text-xs font-bold text-white hover:brightness-110 disabled:opacity-40"
+              className="btn-fx tap flex-1 rounded-2xl bg-accent-fill py-3 text-sm font-bold text-white shadow-btn hover:brightness-110 disabled:opacity-40"
             >
               {pending ? "Выполняем…" : "Обменять"}
             </button>
             <button
               type="button"
               onClick={requestClose}
-              className="btn-fx tap rounded-lg border border-line px-4 text-xs text-txt-2 hover:text-txt-0"
+              className="btn-fx tap rounded-2xl border border-line bg-bg-3 px-5 text-sm font-semibold text-txt-1 hover:text-txt-0"
             >
               Отмена
             </button>

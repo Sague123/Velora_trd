@@ -45,6 +45,24 @@ export function fmtCompact(v: string | number | null | undefined): string {
   return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 2 }).format(num);
 }
 
+/**
+ * A quantity of an asset, for display. Thousands separated, at least two
+ * decimals so it still reads as an amount, and no more than eight — the
+ * platform's own precision — with the trailing zeros dropped.
+ *
+ * The API sends scaled decimals in full ("28000.00000000"), which is right on
+ * the wire and unreadable on screen: eight zeros of noise around the number
+ * that actually matters. `fiat` caps it at cents, since a dollar balance has
+ * no eighth decimal place worth showing.
+ */
+export function fmtAmount(v: string | number | null | undefined, fiat = false): string {
+  if (v === null || v === undefined) return "—";
+  return n(v).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: fiat ? 2 : 8,
+  });
+}
+
 export function fmtQty(v: string | number | null | undefined, decimals = 6): string {
   const num = n(v);
   const s = num.toFixed(decimals);

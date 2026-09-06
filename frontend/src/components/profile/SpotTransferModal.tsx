@@ -105,7 +105,7 @@ export function SpotTransferModal({ onClose, initial = "TO_FUTURES" }: { onClose
               placeholder="0.00"
               autoFocus
               className={classNames(
-                "w-full rounded-lg border border-line bg-bg-2 px-2.5 py-2 text-sm font-semibold tabular text-txt-0 outline-none focus:border-accent",
+                "w-full rounded-xl border border-line bg-bg-2 px-3 py-2.5 text-base font-semibold tabular text-txt-0 outline-none focus:border-accent",
                 overBalance && "border-sell"
               )}
             />
@@ -122,11 +122,11 @@ export function SpotTransferModal({ onClose, initial = "TO_FUTURES" }: { onClose
             <button
               type="submit"
               disabled={transfer.isPending || overBalance}
-              className="btn-fx tap flex-1 rounded-lg bg-accent-fill py-2.5 text-xs font-bold text-white hover:brightness-110 disabled:opacity-40"
+              className="btn-fx tap flex-1 rounded-2xl bg-accent-fill py-3 text-sm font-bold text-white shadow-btn hover:brightness-110 disabled:opacity-40"
             >
               {transfer.isPending ? "Переводим…" : "Перевести"}
             </button>
-            <button type="button" onClick={requestClose} className="btn-fx tap rounded-lg border border-line px-4 text-xs text-txt-2 hover:text-txt-0">
+            <button type="button" onClick={requestClose} className="btn-fx tap rounded-2xl border border-line bg-bg-3 px-5 text-sm font-semibold text-txt-1 hover:text-txt-0">
               Отмена
             </button>
           </div>

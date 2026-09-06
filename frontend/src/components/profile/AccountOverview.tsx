@@ -7,7 +7,7 @@ import { SpotWalletCard } from "./SpotWalletCard";
 import { SpotExchangeModal, type ExchangeMode } from "./SpotExchangeModal";
 import { SpotTransferModal } from "./SpotTransferModal";
 import { BalanceStats } from "./BalanceStats";
-import { BalanceChart } from "./BalanceChart";
+import { EquityChart } from "./EquityChart";
 import { RecentWalletActivity } from "./WalletActions";
 import { ErrorRow, SkeletonLines } from "../common/States";
 import { Tooltip } from "../common/Tooltip";
@@ -32,10 +32,15 @@ const KYC_LABEL: Record<KycStatus, { text: string; cls: string }> = {
 };
 
 type ActionTone = "buy" | "sell" | "accent";
+// Solid fills, not the tinted -soft backgrounds these started with: at four
+// tiles side by side the tints read as disabled, which is the opposite of
+// what a primary action row should say. These are the same -fill tokens the
+// terminal's own Buy/Sell buttons use, each already contrast-checked against
+// the text colour sitting on it.
 const ACTION_TONE_CLS: Record<ActionTone, string> = {
-  buy: "border-buy/30 bg-buy-soft text-buy hover:brightness-110",
-  sell: "border-sell/30 bg-sell-soft text-sell hover:brightness-110",
-  accent: "border-accent/30 bg-accent-soft text-accent hover:brightness-110",
+  buy: "border-transparent bg-buy-fill text-black hover:brightness-110",
+  sell: "border-transparent bg-sell-fill text-white hover:brightness-110",
+  accent: "border-transparent bg-accent-fill text-white hover:brightness-110",
 };
 
 function ActionTile({
@@ -51,7 +56,7 @@ function ActionTile({
       type="button"
       onClick={onClick}
       className={classNames(
-        "btn-fx tap flex flex-col items-center gap-1.5 rounded-xl border px-2 py-3 text-center transition-colors",
+        "btn-fx tap flex flex-col items-center gap-1.5 rounded-2xl border px-2 py-3 text-center shadow-btn transition-[filter,transform]",
         ACTION_TONE_CLS[tone]
       )}
     >
@@ -140,6 +145,11 @@ export function AccountOverview({ onSeeAllHistory }: { onSeeAllHistory?: () => v
                 </span>
               </Tooltip>
             </div>
+            {/* The trend belongs next to the number it describes, not at the
+                bottom of the page under three other cards. */}
+            <div className="mt-4">
+              <EquityChart />
+            </div>
           </div>
         )}
       </section>
@@ -205,7 +215,6 @@ export function AccountOverview({ onSeeAllHistory }: { onSeeAllHistory?: () => v
         </div>
       </section>
 
-      <BalanceChart />
       <RecentWalletActivity onSeeAll={onSeeAllHistory} />
     </div>
   );
