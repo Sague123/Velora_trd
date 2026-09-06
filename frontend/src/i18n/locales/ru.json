@@ -1,9 +1,9 @@
 {
   "nav": {
-    "overview": "Overview",
-    "trade": "Trade",
-    "markets": "Markets",
-    "strategies": "Strategies",
+    "overview": "Обзор",
+    "trade": "Торговля",
+    "markets": "Рынки",
+    "strategies": "Стратегии",
     "savings": "Накопления",
     "crm": "CRM",
     "admin": "Admin",
@@ -122,7 +122,7 @@
     "noQuoteInstruments": "Инструментов с котировкой в {{quote}} пока нет на платформе",
     "trending": "В тренде",
     "news": "Новости рынка",
-    "newsNotConnected": "Новостной фид ещё не подключён — компонент готов к подключению API",
+    "newsNotConnected": "Нет свежих новостей рынка",
     "trade": "Торговать",
     "colPair": "Пара",
     "colPrice": "Цена",

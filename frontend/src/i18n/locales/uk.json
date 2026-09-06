@@ -1,9 +1,9 @@
 {
   "nav": {
-    "overview": "Overview",
-    "trade": "Trade",
-    "markets": "Markets",
-    "strategies": "Strategies",
+    "overview": "Огляд",
+    "trade": "Торгівля",
+    "markets": "Ринки",
+    "strategies": "Стратегії",
     "savings": "Накопичення",
     "crm": "CRM",
     "admin": "Admin",
@@ -122,7 +122,7 @@
     "noQuoteInstruments": "Інструментів з котируванням у {{quote}} поки немає",
     "trending": "У тренді",
     "news": "Новини ринку",
-    "newsNotConnected": "Стрічка новин ще не підключена — компонент готовий до підключення API",
+    "newsNotConnected": "Наразі немає новин ринку",
     "trade": "Торгувати",
     "colPair": "Пара",
     "colPrice": "Ціна",

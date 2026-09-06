@@ -122,7 +122,7 @@
     "noQuoteInstruments": "暂无以 {{quote}} 计价的交易对",
     "trending": "热门",
     "news": "市场资讯",
-    "newsNotConnected": "新闻源尚未接入 — 组件已准备好接入API",
+    "newsNotConnected": "暂无市场新闻",
     "trade": "交易",
     "colPair": "交易对",
     "colPrice": "价格",

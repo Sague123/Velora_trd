@@ -9,6 +9,25 @@ import { ErrorRow, EmptyRow, SkeletonBar, SkeletonTableRows } from "../component
 import { IconCoin } from "../components/icons/Icon";
 import type { Category } from "../lib/types";
 import { SiteFooter } from "../components/layout/SiteFooter";
+import { Tooltip } from "../components/common/Tooltip";
+
+// Same disclosure ChartPanel already shows on an instrument's own chart —
+// repeated here because this table is the other place a trader sees a PERP
+// row priced identically to its SPOT counterpart with nothing to explain
+// why. Without it, "BTC-PERP" next to "BTCUSDT" showing the exact same
+// H/L/Vol just reads as duplicated/broken data.
+const SPOT_BASED_LABEL = "Цена базового актива (спот): фьючерсный фид недоступен из региона сервера, поэтому маркировка перпетуала следует за спотом. Данные биржевые, но это не котировка фьючерса.";
+
+function SourceBadge({ source }: { source: string }) {
+  if (source === "DERIVED") {
+    return (
+      <Tooltip label={SPOT_BASED_LABEL}>
+        <span className="shrink-0 rounded border border-accent/40 bg-accent-soft px-1 py-px text-[9px] text-accent">spot-based</span>
+      </Tooltip>
+    );
+  }
+  return null;
+}
 
 const CATEGORIES: Array<{ id: Category | "ALL"; label: string; Icon?: typeof IconCoin }> = [
   { id: "ALL", label: "All" },
@@ -152,6 +171,7 @@ export function MarketsPage() {
                       <div className="flex min-w-0 items-center gap-1.5">
                         <span className="truncate text-xs font-medium text-txt-0">{i.symbol}</span>
                         <span className="shrink-0 rounded bg-bg-3 px-1 py-px text-[9px] font-medium uppercase tracking-wide text-txt-3">{i.category.slice(0, 4)}</span>
+                        <SourceBadge source={i.source} />
                       </div>
                       <span className={classNames("shrink-0 tabular text-xs font-semibold", i.dir === "up" ? "text-buy" : i.dir === "down" ? "text-sell" : "text-txt-0")}>
                         {fmtPrice(i.livePrice, i.priceDecimals)}
@@ -195,7 +215,12 @@ export function MarketsPage() {
                         <div className="font-medium text-txt-0">{i.symbol}</div>
                         <div className="text-2xs text-txt-3">{i.name}</div>
                       </td>
-                      <td className="px-3 py-2 text-txt-2">{i.category}</td>
+                      <td className="px-3 py-2 text-txt-2">
+                        <div className="flex items-center gap-1.5">
+                          {i.category}
+                          <SourceBadge source={i.source} />
+                        </div>
+                      </td>
                       <td className={classNames("px-3 py-2 text-right", i.dir === "up" ? "text-buy" : i.dir === "down" ? "text-sell" : "text-txt-0")}>
                         {fmtPrice(i.livePrice, i.priceDecimals)}
                       </td>

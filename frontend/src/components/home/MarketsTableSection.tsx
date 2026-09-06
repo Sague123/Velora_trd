@@ -9,9 +9,27 @@ import { classNames, fmtCompact, fmtPct, fmtPrice } from "../../lib/format";
 import { LoadingRow, EmptyRow } from "../common/States";
 import { Sparkline } from "../common/Sparkline";
 import { CoinBadge } from "../common/CoinBadge";
+import { Tooltip } from "../common/Tooltip";
 import { IconCandles, IconStar } from "../icons/Icon";
 
 type Tab = "ALL" | "FAVORITES" | "USDT" | "USDC" | "BTC" | "ETH" | "NEW" | "GAINERS" | "LOSERS";
+
+// Same disclosure ChartPanel/MarketsPage show on an instrument's own chart:
+// this table is otherwise the place a visitor sees BTC-PERP priced
+// identically to BTCUSDT with no explanation, which reads as
+// duplicated/broken data rather than the documented source limitation it is.
+const SPOT_BASED_LABEL = "Цена базового актива (спот): фьючерсный фид недоступен из региона сервера, поэтому маркировка перпетуала следует за спотом. Данные биржевые, но это не котировка фьючерса.";
+
+function SourceBadge({ source }: { source: string }) {
+  if (source === "DERIVED") {
+    return (
+      <Tooltip label={SPOT_BASED_LABEL}>
+        <span className="shrink-0 rounded border border-accent/40 bg-accent-soft px-1 py-px text-[9px] text-accent">spot-based</span>
+      </Tooltip>
+    );
+  }
+  return null;
+}
 
 /** Which asset an instrument is quoted in, from its own symbol — not stored
  * anywhere else. Perpetuals (BTC-PERP etc.) are USD-margined, not quoted in
@@ -25,6 +43,45 @@ function quoteAssetOf(symbol: string): string | null {
   if (symbol.endsWith("BTC")) return "BTC";
   if (symbol.endsWith("ETH")) return "ETH";
   return null;
+}
+
+/** Below `sm`: a stacked card per instrument instead of the 9-column table —
+ * the table's own `min-w-[720px]` forced this whole section (and the page
+ * around it, since nothing between it and the table constrained the width)
+ * to scroll sideways on a phone. Same data as the desktop row, just reflowed
+ * instead of hidden behind a horizontal scrollbar. */
+function RowCard({ inst, onTrade }: { inst: LiveInstrument; onTrade: (symbol: string) => void }) {
+  const favorite = useFavoritesStore((s) => s.isFavorite(inst.symbol));
+  const toggleFavorite = useFavoritesStore((s) => s.toggle);
+  const up = inst.liveChange24h >= 0;
+
+  return (
+    <div className="flex items-center gap-2 border-b border-line-soft/60 px-3 py-2.5">
+      <button
+        onClick={() => toggleFavorite(inst.symbol)}
+        className={classNames("btn-fx shrink-0", favorite ? "text-warn" : "text-txt-3")}
+        aria-label="favorite"
+      >
+        <IconStar size={13} />
+      </button>
+      <CoinBadge symbol={inst.symbol} size={22} />
+      <button onClick={() => onTrade(inst.symbol)} className="btn-fx flex min-w-0 flex-1 items-center justify-between gap-2 text-left">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="truncate text-xs font-medium text-txt-0">{inst.symbol}</span>
+            <SourceBadge source={inst.source} />
+          </div>
+          <div className="truncate text-2xs text-txt-3">{inst.name}</div>
+        </div>
+        <div className="shrink-0 text-right tabular">
+          <div className={classNames("text-xs font-medium", inst.dir === "up" ? "text-buy" : inst.dir === "down" ? "text-sell" : "text-txt-0")}>
+            {fmtPrice(inst.livePrice, inst.priceDecimals)}
+          </div>
+          <div className={classNames("text-2xs", up ? "text-buy" : "text-sell")}>{fmtPct(inst.liveChange24h)}</div>
+        </div>
+      </button>
+    </div>
+  );
 }
 
 function Row({ inst, onTrade }: { inst: LiveInstrument; onTrade: (symbol: string) => void }) {
@@ -49,7 +106,10 @@ function Row({ inst, onTrade }: { inst: LiveInstrument; onTrade: (symbol: string
         <div className="flex items-center gap-2">
           <CoinBadge symbol={inst.symbol} size={22} />
           <div>
-            <div className="font-medium text-txt-0">{inst.symbol}</div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-medium text-txt-0">{inst.symbol}</span>
+              <SourceBadge source={inst.source} />
+            </div>
             <div className="text-2xs text-txt-3">{inst.name}</div>
           </div>
         </div>
@@ -141,17 +201,25 @@ export function MarketsTableSection({ query }: { query: string }) {
         ))}
       </div>
 
-      {/* Only cap the height (and scroll internally) once there's a real
-          desktop viewport to do it in. On a phone a nested scroll box inside
-          the page is a trap: the table swallows the swipe and the page itself
-          won't move, so it just lets the whole list extend and the document
-          scroll normally. */}
-      <div className="overflow-x-auto lg:max-h-[68vh] lg:overflow-y-auto">
-        {instruments.length === 0 && <LoadingRow />}
-        {instruments.length > 0 && rows.length === 0 && tab === "FAVORITES" && <EmptyRow label={t("home.noFavorites")} />}
-        {instruments.length > 0 && rows.length === 0 && isQuoteTab && <EmptyRow label={t("home.noQuoteInstruments", { quote: tab })} />}
-        {instruments.length > 0 && rows.length === 0 && !isQuoteTab && tab !== "FAVORITES" && <EmptyRow label="—" />}
-        {rows.length > 0 && (
+      {instruments.length === 0 && <LoadingRow />}
+      {instruments.length > 0 && rows.length === 0 && tab === "FAVORITES" && <EmptyRow label={t("home.noFavorites")} />}
+      {instruments.length > 0 && rows.length === 0 && isQuoteTab && <EmptyRow label={t("home.noQuoteInstruments", { quote: tab })} />}
+      {instruments.length > 0 && rows.length === 0 && !isQuoteTab && tab !== "FAVORITES" && <EmptyRow label="—" />}
+
+      {rows.length > 0 && (
+        <div className="sm:hidden">
+          {rows.map((i) => (
+            <RowCard key={i.symbol} inst={i} onTrade={onTrade} />
+          ))}
+        </div>
+      )}
+
+      {/* `sm` and up: unchanged table. Only cap the height (and scroll
+          internally) once there's a real desktop viewport to do it in — on a
+          phone a nested scroll box inside the page is a trap: the table
+          swallows the swipe and the page itself won't move. */}
+      {rows.length > 0 && (
+        <div className="hidden sm:block sm:overflow-x-auto lg:max-h-[68vh] lg:overflow-y-auto">
           <table className="w-full min-w-[720px] text-xs">
             <thead className="sticky top-0 z-10 bg-bg-1">
               <tr className="border-b border-line text-left">
@@ -172,8 +240,8 @@ export function MarketsTableSection({ query }: { query: string }) {
               ))}
             </tbody>
           </table>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

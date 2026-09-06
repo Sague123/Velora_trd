@@ -8,7 +8,7 @@ import { useAccount } from "../hooks/useTrading";
 import { useTerminalStore } from "../store/terminal";
 import { SignalCard } from "../components/overview/SignalCard";
 import { QuickDepositModal } from "../components/profile/QuickDepositModal";
-import { LoadingRow, ErrorRow } from "../components/common/States";
+import { ErrorRow, SkeletonBar } from "../components/common/States";
 import { classNames, fmtPct, fmtSigned, fmtUsd, n } from "../lib/format";
 import { AnimatedNumber } from "../components/common/AnimatedNumber";
 import { IconArrowRight, IconBolt, IconTrendDown, IconTrendUp, IconWalletPlus } from "../components/icons/Icon";
@@ -33,9 +33,30 @@ export function OverviewPage() {
   const [showDeposit, setShowDeposit] = useState(false);
 
   const movers = useMemo(() => {
-    const ranked = [...instruments].filter((i) => i.source !== "NONE").sort((a, b) => b.liveChange24h - a.liveChange24h);
-    const volatile = [...instruments].sort((a, b) => Math.abs(b.liveChange24h) - Math.abs(a.liveChange24h)).slice(0, 4);
-    return { gainers: ranked.slice(0, 4), losers: ranked.slice(-4).reverse(), volatile };
+    const withData = instruments.filter((i) => i.source !== "NONE");
+    const ranked = [...withData].sort((a, b) => b.liveChange24h - a.liveChange24h);
+    // slice(-4) on the full ranked list pulled from the *bottom* of whatever
+    // was there — in a mostly-green market that's still positive movers, not
+    // losers (the reported "BTC +0.37%" showing under Top Losers). Filtering
+    // by sign first means a thin/quiet market shows fewer rows instead of
+    // wrong ones.
+    const gainers = ranked.filter((i) => i.liveChange24h > 0).slice(0, 4);
+    const losers = [...ranked].reverse().filter((i) => i.liveChange24h < 0).slice(0, 4);
+    // 24h range as a % of price — an actual volatility measure, independent
+    // of direction, instead of |change24h| which just re-sorts the same
+    // gainers/losers list and made this block a duplicate of Top Gainers.
+    const volatile = [...withData]
+      .map((i) => {
+        const price = n(i.livePrice);
+        const high = i.liveHigh24h !== null ? n(i.liveHigh24h) : null;
+        const low = i.liveLow24h !== null ? n(i.liveLow24h) : null;
+        const range = price > 0 && high !== null && low !== null ? ((high - low) / price) * 100 : 0;
+        return { i, range };
+      })
+      .sort((a, b) => b.range - a.range)
+      .slice(0, 4)
+      .map((x) => x.i);
+    return { gainers, losers, volatile };
   }, [instruments]);
 
   function openInTerminal(symbol: string) {
@@ -85,7 +106,39 @@ export function OverviewPage() {
         </div>
       </div>
 
-      {isLoading && <LoadingRow label="Загрузка рыночных данных…" />}
+      {/* Shaped like the grid it's about to become (account snapshot / movers
+          / signals) instead of a bare spinner floating in empty space —
+          nothing else on the page hints at what's coming until this resolves. */}
+      {isLoading && (
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 rounded-lg border border-line bg-bg-1 p-3.5 sm:grid-cols-4 lg:col-span-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i}><SkeletonBar width="60%" height={9} /><div className="mt-1.5"><SkeletonBar width="80%" height={16} /></div></div>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 divide-y divide-line-soft rounded border border-line bg-bg-1 sm:grid-cols-3 sm:divide-x sm:divide-y-0 lg:col-span-4">
+            {Array.from({ length: 3 }).map((_, col) => (
+              <div key={col} className="p-3">
+                {Array.from({ length: 4 }).map((__, row) => (
+                  <div key={row} className="flex items-center justify-between py-1.5">
+                    <SkeletonBar width="40%" height={10} />
+                    <SkeletonBar width="20%" height={10} />
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:col-span-4 lg:grid-cols-4 xl:grid-cols-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="rounded border border-line bg-bg-1 p-3">
+                <SkeletonBar width="50%" height={9} />
+                <div className="mt-2"><SkeletonBar width="70%" height={16} /></div>
+                <div className="mt-2"><SkeletonBar width="100%" height={8} /></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {isError && <ErrorRow label="Не удалось загрузить рынок" onRetry={() => refetch()} />}
 
       {!isLoading && !isError && (

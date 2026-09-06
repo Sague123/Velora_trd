@@ -24,6 +24,10 @@ export function fmtUsd(v: string | number | null | undefined, decimals = 2): str
 export function fmtSigned(v: string | number | null | undefined, decimals = 2): string {
   const num = n(v);
   const s = fmt(Math.abs(num), decimals);
+  // Same "-0.00" rounding artifact as fmtPct: a tiny negative that rounds to
+  // zero at this precision should read as zero, not as a negative sign with
+  // no magnitude behind it.
+  if (Number(s.replace(/,/g, "")) === 0) return s;
   if (num > 0) return `+${s}`;
   if (num < 0) return `-${s}`;
   return s;
@@ -32,6 +36,9 @@ export function fmtSigned(v: string | number | null | undefined, decimals = 2): 
 export function fmtPct(v: number | null | undefined, decimals = 2): string {
   if (v === null || v === undefined) return "—";
   const s = v.toFixed(decimals);
+  // A value like -0.001 at 2 decimals rounds to "-0.00" — technically
+  // negative, but reads as a display bug once it's shown with no magnitude.
+  if (Number(s) === 0) return `${(0).toFixed(decimals)}%`;
   return v > 0 ? `+${s}%` : `${s}%`;
 }
 

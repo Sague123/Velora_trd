@@ -1,9 +1,9 @@
 {
   "nav": {
-    "overview": "Overview",
-    "trade": "Trade",
-    "markets": "Markets",
-    "strategies": "Strategies",
+    "overview": "Przegląd",
+    "trade": "Handel",
+    "markets": "Rynki",
+    "strategies": "Strategie",
     "savings": "Oszczędności",
     "crm": "CRM",
     "admin": "Admin",
@@ -122,7 +122,7 @@
     "noQuoteInstruments": "Brak instrumentów notowanych w {{quote}}",
     "trending": "Popularne",
     "news": "Wiadomości rynkowe",
-    "newsNotConnected": "Kanał wiadomości jeszcze niepodłączony — komponent gotowy na API",
+    "newsNotConnected": "Obecnie brak wiadomości rynkowych",
     "trade": "Handluj",
     "colPair": "Para",
     "colPrice": "Cena",

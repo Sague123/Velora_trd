@@ -122,7 +122,7 @@
     "noQuoteInstruments": "No instruments quoted in {{quote}} are listed yet",
     "trending": "Trending",
     "news": "Market News",
-    "newsNotConnected": "News feed not yet connected — component is ready for an API",
+    "newsNotConnected": "No market news available right now",
     "trade": "Trade",
     "colPair": "Pair",
     "colPrice": "Price",

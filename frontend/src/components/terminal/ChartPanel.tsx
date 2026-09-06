@@ -322,11 +322,6 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
           <div className="flex items-baseline gap-2">
             <span className="text-sm font-semibold text-txt-0">{symbol}</span>
             {inst && <span className="rounded border border-line px-1 py-px text-2xs text-txt-3">{inst.category}</span>}
-            {inst?.source === "SYNTHETIC" && (
-              <Tooltip label="Модельная цена: для этого инструмента нет бесплатного рыночного фида">
-                <span className="rounded border border-warn/40 bg-warn/10 px-1 py-px text-2xs text-warn">model</span>
-              </Tooltip>
-            )}
             {inst?.source === "DERIVED" && (
               <Tooltip label="Цена базового актива (спот): фьючерсный фид недоступен из региона сервера, поэтому маркировка перпетуала следует за спотом. Данные биржевые, но это не котировка фьючерса.">
                 <span className="rounded border border-accent/40 bg-accent-soft px-1 py-px text-2xs text-accent">spot-based</span>

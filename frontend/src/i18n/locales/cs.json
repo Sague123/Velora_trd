@@ -1,9 +1,9 @@
 {
   "nav": {
-    "overview": "Overview",
-    "trade": "Trade",
-    "markets": "Markets",
-    "strategies": "Strategies",
+    "overview": "Přehled",
+    "trade": "Obchod",
+    "markets": "Trhy",
+    "strategies": "Strategie",
     "savings": "Spoření",
     "crm": "CRM",
     "admin": "Admin",
@@ -122,7 +122,7 @@
     "noQuoteInstruments": "Zatím nejsou uvedeny žádné nástroje kótované v {{quote}}",
     "trending": "V trendu",
     "news": "Zprávy z trhu",
-    "newsNotConnected": "Zpravodajský kanál zatím není připojen — komponenta je připravena na API",
+    "newsNotConnected": "Momentálně nejsou k dispozici žádné tržní zprávy",
     "trade": "Obchodovat",
     "colPair": "Pár",
     "colPrice": "Cena",

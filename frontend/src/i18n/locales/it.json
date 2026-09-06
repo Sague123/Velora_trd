@@ -1,9 +1,9 @@
 {
   "nav": {
-    "overview": "Overview",
-    "trade": "Trade",
-    "markets": "Markets",
-    "strategies": "Strategies",
+    "overview": "Panoramica",
+    "trade": "Trading",
+    "markets": "Mercati",
+    "strategies": "Strategie",
     "savings": "Risparmi",
     "crm": "CRM",
     "admin": "Admin",
@@ -122,7 +122,7 @@
     "noQuoteInstruments": "Nessuno strumento quotato in {{quote}} è ancora presente",
     "trending": "Di tendenza",
     "news": "Notizie di mercato",
-    "newsNotConnected": "Feed di notizie non ancora collegato — componente pronto per un'API",
+    "newsNotConnected": "Nessuna notizia di mercato disponibile al momento",
     "trade": "Fai trading",
     "colPair": "Coppia",
     "colPrice": "Prezzo",
