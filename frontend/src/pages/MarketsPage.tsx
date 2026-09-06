@@ -10,7 +10,7 @@ import { IconCoin } from "../components/icons/Icon";
 import type { Category } from "../lib/types";
 import { SiteFooter } from "../components/layout/SiteFooter";
 import { Tooltip } from "../components/common/Tooltip";
-import { fieldCls } from "../lib/ui";
+import { buttonCls, fieldCls } from "../lib/ui";
 
 // Same disclosure ChartPanel already shows on an instrument's own chart —
 // repeated here because this table is the other place a trader sees a PERP
@@ -101,14 +101,21 @@ export function MarketsPage() {
           placeholder={t("markets.searchPlaceholder")}
           className={fieldCls("md", "tap-sm w-56 max-w-full")}
         />
-        <div className="flex gap-0.5 rounded border border-line p-0.5">
+        {/* Was a soft accent tint on the active tab and bare text on the rest
+            — inactive options had no visible edge at all, so "Spot"/"Perpetual"
+            read as labels, not as buttons. Same segmented-control language as
+            the order ticket's Amount/mode switches: a bordered container, a
+            solid accent fill for the chosen segment, a real border on the
+            others so every option looks equally clickable. */}
+        <div className="flex gap-1 rounded-lg border border-line-soft bg-bg-1 p-1">
           {CATEGORIES.map((c) => (
             <button
               key={c.id}
               onClick={() => setCategory(c.id)}
+              aria-pressed={category === c.id}
               className={classNames(
-                "tap-sm btn-fx flex items-center gap-1 rounded px-2.5 py-1 text-2xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent",
-                category === c.id ? "bg-accent-soft text-accent" : "text-txt-2 hover:text-txt-0"
+                "flex items-center gap-1",
+                buttonCls(category === c.id ? "primary" : "secondary", "sm")
               )}
             >
               {c.Icon && <c.Icon size={11} />}
