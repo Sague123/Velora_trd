@@ -69,9 +69,25 @@ function useTotalSeries(range: Range) {
       if (group) group.push(row);
       else groups.set(key, [row]);
     }
+    // Grouping by refId doesn't cover every same-instant pair — an order's
+    // entry-side margin-hold and its entry fee are written before the order's
+    // own id exists to key off (see tradeRewrite.ts's ledgerEntrySide comment),
+    // so they carry no shared refId at all and land as two separate solo
+    // batches here. When that happens their relative order still has to match
+    // how the backend itself replayed them to produce the balanceAfter each
+    // one carries — `ORDER BY created_at, id` in lib/tradeRewrite.ts's chain
+    // query — because reading one row's absolute balanceAfter only makes
+    // sense as "the state right after this row, in that same replay order".
+    // /api/ledger's own query has no id tiebreak, so two rows sharing a
+    // timestamp can come back in either order; sorting by id here, the same
+    // way the backend does, is what makes them line up again.
+    const idOf = (group: Row[]) => group.map((r) => r.e.id as string).sort()[0];
     const batches = [...groups.values()]
-      .map((group) => ({ t: Math.max(...group.map((r) => r.t)), rows: group }))
-      .sort((a, b) => a.t - b.t);
+      .map((group) => ({
+        t: Math.max(...group.map((r) => r.t)),
+        rows: [...group].sort((a, b) => (a.e.id < b.e.id ? -1 : a.e.id > b.e.id ? 1 : 0)),
+      }))
+      .sort((a, b) => a.t - b.t || (idOf(a.rows) < idOf(b.rows) ? -1 : idOf(a.rows) > idOf(b.rows) ? 1 : 0));
 
     let futuresCash = 0, heldMargin = 0, spotUsd = 0, assetCost = 0;
     const all: { t: number; v: number }[] = [];
