@@ -95,7 +95,7 @@ export function MarketWatch({ onSelect }: { onSelect?: () => void } = {}) {
                         it — COMMODITY next to a longer ticker (PAXGUSDT)
                         was squeezing the symbol itself, the one thing here
                         that must never lose the fight for space. */}
-                    <span className="shrink-0 rounded bg-bg-3 px-1 py-px text-[9px] font-medium uppercase tracking-wide text-txt-3">{i.category.slice(0, 4)}</span>
+                    <span className="shrink-0 rounded bg-bg-3 px-1 py-px text-3xs font-medium uppercase tracking-wide text-txt-3">{i.category.slice(0, 4)}</span>
                   </span>
                   <span className="block truncate text-2xs text-txt-3">{i.name}</span>
                 </span>

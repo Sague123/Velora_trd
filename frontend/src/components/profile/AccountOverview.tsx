@@ -59,7 +59,7 @@ function ActionTile({
       type="button"
       onClick={onClick}
       className={classNames(
-        "btn-fx tap flex flex-col items-center gap-1.5 rounded-2xl border px-2 py-3 text-center shadow-btn transition-[filter,transform]",
+        "btn-fx tap flex flex-col items-center gap-1.5 rounded-xl border px-2 py-3 text-center shadow-btn transition-[filter,transform]",
         ACTION_TONE_CLS[tone]
       )}
     >

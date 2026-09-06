@@ -13,11 +13,10 @@ import { ApiError } from "../lib/api";
 import { MultiSelect } from "../components/crm/MultiSelect";
 import type { CrmMeta, KycStatus, LeadStatus } from "../lib/types";
 import { IconChevron, IconClipboard, IconClose } from "../components/icons/Icon";
+import { buttonCls, fieldCls } from "../lib/ui";
 
-const inputCls =
-  "w-full rounded-lg border border-line bg-bg-2 px-2.5 py-1.5 text-xs text-txt-0 outline-none placeholder:text-txt-3 focus:border-accent";
-const colFilterCls =
-  "w-full rounded-lg border border-line-soft bg-bg-2/60 px-1.5 py-1 text-2xs text-txt-1 outline-none placeholder:text-txt-3 focus:border-accent";
+const inputCls = fieldCls("md", "w-full");
+const colFilterCls = fieldCls("sm", "w-full border-line-soft bg-bg-2/60 text-txt-1");
 
 const KYC_LABEL: Record<KycStatus, string> = {
   NONE: "Нет", PENDING: "На проверке", APPROVED: "Подтверждён", REJECTED: "Отклонён",
@@ -78,11 +77,11 @@ function ImportForm({ onClose }: { onClose: () => void }) {
         <button
           type="submit"
           disabled={!hasContact || fullName.trim().length < 2 || importLead.isPending}
-          className="btn-fx rounded-lg bg-accent-fill px-3 py-1.5 text-2xs font-semibold text-white hover:brightness-110 disabled:opacity-40"
+          className={buttonCls("primary", "md")}
         >
           {importLead.isPending ? "Добавление…" : "Добавить"}
         </button>
-        <button type="button" onClick={onClose} className="btn-fx rounded-lg border border-line px-3 py-1.5 text-2xs text-txt-2 hover:text-txt-0">
+        <button type="button" onClick={onClose} className={buttonCls("secondary", "sm")}>
           Отмена
         </button>
         {!hasContact && <span className="text-2xs text-txt-3">Нужен телефон или email</span>}
@@ -282,7 +281,7 @@ export function CrmPage() {
         </label>
 
         {hasAnyFilter && (
-          <button onClick={resetAll} className="btn-fx rounded-lg border border-line px-3 py-1.5 text-2xs text-txt-2 hover:text-txt-0">
+          <button onClick={resetAll} className={buttonCls("secondary", "sm")}>
             Сбросить всё
           </button>
         )}

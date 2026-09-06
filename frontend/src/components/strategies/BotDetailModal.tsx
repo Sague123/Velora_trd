@@ -33,7 +33,7 @@ export function BotDetailModal({ botId, onClose }: { botId: string; onClose: () 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" onClick={requestClose}>
       <div
-        className={`${closing ? "anim-rise-out" : "anim-rise"} flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-line bg-bg-1 shadow-2xl`}
+        className={`${closing ? "anim-rise-out" : "anim-rise"} flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-line bg-bg-1 shadow-lift`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex shrink-0 items-center justify-between border-b border-line bg-bg-2/40 px-4 py-3">

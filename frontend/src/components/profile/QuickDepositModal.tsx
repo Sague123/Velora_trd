@@ -25,7 +25,7 @@ export function QuickDepositModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div className="anim-rise w-full max-w-sm rounded-xl border border-line bg-bg-1 p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="anim-rise w-full max-w-sm rounded-xl border border-line bg-bg-1 p-5 shadow-lift" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-txt-0"><IconWalletPlus size={16} /> Quick Deposit</div>
         <form onSubmit={onSubmit}>
           <div className="mb-3 grid grid-cols-4 gap-1.5">

@@ -393,7 +393,7 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
         {fullscreen && (
           <button
             onClick={toggleFullscreen}
-            className="btn-fx absolute right-2 top-2 z-20 flex items-center gap-1 rounded border border-line bg-bg-1/90 px-2 py-1 text-2xs font-medium text-txt-1 shadow-lg hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+            className="btn-fx absolute right-2 top-2 z-20 flex items-center gap-1 rounded border border-line bg-bg-1/90 px-2 py-1 text-2xs font-medium text-txt-1 shadow-float hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
           >
             <IconCollapse size={13} /> Выйти из полноэкранного режима
           </button>

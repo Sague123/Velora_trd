@@ -8,6 +8,7 @@ import {
 } from "../icons/Icon";
 import type { ChartType, Oscillator } from "../../store/terminal";
 import type { Timeframe } from "../../lib/types";
+import { fieldCls } from "../../lib/ui";
 
 const TIMEFRAMES: Timeframe[] = ["1m", "5m", "15m", "1H", "4H", "1D", "1W"];
 const CHART_TYPES: { id: ChartType; label: string; Icon: typeof IconCandles }[] = [
@@ -171,7 +172,7 @@ export function ChartToolbar({
           trigger={(open, toggle) => (
             <button onClick={toggle} className={classNames(btnCls, iconBtnSize, toneFor(variant, open))} aria-label="Тип графика" title="Тип графика">
               <ChartTypeIcon size={iconSize} />
-              {dense && <span className="text-[9px] font-bold leading-none">Тип</span>}
+              {dense && <span className="text-3xs font-bold leading-none">Тип</span>}
             </button>
           )}
         >
@@ -198,7 +199,7 @@ export function ChartToolbar({
               title="Индикаторы"
             >
               <IconSliders size={iconSize} />
-              {dense && <span className="text-[9px] font-bold leading-none">Инд</span>}
+              {dense && <span className="text-3xs font-bold leading-none">Инд</span>}
             </button>
           )}
         >
@@ -210,7 +211,7 @@ export function ChartToolbar({
               <IndicatorToggle checked={showEma21} onChange={setShowEma21} textClass="text-indicator-ema21" boxCheckedClass="border-indicator-ema21 bg-indicator-ema21" label="EMA21" />
               <div className="border-t border-line-soft pt-2">
                 <select value={oscillator} onChange={(e) => setOscillator(e.target.value as Oscillator)}
-                  className="w-full rounded-lg border border-line bg-bg-3 px-1.5 py-1 text-2xs text-txt-1 outline-none focus:border-accent">
+                  className={fieldCls("sm", "w-full bg-bg-3")}>
                   <option value="NONE">Oscillator: none</option>
                   <option value="RSI">RSI (14)</option>
                   <option value="MACD">MACD (12,26,9)</option>
@@ -232,7 +233,7 @@ export function ChartToolbar({
               title="Инструменты рисования"
             >
               <IconPencil size={iconSize} />
-              {dense && <span className="text-[9px] font-bold leading-none">Рис</span>}
+              {dense && <span className="text-3xs font-bold leading-none">Рис</span>}
             </button>
           )}
         >

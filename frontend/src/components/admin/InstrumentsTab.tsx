@@ -5,6 +5,7 @@ import { ErrorRow, SkeletonTableRows } from "../common/States";
 import { classNames, fmtPrice } from "../../lib/format";
 import { toast } from "../../store/toast";
 import { ApiError } from "../../lib/api";
+import { fieldCls } from "../../lib/ui";
 
 export function InstrumentsTab() {
   const { data, isLoading, isError, refetch } = useInstruments();
@@ -78,7 +79,7 @@ export function InstrumentsTab() {
                       <input
                         value={editing[i.symbol] ?? String(i.maxLeverage)}
                         onChange={(e) => setEditing((s) => ({ ...s, [i.symbol]: e.target.value }))}
-                        className="w-16 rounded-lg border border-line bg-bg-2 px-1.5 py-1 text-2xs tabular outline-none focus:border-accent"
+                        className={fieldCls("sm", "w-16 tabular")}
                       />
                       <button
                         onClick={() => saveMaxLeverage(i.symbol)}

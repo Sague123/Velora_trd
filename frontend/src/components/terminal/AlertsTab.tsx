@@ -7,6 +7,7 @@ import { classNames, fmtDateTime, fmtPrice } from "../../lib/format";
 import { toast } from "../../store/toast";
 import { ApiError } from "../../lib/api";
 import type { AlertDirection } from "../../lib/types";
+import { buttonCls, fieldCls } from "../../lib/ui";
 
 export function AlertsTab() {
   const terminalSymbol = useTerminalStore((s) => s.symbol);
@@ -46,7 +47,7 @@ export function AlertsTab() {
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <form onSubmit={onSubmit} className="flex shrink-0 flex-wrap items-end gap-2 border-b border-line-soft px-2.5 py-2">
-        <select value={symbol} onChange={(e) => setSymbol(e.target.value)} className="rounded border border-line bg-bg-2 px-2 py-1 text-2xs outline-none focus:border-accent">
+        <select value={symbol} onChange={(e) => setSymbol(e.target.value)} className={fieldCls("sm")}>
           {(instruments?.instruments ?? []).map((i) => (
             <option key={i.symbol} value={i.symbol}>{i.symbol}</option>
           ))}
@@ -60,8 +61,8 @@ export function AlertsTab() {
           </button>
         </div>
         <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder="Price"
-          className="w-28 rounded border border-line bg-bg-2 px-2 py-1 text-2xs tabular outline-none focus:border-accent" />
-        <button type="submit" disabled={create.isPending} className="btn-fx rounded bg-accent-fill px-3 py-1 text-2xs font-semibold text-white hover:bg-accent-dim disabled:opacity-50">
+          className={fieldCls("sm", "w-28 tabular")} />
+        <button type="submit" disabled={create.isPending} className={buttonCls("primary", "sm")}>
           {create.isPending ? "…" : "Create Alert"}
         </button>
         {data && <span className="ml-auto text-2xs text-txt-3">{active.length} активных</span>}
@@ -81,7 +82,7 @@ export function AlertsTab() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-txt-3">создан {fmtDateTime(a.createdAt)}</span>
-                  <button onClick={() => onDelete(a.id, a.symbol)} className="btn-fx rounded border border-line px-2 py-0.5 text-txt-1 hover:border-sell hover:text-sell focus-visible:outline focus-visible:outline-2 focus-visible:outline-sell">Delete</button>
+                  <button onClick={() => onDelete(a.id, a.symbol)} className={buttonCls("danger", "sm")}>Delete</button>
                 </div>
               </div>
             ))}
@@ -94,7 +95,7 @@ export function AlertsTab() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-txt-3">{fmtDateTime(a.firedAt)}</span>
-                  <button onClick={() => onDelete(a.id, a.symbol)} className="btn-fx rounded border border-line px-2 py-0.5 text-txt-1 hover:border-sell hover:text-sell focus-visible:outline focus-visible:outline-2 focus-visible:outline-sell">Delete</button>
+                  <button onClick={() => onDelete(a.id, a.symbol)} className={buttonCls("danger", "sm")}>Delete</button>
                 </div>
               </div>
             ))}

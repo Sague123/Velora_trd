@@ -10,9 +10,9 @@ import { IdentityForm } from "../auth/IdentityForm";
 import { LoadingRow } from "../common/States";
 import type { KycStatus, TotpSetup } from "../../lib/types";
 import { IconCheck, IconLock, IconWarning } from "../icons/Icon";
+import { buttonCls, fieldCls, labelCls } from "../../lib/ui";
 
-const inputCls = "w-full rounded border border-line bg-bg-2 px-2.5 py-2 text-xs text-txt-0 outline-none focus:border-accent";
-const labelCls = "mb-1 block text-2xs text-txt-2";
+const inputCls = fieldCls("md", "w-full");
 
 function Panel({ title, badge, children }: { title: string; badge?: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -63,11 +63,11 @@ function BackupCodes({ codes, onDone }: { codes: string[]; onDone: () => void })
       <div className="flex gap-2">
         <button
           onClick={() => { void navigator.clipboard?.writeText(codes.join("\n")); toast.info("Коды скопированы"); }}
-          className="tap-sm btn-fx rounded border border-line px-3 py-1.5 text-2xs text-txt-1 hover:border-accent hover:text-accent"
+          className={buttonCls("secondary", "sm")}
         >
           Скопировать
         </button>
-        <button onClick={onDone} className="tap-sm btn-fx rounded bg-accent-fill px-3 py-1.5 text-2xs font-semibold text-white hover:brightness-110">
+        <button onClick={onDone} className={buttonCls("primary", "sm")}>
           Я сохранил коды
         </button>
       </div>
@@ -170,10 +170,10 @@ function TwoFactorPanel() {
 
           {errorBlock}
           <div className="flex gap-2">
-            <button type="submit" disabled={busy} className="tap-sm btn-fx rounded bg-accent-fill px-3 py-1.5 text-2xs font-semibold text-white hover:brightness-110 disabled:opacity-50">
+            <button type="submit" disabled={busy} className={buttonCls("primary", "sm")}>
               {busy ? "Проверка…" : "Включить"}
             </button>
-            <button type="button" onClick={() => { setSetup(null); setError(null); }} className="tap-sm btn-fx rounded border border-line px-3 py-1.5 text-2xs text-txt-2 hover:text-txt-0">
+            <button type="button" onClick={() => { setSetup(null); setError(null); }} className={buttonCls("secondary", "sm")}>
               Отмена
             </button>
           </div>
@@ -193,7 +193,7 @@ function TwoFactorPanel() {
                 type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password" className={`${inputCls} min-w-[160px] flex-1`} placeholder="Пароль"
               />
-              <button type="submit" disabled={busy} className="tap-sm btn-fx rounded border border-line px-3 py-1.5 text-2xs text-txt-1 hover:border-accent hover:text-accent disabled:opacity-50">
+              <button type="submit" disabled={busy} className={buttonCls("secondary", "sm")}>
                 Перевыпустить
               </button>
             </div>
@@ -213,7 +213,7 @@ function TwoFactorPanel() {
                 required value={code} onChange={(e) => setCode(e.target.value)}
                 className={`${inputCls} min-w-[120px] flex-1 tabular`} placeholder="Код или резервный код"
               />
-              <button type="submit" disabled={busy} className="tap-sm btn-fx rounded border border-line px-3 py-1.5 text-2xs text-txt-2 hover:border-sell hover:text-sell disabled:opacity-50">
+              <button type="submit" disabled={busy} className={buttonCls("danger", "sm")}>
                 Выключить
               </button>
             </div>
@@ -228,7 +228,7 @@ function TwoFactorPanel() {
             средства.
           </p>
           {errorBlock}
-          <button onClick={start} disabled={busy} className="tap-sm btn-fx rounded bg-accent-fill px-3 py-1.5 text-2xs font-semibold text-white hover:brightness-110 disabled:opacity-50">
+          <button onClick={start} disabled={busy} className={buttonCls("primary", "sm")}>
             {busy ? "…" : "Настроить"}
           </button>
         </div>
@@ -265,7 +265,7 @@ function EmailPanel() {
           : "пока адрес не подтверждён, восстановить пароль по ссылке из письма не получится."}
       </p>
       {!verified && (
-        <button onClick={resend} disabled={busy} className="tap-sm btn-fx rounded border border-line px-3 py-1.5 text-2xs text-txt-1 hover:border-accent hover:text-accent disabled:opacity-50">
+        <button onClick={resend} disabled={busy} className={buttonCls("secondary", "sm")}>
           {busy ? "…" : "Отправить письмо ещё раз"}
         </button>
       )}
@@ -331,7 +331,7 @@ function KycPanel() {
             onClick={() => setSubmitting(true)}
             disabled={kyc.data?.uploadAvailable === false}
             title={kyc.data?.uploadAvailable === false ? "Загрузка документов сейчас недоступна" : undefined}
-            className="tap-sm btn-fx rounded bg-accent-fill px-3 py-1.5 text-2xs font-semibold text-white hover:brightness-110 disabled:opacity-40"
+            className={buttonCls("primary", "sm")}
           >
             {status === "REJECTED" ? "Подать заявку заново" : "Подтвердить личность"}
           </button>
@@ -404,7 +404,7 @@ function PasswordPanel() {
         </div>
         {error && <div className="mt-3 rounded border border-sell/40 bg-sell-soft px-2.5 py-1.5 text-2xs text-sell">{error}</div>}
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <button type="submit" disabled={changePassword.isPending} className="btn-fx tap-sm rounded bg-accent-fill px-4 py-1.5 text-2xs font-semibold text-white hover:brightness-110 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent">
+          <button type="submit" disabled={changePassword.isPending} className={buttonCls("primary", "sm")}>
             {changePassword.isPending ? "Сохранение…" : "Update Password"}
           </button>
           <span className="text-2xs text-txt-3">Смена пароля завершит все ваши сессии.</span>

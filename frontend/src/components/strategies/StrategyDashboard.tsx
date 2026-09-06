@@ -85,12 +85,12 @@ function StrategyCard({ bot, positions, onOpen }: { bot: Bot; positions: Positio
           {bot.type === "GRID" ? <IconGrid size={15} /> : <IconTrendDown size={15} />}
         </span>
         <span className="text-xs font-bold text-txt-0">{bot.symbol}</span>
-        <span className={classNames("rounded px-1.5 py-0.5 text-[9px] font-semibold", bot.type === "GRID" ? "bg-accent-soft text-accent" : "bg-warn/10 text-warn")}>
+        <span className={classNames("rounded px-1.5 py-0.5 text-3xs font-semibold", bot.type === "GRID" ? "bg-accent-soft text-accent" : "bg-warn/10 text-warn")}>
           {bot.type === "GRID" ? "GRID" : "MARTINGALE"}
         </span>
         <span
           className={classNames(
-            "flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-semibold",
+            "flex items-center gap-1 rounded px-1.5 py-0.5 text-3xs font-semibold",
             running ? "bg-buy-soft text-buy" : bot.status === "ERROR" ? "bg-sell-soft text-sell" : "bg-bg-3 text-txt-2"
           )}
         >
@@ -99,7 +99,7 @@ function StrategyCard({ bot, positions, onOpen }: { bot: Bot; positions: Positio
         </span>
 
         <span className="ml-auto text-right">
-          <span className="block text-[9px] uppercase tracking-wide text-txt-3">P&amp;L</span>
+          <span className="block text-3xs uppercase tracking-wide text-txt-3">P&amp;L</span>
           {pnl === null ? (
             <Tooltip label="API не связывает исполненные ордера сетки с ботом, который их выставил, поэтому P&L сетки здесь не посчитать — он виден в общем списке сделок на вкладке History.">
               <span className="block cursor-help tabular text-xs font-semibold text-txt-3">—</span>

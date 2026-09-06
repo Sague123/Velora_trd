@@ -68,7 +68,7 @@ export function SpotWalletCard({ onTrade }: { onTrade?: (asset: string) => void 
             )}
           >
             <div className="mb-1.5 flex items-center gap-1.5">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-bg-3 text-[9px] font-bold text-txt-1">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-bg-3 text-3xs font-bold text-txt-1">
                 {a.asset.slice(0, 1)}
               </span>
               <span className="truncate text-2xs font-bold text-txt-0">{a.asset}</span>
@@ -162,7 +162,7 @@ export function SpotHoldingsList({
           <tr key={h.asset} className="border-b border-line-soft/60 last:border-b-0 hover:bg-bg-2/50">
             <td className="px-2.5 py-2">
               <div className="font-semibold text-txt-0">{h.asset}</div>
-              <div className="truncate text-[9px] text-txt-3">{h.name}</div>
+              <div className="truncate text-3xs text-txt-3">{h.name}</div>
             </td>
             <td className="truncate px-2.5 py-2 text-right tabular text-txt-1">
               {fmtAmount(h.qty, h.asset === quoteAsset)}

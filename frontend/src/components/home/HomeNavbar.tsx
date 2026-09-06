@@ -7,6 +7,7 @@ import { Logo } from "../layout/Logo";
 import { ThemeToggle } from "../layout/ThemeToggle";
 import { LanguageSwitcher } from "../layout/LanguageSwitcher";
 import { IconBell, IconSearch } from "../icons/Icon";
+import { buttonCls } from "../../lib/ui";
 
 export function HomeNavbar({ query, onQueryChange }: { query: string; onQueryChange: (v: string) => void }) {
   const { t } = useTranslation();
@@ -32,7 +33,7 @@ export function HomeNavbar({ query, onQueryChange }: { query: string; onQueryCha
   ];
 
   return (
-    <header className="sticky top-0 z-30 flex shrink-0 flex-col border-b border-line bg-bg-1/95 text-[13px] backdrop-blur">
+    <header className="sticky top-0 z-30 flex shrink-0 flex-col border-b border-line bg-bg-1/95 text-xs backdrop-blur">
       <div className="flex h-12 items-center gap-1 px-3">
         <Link to="/" className="flex items-center gap-1.5 pr-4">
           <Logo />
@@ -44,7 +45,7 @@ export function HomeNavbar({ query, onQueryChange }: { query: string; onQueryCha
             <button
               key={item.label}
               onClick={() => navigate(item.to)}
-              className="btn-fx rounded px-2.5 py-1.5 text-[12.5px] font-medium text-txt-2 transition-colors hover:bg-bg-2 hover:text-txt-0"
+              className="btn-fx rounded px-2.5 py-1.5 text-xs font-medium text-txt-2 transition-colors hover:bg-bg-2 hover:text-txt-0"
             >
               {item.label}
             </button>
@@ -80,7 +81,7 @@ export function HomeNavbar({ query, onQueryChange }: { query: string; onQueryCha
               <IconBell size={14} />
             </button>
             {notifOpen && (
-              <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded border border-line bg-bg-2 p-3 shadow-xl">
+              <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded border border-line bg-bg-2 p-3 shadow-float">
                 <div className="mb-1 text-2xs font-semibold text-txt-1">{t("home.notifications")}</div>
                 <div className="text-2xs text-txt-3">{t("home.noNotifications")}</div>
               </div>
@@ -95,7 +96,7 @@ export function HomeNavbar({ query, onQueryChange }: { query: string; onQueryCha
               {user.avatar ? (
                 <img src={user.avatar} alt="" className="h-6 w-6 rounded-full object-cover" />
               ) : (
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent-soft text-[10px] font-semibold text-accent">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent-soft text-2xs font-semibold text-accent">
                   {user.name?.[0]?.toUpperCase() ?? "?"}
                 </span>
               )}
@@ -103,12 +104,12 @@ export function HomeNavbar({ query, onQueryChange }: { query: string; onQueryCha
             </Link>
           ) : (
             <>
-              <Link to="/login" className="btn-fx tap-sm ml-1 rounded px-2.5 py-1.5 text-[12.5px] font-medium text-txt-2 hover:text-txt-0">
+              <Link to="/login" className="btn-fx tap-sm ml-1 rounded px-2.5 py-1.5 text-xs font-medium text-txt-2 hover:text-txt-0">
                 {t("home.logIn")}
               </Link>
               <Link
                 to="/register"
-                className="btn-fx tap-sm rounded bg-accent-fill px-3.5 py-1.5 text-[12.5px] font-semibold text-white shadow-panel transition-colors hover:bg-accent-dim"
+                className={buttonCls("primary", "md")}
               >
                 {t("home.signUp")}
               </Link>

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAdminAudit } from "../../hooks/useAdmin";
 import { ErrorRow, EmptyRow, SkeletonTableRows } from "../common/States";
 import { fmtDateTime } from "../../lib/format";
+import { buttonCls, fieldCls } from "../../lib/ui";
 
 const PAGE_SIZE = 40;
 
@@ -18,7 +19,7 @@ export function AuditTab() {
           value={action}
           onChange={(e) => { setAction(e.target.value); setPage(1); }}
           placeholder="Фильтр по action (напр. ORDER_PLACED)…"
-          className="w-72 rounded-lg border border-line bg-bg-2 px-2.5 py-1.5 text-xs outline-none focus:border-accent"
+          className={fieldCls("md", "w-72")}
         />
         {data && <span className="ml-auto text-2xs text-txt-3">{data.total} записей</span>}
       </div>
@@ -60,11 +61,11 @@ export function AuditTab() {
 
       {data && totalPages > 1 && (
         <div className="flex shrink-0 items-center justify-end gap-2 border-t border-line px-3 py-2 text-2xs">
-          <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="rounded-lg border border-line px-2 py-1 text-txt-2 hover:text-txt-0 disabled:opacity-30">
+          <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className={buttonCls("secondary", "sm")}>
             ← Prev
           </button>
           <span className="text-txt-2">{page} / {totalPages}</span>
-          <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} className="rounded-lg border border-line px-2 py-1 text-txt-2 hover:text-txt-0 disabled:opacity-30">
+          <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} className={buttonCls("secondary", "sm")}>
             Next →
           </button>
         </div>

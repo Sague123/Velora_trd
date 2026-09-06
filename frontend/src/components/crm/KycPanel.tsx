@@ -5,6 +5,7 @@ import { SkeletonBar } from "../common/States";
 import { toast } from "../../store/toast";
 import { ApiError } from "../../lib/api";
 import type { KycStatus, LeadPlatformInfo } from "../../lib/types";
+import { buttonCls, textareaCls } from "../../lib/ui";
 
 const STATUS_CLS: Record<KycStatus, string> = {
   NONE: "bg-bg-3 text-txt-2",
@@ -150,7 +151,7 @@ export function KycPanel({ platform, isAdmin }: { platform: LeadPlatformInfo | n
                         rows={2}
                         value={reason}
                         onChange={(e) => setReason(e.target.value)}
-                        className="w-full resize-none rounded border border-line bg-bg-2 px-2.5 py-2 text-xs text-txt-0 outline-none focus:border-accent"
+                        className={textareaCls("md", "w-full resize-none")}
                         placeholder="Например: номер документа не читается на фото"
                       />
                     </label>
@@ -174,7 +175,7 @@ export function KycPanel({ platform, isAdmin }: { platform: LeadPlatformInfo | n
                         </button>
                         <button
                           onClick={() => { setRejecting(false); setReason(""); }}
-                          className="btn-fx rounded border border-line px-3 py-1.5 text-2xs text-txt-2 hover:text-txt-0"
+                          className={buttonCls("secondary", "sm")}
                         >
                           Отмена
                         </button>

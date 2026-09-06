@@ -20,9 +20,9 @@ import {
 } from "./leadLabels";
 import type { LeadDetail, LeadStatus, LeadVerificationStatus } from "../../lib/types";
 import { IconClose, IconPencil } from "../icons/Icon";
+import { buttonCls, fieldCls } from "../../lib/ui";
 
-const selectCls =
-  "w-full rounded-lg border border-line bg-bg-2 px-2 py-1.5 text-xs text-txt-0 outline-none focus:border-accent";
+const selectCls = fieldCls("md", "w-full");
 const inputCls = selectCls;
 
 type Tab = "main" | "account" | "kyc";
@@ -102,7 +102,7 @@ function ConsentRow({ lead }: { lead: LeadDetail }) {
             <button
               onClick={() => toggle(false)}
               disabled={setConsent.isPending}
-              className="btn-fx tap-sm rounded-lg border border-line px-2.5 py-1 text-2xs text-txt-2 hover:border-sell hover:text-sell disabled:opacity-50"
+              className={buttonCls("danger", "sm")}
             >
               Отозвать
             </button>
@@ -342,11 +342,11 @@ export function LeadCard({ leadId, onClose }: { leadId: string; onClose: () => v
                         <button
                           type="submit"
                           disabled={editLead.isPending || (!form.phone.trim() && !form.email.trim()) || form.fullName.trim().length < 2}
-                          className="btn-fx rounded bg-accent-fill px-3 py-1.5 text-2xs font-semibold text-white hover:brightness-110 disabled:opacity-40"
+                          className={buttonCls("primary", "sm")}
                         >
                           {editLead.isPending ? "Сохранение…" : "Сохранить"}
                         </button>
-                        <button type="button" onClick={cancelEdit} className="btn-fx rounded border border-line px-3 py-1.5 text-2xs text-txt-2 hover:text-txt-0">
+                        <button type="button" onClick={cancelEdit} className={buttonCls("secondary", "sm")}>
                           Отмена
                         </button>
                       </div>

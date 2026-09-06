@@ -7,10 +7,9 @@ import { classNames, fmtPrice, fmtSigned, n } from "../../lib/format";
 import { IconCandles, IconClose, IconSwap, IconWarning } from "../icons/Icon";
 import { ChartPointPicker, type PickedPoint } from "./ChartPointPicker";
 import type { OrderSide, Position, Trade } from "../../lib/types";
+import { buttonCls, fieldCls, labelCls } from "../../lib/ui";
 
-const inputCls =
-  "w-full rounded-lg border border-line bg-bg-2 px-2 py-1.5 text-xs tabular text-txt-0 outline-none focus:border-accent";
-const labelCls = "mb-1 block text-2xs text-txt-2";
+const inputCls = fieldCls("md", "w-full tabular");
 
 /** `<input type="datetime-local">` wants "YYYY-MM-DDTHH:mm" in local time,
  * while the API speaks ISO-8601 UTC. Converting through the Date object keeps
@@ -317,7 +316,7 @@ export function TradeEditModal({
                 <button
                   type="button"
                   onClick={() => (confirming ? setConfirming(false) : onClose())}
-                  className="btn-fx tap-sm rounded-lg border border-line px-3 py-1.5 text-2xs text-txt-2 hover:text-txt-0"
+                  className={buttonCls("secondary", "sm")}
                 >
                   {confirming ? "Назад" : "Отмена"}
                 </button>

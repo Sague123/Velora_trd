@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useLiveInstruments } from "../../hooks/useLivePrices";
 import { classNames, fmtPct, fmtPrice } from "../../lib/format";
+import { fieldCls } from "../../lib/ui";
 
 /** A compact, always-visible instrument list for choosing which pair a bot
  * trades — kept separate from the settings form so picking the coin doesn't
@@ -23,7 +24,7 @@ export function CoinPicker({ value, onChange }: { value: string; onChange: (symb
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Поиск…"
-          className="w-full rounded border border-line bg-bg-2 px-2 py-1.5 text-2xs outline-none focus:border-accent"
+          className={fieldCls("md", "w-full")}
         />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">

@@ -5,6 +5,8 @@ import { toast } from "../../store/toast";
 import { ApiError } from "../../lib/api";
 import { classNames, fmtAmount, fmtPrice, fmtUsd, n } from "../../lib/format";
 import { IconSwap } from "../icons/Icon";
+import { fieldCls } from "../../lib/ui";
+import { Button } from "../common/Button";
 
 // No `w-full` in either of these: both are used inside a flex row where the
 // caller sets the width, and Tailwind resolves conflicting width utilities by
@@ -12,10 +14,11 @@ import { IconSwap } from "../icons/Icon";
 // added at the call site, so the asset select took the whole row and squeezed
 // the amount input down to 22px. It looked like a dead grey rectangle, which
 // is exactly what it was: an input with no room to render anything in.
-const inputCls =
-  "min-w-0 rounded-xl border border-line bg-bg-2 px-3 py-2.5 text-base font-semibold tabular text-txt-0 outline-none focus:border-accent";
-const selectCls =
-  "shrink-0 rounded-xl border border-line bg-bg-3 px-2 py-2.5 text-xs font-bold text-txt-0 outline-none focus:border-accent";
+// The amount pair is the one place a field is deliberately the biggest thing
+// on screen (it is what the modal is for), so it runs at `lg` — still the
+// shared skin and the shared 8px radius, not a bespoke `rounded-xl` input.
+const inputCls = fieldCls("lg", "min-w-0 font-semibold tabular");
+const selectCls = fieldCls("lg", "shrink-0 bg-bg-3 font-bold");
 
 export type ExchangeMode = "buy" | "sell" | "convert";
 
@@ -110,7 +113,7 @@ export function SpotExchangeModal({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" onClick={requestClose}>
       <div
-        className={`${closing ? "anim-rise-out" : "anim-rise"} w-full max-w-sm rounded-xl border border-accent/40 bg-bg-1 p-5 shadow-2xl`}
+        className={`${closing ? "anim-rise-out" : "anim-rise"} w-full max-w-sm rounded-xl border border-accent/40 bg-bg-1 p-5 shadow-lift`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-txt-0">
@@ -211,20 +214,12 @@ export function SpotExchangeModal({
           )}
 
           <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={pending || !quote.data || overBalance}
-              className="btn-fx tap flex-1 rounded-2xl bg-accent-fill py-3 text-sm font-bold text-white shadow-btn hover:brightness-110 disabled:opacity-40"
-            >
+            <Button type="submit" variant="primary" size="lg" className="flex-1" disabled={pending || !quote.data || overBalance}>
               {pending ? "Выполняем…" : "Обменять"}
-            </button>
-            <button
-              type="button"
-              onClick={requestClose}
-              className="btn-fx tap rounded-2xl border border-line bg-bg-3 px-5 text-sm font-semibold text-txt-1 hover:text-txt-0"
-            >
+            </Button>
+            <Button size="lg" onClick={requestClose} className="px-5">
               Отмена
-            </button>
+            </Button>
           </div>
         </form>
       </div>

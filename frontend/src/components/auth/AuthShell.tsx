@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { classNames } from "../../lib/format";
+import { buttonCls } from "../../lib/ui";
 
 /**
  * The frame every out-of-app auth screen shares — login, registration, the
@@ -57,7 +58,7 @@ export const authInputCls =
 /** The single primary action on the page: the one place in Velora that carries
  * a real shadow at rest, and lifts further on hover. */
 export const authButtonCls =
-  "btn-fx w-full rounded-lg bg-accent-fill py-2.5 text-xs font-semibold text-white shadow-btn hover:bg-accent-dim hover:shadow-lift disabled:opacity-50 disabled:shadow-none";
+  buttonCls("primary", "lg", "w-full");
 
 /** Secondary actions: bordered, no fill, same height so rows line up. */
 export const authGhostCls =

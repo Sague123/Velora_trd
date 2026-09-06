@@ -10,8 +10,9 @@ import { AnimatedNumber } from "../common/AnimatedNumber";
 import { LedgerTable } from "../terminal/LedgerTable";
 import { TradeEditModal } from "./TradeEditModal";
 import type { CrmPermission, Position, Trade } from "../../lib/types";
+import { buttonCls, fieldCls } from "../../lib/ui";
 
-const inputCls = "w-full rounded-lg border border-line bg-bg-2 px-2 py-1.5 text-xs tabular outline-none focus:border-accent";
+const inputCls = fieldCls("md", "w-full tabular");
 
 /**
  * The account behind a converted lead: balances, open positions, open orders,
@@ -133,7 +134,7 @@ export function AccountPanel({
               <button
                 type="submit"
                 disabled={!amount || adjustBalance.isPending}
-                className="btn-fx rounded-lg bg-accent-fill px-3 py-1.5 text-2xs font-semibold text-white hover:brightness-110 disabled:opacity-40"
+                className={buttonCls("primary", "md")}
               >
                 Применить
               </button>
@@ -187,10 +188,10 @@ export function AccountPanel({
                   </td>
                   {canTrades && (
                     <td className="flex justify-end gap-1 px-2 py-1 text-right">
-                      <button onClick={() => setEditing({ kind: "position", position: p })} className="btn-fx rounded-lg border border-line px-2 py-0.5 text-txt-2 hover:border-accent hover:text-accent">
+                      <button onClick={() => setEditing({ kind: "position", position: p })} className={buttonCls("secondary", "sm")}>
                         Изменить
                       </button>
-                      <button onClick={() => doClose(p.id)} disabled={closePosition.isPending} className="btn-fx rounded-lg border border-line px-2 py-0.5 text-txt-2 hover:border-sell hover:text-sell">
+                      <button onClick={() => doClose(p.id)} disabled={closePosition.isPending} className={buttonCls("danger", "sm")}>
                         Закрыть
                       </button>
                     </td>
@@ -223,7 +224,7 @@ export function AccountPanel({
                   <td className="px-2 py-1 text-right text-txt-1">{o.price}</td>
                   {canTrades && (
                     <td className="px-2 py-1 text-right">
-                      <button onClick={() => doCancel(o.id)} disabled={cancelOrder.isPending} className="btn-fx rounded-lg border border-line px-2 py-0.5 text-txt-2 hover:border-sell hover:text-sell">
+                      <button onClick={() => doCancel(o.id)} disabled={cancelOrder.isPending} className={buttonCls("danger", "sm")}>
                         Отменить
                       </button>
                     </td>
@@ -253,7 +254,7 @@ export function AccountPanel({
                   <td className="px-2 py-1 text-right text-txt-3">{fmtDateTime(t.closedAt)}</td>
                   {canTrades && (
                     <td className="px-2 py-1 text-right">
-                      <button onClick={() => setEditing({ kind: "trade", trade: t })} className="btn-fx rounded-lg border border-line px-2 py-0.5 text-txt-2 hover:border-accent hover:text-accent">
+                      <button onClick={() => setEditing({ kind: "trade", trade: t })} className={buttonCls("secondary", "sm")}>
                         Изменить
                       </button>
                     </td>

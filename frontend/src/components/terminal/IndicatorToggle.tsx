@@ -15,7 +15,7 @@ export function IndicatorToggle({
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="peer sr-only" />
       <span
         className={classNames(
-          "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border border-line bg-bg-2 transition-colors",
+          "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border border-line bg-bg-2 transition-colors",
           "peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-1 peer-focus-visible:outline-accent",
           checked && boxCheckedClass
         )}

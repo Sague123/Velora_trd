@@ -127,20 +127,20 @@ export function RecentWalletActivity({ onSeeAll }: { onSeeAll?: () => void } = {
                       A Spot<->Futures transfer writes one row in each journal,
                       and without the chip the two balances looked like the
                       same wallet contradicting itself. */}
-                  <span className={classNames("mt-0.5 inline-block rounded px-1 py-px text-[9px] font-semibold", WALLET_CHIP[e.wallet].cls)}>
+                  <span className={classNames("mt-0.5 inline-block rounded px-1 py-px text-3xs font-semibold", WALLET_CHIP[e.wallet].cls)}>
                     {WALLET_CHIP[e.wallet].label}
                   </span>
                 </td>
                 <td className={classNames("px-2 py-1.5 text-right tabular font-medium", Number(e.delta) >= 0 ? "text-buy" : "text-sell")}>
                   <div className="truncate">{fmtSigned(e.delta, e.asset === "USD" ? 2 : 8)}</div>
-                  <div className="text-[9px] font-normal text-txt-3">{e.asset}</div>
+                  <div className="text-3xs font-normal text-txt-3">{e.asset}</div>
                 </td>
                 {/* Balance after, in that row's own asset — a BTC purchase
                     leaves a BTC balance, and formatting it as dollars would
                     read as a hundred-thousand-fold error. */}
                 <td className="px-2 py-1.5 text-right tabular text-txt-2">
                   <div className="truncate">{fmtAmount(e.balanceAfter, e.asset === "USD")}</div>
-                  <div className="text-[9px] text-txt-3">{e.asset}</div>
+                  <div className="text-3xs text-txt-3">{e.asset}</div>
                 </td>
               </tr>
             ))}

@@ -24,9 +24,9 @@ import {
 } from "../components/icons/Icon";
 import { ApiError } from "../lib/api";
 import { SiteFooter } from "../components/layout/SiteFooter";
+import { buttonCls, fieldCls, labelCls } from "../lib/ui";
 
-const inputCls = "w-full rounded border border-line bg-bg-2 px-2 py-1.5 text-xs tabular outline-none focus:border-accent transition-colors";
-const labelCls = "mb-1 block text-2xs font-medium text-txt-2";
+const inputCls = fieldCls("md", "w-full tabular");
 const PREVIEW_TFS: Timeframe[] = ["15m", "1H", "4H", "1D"];
 
 /** "1 докупка / 3 докупки / 8 докупок" — Russian needs all three forms, and
@@ -41,7 +41,7 @@ function safetyOrders(n: number): string {
 function SectionLabel({ step, children }: { step: number; children: React.ReactNode }) {
   return (
     <div className="mb-1.5 flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wide text-txt-2">
-      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-bg-3 text-[9px] text-txt-2">{step}</span>
+      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-bg-3 text-3xs text-txt-2">{step}</span>
       {children}
     </div>
   );
@@ -194,7 +194,7 @@ export function StrategiesPage() {
                 )}
               >
                 <span className="flex items-center gap-1.5 text-xs font-bold"><Icon size={14} /> {label}</span>
-                <span className={classNames("text-[9px] leading-tight", botType === key ? "text-white/75" : "text-txt-3")}>{hint}</span>
+                <span className={classNames("text-3xs leading-tight", botType === key ? "text-white/75" : "text-txt-3")}>{hint}</span>
               </button>
             ))}
           </div>
@@ -246,7 +246,7 @@ export function StrategiesPage() {
                       levels={Math.max(1, Math.trunc(Number(gridDraft.levels)) || 1)}
                     />
                   </div>
-                  <div className="mt-1 text-[9px] text-txt-3">
+                  <div className="mt-1 text-3xs text-txt-3">
                     {gridConfig
                       ? `${Number(gridDraft.levels) + 1} ордеров между ${fmt(Number(gridDraft.lower), 2)} и ${fmt(Number(gridDraft.upper), 2)} — равномерный шаг`
                       : "Заполните диапазон, чтобы увидеть сетку"}
@@ -352,7 +352,7 @@ export function StrategiesPage() {
           <button
             type="submit"
             disabled={!canStart}
-            className="btn-fx tap mb-2 w-full rounded-xl bg-accent-fill py-3 text-sm font-bold text-white shadow-btn transition-[background-color,box-shadow] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+            className={buttonCls("primary", "lg", "mb-2 w-full")}
           >
             {create.isPending || start.isPending ? "Запуск…" : "Start Auto Trading"}
           </button>
@@ -426,7 +426,7 @@ export function StrategiesPage() {
                     <label className="block"><span className={labelCls}>Leverage</span>
                       <input value={martDraft.leverage} onChange={(e) => setMartDraft((d) => ({ ...d, leverage: e.target.value }))} inputMode="numeric" className={inputCls} /></label>
                   </div>
-                  <div className="rounded border border-line-soft bg-bg-3/40 px-2.5 py-2 text-[9px] leading-snug text-txt-3">
+                  <div className="rounded border border-line-soft bg-bg-3/40 px-2.5 py-2 text-3xs leading-snug text-txt-3">
                     Take Profit и Price Deviation движок считает в ROE, поэтому пресеты идут на 1x — там ROE совпадает с движением цены.
                     На большем плече те же проценты сработают при меньшем движении.
                     <br />

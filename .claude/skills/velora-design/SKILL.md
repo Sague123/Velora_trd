@@ -166,6 +166,49 @@ Adjacent surfaces of the same weight must share a radius; don't put a
 
 ---
 
+## Controls: buttons and fields
+
+There is **one** button and **one** field, both defined in
+`frontend/src/lib/ui.ts` (`buttonCls`, `fieldCls`, `textareaCls`, `labelCls`).
+`components/common/Button.tsx` is `buttonCls` plus a `<button>`.
+
+Never hand-write a button or input class string. The reason is empirical: this
+same "primary action button" once existed in about twenty spellings — padding
+from `py-1` to `py-3`, four different text sizes, `hover:brightness-110` beside
+`hover:bg-accent-dim`, `disabled:opacity-40` beside `-50`, and `focus-visible`
+on roughly a third of them. Every one of those was locally reasonable and
+collectively incoherent.
+
+**Variant** is what the control *means*:
+
+| Variant | Use |
+|---|---|
+| `primary` | The one action a screen is for |
+| `secondary` | Everything else — the default |
+| `ghost` | Quiet inline action, no chrome until hover |
+| `buy` / `sell` | Market direction only — never confirm/cancel |
+| `danger` | Destructive: neutral at rest, sell-toned on hover |
+
+**Size** is how dense the surrounding surface is, and it sets height, padding,
+text size and radius together:
+
+| Size | Height | Radius | Where |
+|---|---|---|---|
+| `sm` | 28px | `rounded` | Inside the terminal, table row actions |
+| `md` | 32px | `rounded-lg` | Ordinary app UI — the default |
+| `lg` | 40px | `rounded-lg` | The single big action on a form or modal |
+
+`fieldCls` uses the same three heights, so a field and the button beside it
+line up instead of each being however tall its own padding made it. Width is
+deliberately *not* baked in: pass `w-full` (or `w-24`, or nothing) yourself,
+because two same-specificity Tailwind width utilities are resolved by the
+stylesheet's order, not the class attribute's, and a baked-in `w-full` would
+silently win over a caller's `w-24`.
+
+Call sites that already have a `<button>` with their own handlers and aria
+wiring can use `buttonCls(...)` directly — only the look needed unifying, not
+their markup.
+
 ## Touch targets
 
 `globals.css` provides `tap` (44px) and `tap-sm` (38px). Both apply **only**

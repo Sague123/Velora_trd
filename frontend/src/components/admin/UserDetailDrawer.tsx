@@ -14,6 +14,7 @@ import { useAuthStore } from "../../store/auth";
 import { IconClose } from "../icons/Icon";
 import { CRM_PERMISSION_HINT, CRM_PERMISSION_LABEL } from "../crm/leadLabels";
 import type { CrmPermission, Role } from "../../lib/types";
+import { buttonCls, fieldCls } from "../../lib/ui";
 
 const ALL_CRM_PERMISSIONS = Object.keys(CRM_PERMISSION_LABEL) as CrmPermission[];
 
@@ -127,7 +128,7 @@ export function UserDetailDrawer({ userId, onClose }: { userId: string; onClose:
 
   return (
     <div className="fixed inset-0 z-[100] flex justify-end bg-black/50" onClick={onClose}>
-      <div className="flex h-full w-full max-w-2xl flex-col bg-bg-1 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="flex h-full w-full max-w-2xl flex-col bg-bg-1 shadow-lift" onClick={(e) => e.stopPropagation()}>
         {isLoading && <LoadingRow label="Загрузка пользователя…" />}
         {isError && <ErrorRow label="Не удалось загрузить пользователя" onRetry={() => refetch()} />}
         {data && (
@@ -188,9 +189,9 @@ export function UserDetailDrawer({ userId, onClose }: { userId: string; onClose:
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                     placeholder="Примечание (опц.)"
-                    className="mb-1.5 w-full rounded-lg border border-line bg-bg-3 px-2 py-1 text-2xs outline-none focus:border-accent"
+                    className={fieldCls("sm", "mb-1.5 w-full bg-bg-3")}
                   />
-                  <button type="submit" disabled={adjustBalance.isPending} className="w-full rounded-lg bg-accent-fill py-1 text-2xs font-medium text-white hover:bg-accent-dim disabled:opacity-50">
+                  <button type="submit" disabled={adjustBalance.isPending} className={buttonCls("primary", "sm", "w-full")}>
                     Apply
                   </button>
                 </form>
@@ -202,7 +203,7 @@ export function UserDetailDrawer({ userId, onClose }: { userId: string; onClose:
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Новый пароль (мин. 10)"
-                    className="mb-1.5 w-full rounded-lg border border-line bg-bg-3 px-2 py-1 text-2xs outline-none focus:border-accent"
+                    className={fieldCls("sm", "mb-1.5 w-full bg-bg-3")}
                   />
                   <button type="submit" disabled={resetPassword.isPending} className="w-full rounded-lg border border-line py-1 text-2xs font-medium text-txt-1 hover:border-accent hover:text-accent disabled:opacity-50">
                     Reset
@@ -224,7 +225,7 @@ export function UserDetailDrawer({ userId, onClose }: { userId: string; onClose:
                       value={data.user.role}
                       disabled={isSelf || updateUser.isPending}
                       onChange={(e) => onChangeRole(e.target.value as Role)}
-                      className="w-full rounded-lg border border-line bg-bg-3 px-2 py-1 text-2xs outline-none focus:border-accent disabled:opacity-40"
+                      className={fieldCls("sm", "w-full bg-bg-3")}
                     >
                       <option value="USER">USER</option>
                       <option value="MANAGER">MANAGER</option>
@@ -259,7 +260,7 @@ export function UserDetailDrawer({ userId, onClose }: { userId: string; onClose:
                   <button
                     onClick={savePermissions}
                     disabled={!permissionsDirty || setCrmPermissions.isPending}
-                    className="mt-2 rounded-lg bg-accent-fill px-3 py-1.5 text-2xs font-semibold text-white hover:bg-accent-dim disabled:opacity-40"
+                    className={buttonCls("primary", "sm", "mt-2")}
                   >
                     {setCrmPermissions.isPending ? "Сохранение…" : "Сохранить права"}
                   </button>
@@ -320,7 +321,7 @@ export function UserDetailDrawer({ userId, onClose }: { userId: string; onClose:
                             {fmtSigned(p.unrealisedPnl)}
                           </td>
                           <td className="px-3 py-1.5 text-right">
-                            <button onClick={() => onAdminClose(p.id)} className="rounded-lg border border-line px-2 py-0.5 text-2xs text-txt-1 hover:border-sell hover:text-sell">
+                            <button onClick={() => onAdminClose(p.id)} className={buttonCls("danger", "sm")}>
                               Force Close
                             </button>
                           </td>
@@ -358,7 +359,7 @@ export function UserDetailDrawer({ userId, onClose }: { userId: string; onClose:
                           <td className="px-3 py-1.5 text-right">{fmtQty(o.qty)}</td>
                           <td className="px-3 py-1.5 text-right">{fmtPrice(o.price, 4)}</td>
                           <td className="px-3 py-1.5 text-right">
-                            <button onClick={() => onAdminCancel(o.id)} className="rounded-lg border border-line px-2 py-0.5 text-2xs text-txt-1 hover:border-sell hover:text-sell">
+                            <button onClick={() => onAdminCancel(o.id)} className={buttonCls("danger", "sm")}>
                               Force Cancel
                             </button>
                           </td>

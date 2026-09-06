@@ -8,6 +8,7 @@ import { fmtUsd, classNames } from "../../lib/format";
 import { demoWalletAddress } from "../../lib/demoWallet";
 import { useModalExit } from "../../hooks/useModalExit";
 import { IconCard, IconCopy, IconCrypto, IconSwap, IconUsers, IconWalletMinus, IconWalletPlus } from "../icons/Icon";
+import { fieldCls } from "../../lib/ui";
 
 export type WalletMethod = "deposit" | "withdraw" | "transfer";
 type PayMethod = "p2p" | "card" | "crypto";
@@ -94,7 +95,7 @@ export function WalletFlowModal({ method, onClose }: { method: WalletMethod; onC
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" onClick={requestClose}>
       <div
-        className={`${closing ? "anim-rise-out" : "anim-rise"} w-full max-w-sm rounded-xl border ${meta.accentClass} bg-bg-1 p-5 shadow-2xl`}
+        className={`${closing ? "anim-rise-out" : "anim-rise"} w-full max-w-sm rounded-xl border ${meta.accentClass} bg-bg-1 p-5 shadow-lift`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-txt-0">
@@ -194,7 +195,7 @@ export function WalletFlowModal({ method, onClose }: { method: WalletMethod; onC
                     value={toTarget}
                     onChange={(e) => setToTarget(e.target.value)}
                     placeholder="Адрес кошелька"
-                    className="w-full rounded border border-line bg-bg-2 px-2.5 py-1.5 text-2xs tabular outline-none focus:border-warn"
+                    className={fieldCls("md", "w-full tabular focus:border-warn")}
                   />
                 )}
                 {copied && <div className="mt-1 text-2xs text-buy">Скопировано</div>}

@@ -4,6 +4,7 @@ import { useLiveInstrument } from "../../hooks/useLivePrices";
 import { useLiveDepth } from "../../hooks/useLiveDepth";
 import { classNames, fmt, fmtCompact, fmtPrice } from "../../lib/format";
 import type { OrderSide } from "../../lib/types";
+import { fieldCls } from "../../lib/ui";
 
 const MIN_SIZE_OPTIONS = [
   { value: 0, label: "All sizes" },
@@ -182,7 +183,7 @@ export function OrderBookPanel({
     return (
       <div className="bg-bg-0 pb-1">
         {buyPct !== null && (
-          <div className="mx-3.5 mb-2.5 mt-2 flex h-7 overflow-hidden rounded-md border border-line bg-bg-2">
+          <div className="mx-3.5 mb-2.5 mt-2 flex h-7 overflow-hidden rounded border border-line bg-bg-2">
             <div className="flex items-center bg-buy-soft pl-2 text-2xs font-bold text-buy" style={{ width: `${buyPct}%` }}>
               B {buyPct}%
             </div>
@@ -201,7 +202,7 @@ export function OrderBookPanel({
             value={aggIdx}
             onChange={(e) => setAggIdx(Number(e.target.value))}
             aria-label="Шаг агрегации цен"
-            className="tap-sm rounded-md border border-line bg-bg-1 px-1.5 text-2xs text-txt-2 outline-none focus:border-accent"
+            className="tap-sm rounded border border-line bg-bg-1 px-1.5 text-2xs text-txt-2 outline-none focus:border-accent"
           >
             {aggSteps.map((step, i) => (
               <option key={i} value={i}>{aggLabel(step)}</option>
@@ -209,7 +210,7 @@ export function OrderBookPanel({
           </select>
         </div>
 
-        <div className="grid grid-cols-4 px-3.5 pb-1 text-[9px] text-txt-3">
+        <div className="grid grid-cols-4 px-3.5 pb-1 text-3xs text-txt-3">
           <span>Amount</span>
           <span className="text-right">Bid</span>
           <span className="pl-2">Ask</span>
@@ -253,7 +254,7 @@ export function OrderBookPanel({
           </div>
         )}
 
-        <p className="px-3.5 py-2 text-center text-[9px] text-txt-3">
+        <p className="px-3.5 py-2 text-center text-3xs text-txt-3">
           {coverage
             ? `Показано ±${coverage.bandPct.toFixed(2)}% от цены · уровней в стакане: ${coverage.held} · нажмите на цену для лимитного ордера`
             : "Нажмите на цену, чтобы создать лимитный ордер"}
@@ -272,10 +273,15 @@ export function OrderBookPanel({
           information rather than a duplicate of the chart's. */}
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-line-soft px-2.5 py-1.5">
         <span className="text-2xs font-semibold uppercase tracking-wide text-txt-2">Order Book</span>
+        {/* A <select> sizes itself to its widest *option*, so the size filter
+            (whose longest is "Hide dust (<0.1% of largest)") will happily eat
+            the whole header and push the live/sync badge out of the panel.
+            min-w-0 lets it shrink; the step select keeps a fixed width so the
+            two don't fight each other for what's left. */}
         <select
           value={minSizeRatio}
           onChange={(e) => setMinSizeRatio(Number(e.target.value))}
-          className="rounded border border-line bg-bg-2 px-1 py-0.5 text-2xs text-txt-1 outline-none focus:border-accent"
+          className={fieldCls("sm", "min-w-0 flex-1")}
         >
           {MIN_SIZE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
@@ -283,7 +289,7 @@ export function OrderBookPanel({
           value={aggIdx}
           onChange={(e) => setAggIdx(Number(e.target.value))}
           aria-label="Шаг группировки цен"
-          className="rounded border border-line bg-bg-2 px-1 py-0.5 text-2xs text-txt-1 outline-none focus:border-accent"
+          className={fieldCls("sm", "w-20 shrink-0")}
         >
           {aggSteps.map((step, i) => (
             <option key={i} value={i}>{aggLabel(step)}</option>
@@ -342,7 +348,7 @@ export function OrderBookPanel({
             ))}
           </div>
           {coverage && (
-            <div className="mt-auto shrink-0 border-t border-line-soft px-2 py-1 text-[10px] text-txt-3">
+            <div className="mt-auto shrink-0 border-t border-line-soft px-2 py-1 text-2xs text-txt-3">
               ±{coverage.bandPct.toFixed(2)}% от цены · уровней в стакане: {coverage.held}
             </div>
           )}

@@ -31,7 +31,7 @@ function Avatar({ user }: { user: AuthUser | null }) {
   ) : (
     <span
       className={classNames(
-        "flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold",
+        "flex h-6 w-6 items-center justify-center rounded-full text-2xs font-semibold",
         user?.role === "ADMIN" ? "bg-warn/20 text-warn" : "bg-accent-soft text-accent"
       )}
     >
@@ -99,7 +99,7 @@ export function TopBar() {
       // h-11 matches the desktop bar's own height — this is a system strip
       // (logo, connection dot, identity), not content, so it doesn't need
       // more air than its own icons and text require.
-      <header className="sticky top-0 z-20 flex h-11 shrink-0 items-center gap-2 border-b border-line-soft bg-bg-0 px-3.5 text-[13px]">
+      <header className="sticky top-0 z-20 flex h-11 shrink-0 items-center gap-2 border-b border-line-soft bg-bg-0 px-3.5 text-xs">
         <Link to="/" className="tap-sm flex items-center gap-2" aria-label="Velora — Home">
           <Logo />
           <span className="text-sm font-extrabold tracking-[0.08em] text-txt-0">VELORA</span>
@@ -121,7 +121,7 @@ export function TopBar() {
   }
 
   return (
-    <header className="relative flex h-11 shrink-0 items-center gap-1 border-b border-line bg-bg-1 px-2 text-[13px]">
+    <header className="relative flex h-11 shrink-0 items-center gap-1 border-b border-line bg-bg-1 px-2 text-xs">
       <Link to="/" className="btn-fx flex items-center gap-1.5 pr-3 hover:opacity-90">
         <Logo />
         <span className="font-semibold tracking-tight text-txt-0">Velora</span>
@@ -134,7 +134,7 @@ export function TopBar() {
             to={item.to}
             className={({ isActive }) =>
               classNames(
-                "nav-link btn-fx flex items-center border-b-2 px-2.5 text-[12.5px] font-medium transition-colors",
+                "nav-link btn-fx flex items-center border-b-2 px-2.5 text-xs font-medium transition-colors",
                 isActive ? "border-accent text-txt-0" : "border-transparent text-txt-2 hover:text-txt-0"
               )
             }
@@ -147,7 +147,7 @@ export function TopBar() {
             to="/crm"
             className={({ isActive }) =>
               classNames(
-                "nav-link btn-fx flex items-center border-b-2 px-2.5 text-[12.5px] font-medium transition-colors",
+                "nav-link btn-fx flex items-center border-b-2 px-2.5 text-xs font-medium transition-colors",
                 isActive ? "border-accent text-txt-0" : "border-transparent text-txt-2 hover:text-txt-0"
               )
             }
@@ -160,7 +160,7 @@ export function TopBar() {
             to="/admin"
             className={({ isActive }) =>
               classNames(
-                "nav-link btn-fx flex items-center border-b-2 px-2.5 text-[12.5px] font-medium transition-colors",
+                "nav-link btn-fx flex items-center border-b-2 px-2.5 text-xs font-medium transition-colors",
                 isActive ? "border-warn text-warn" : "border-transparent text-warn/70 hover:text-warn"
               )
             }

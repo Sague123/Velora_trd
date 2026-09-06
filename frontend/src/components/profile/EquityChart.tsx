@@ -205,7 +205,7 @@ export function EquityChart() {
               type="button"
               onClick={() => setRange(r)}
               className={classNames(
-                "btn-fx rounded-md px-2.5 py-1 text-2xs font-semibold",
+                "btn-fx rounded-lg px-2.5 py-1 text-2xs font-semibold",
                 range === r ? "bg-warn/15 text-warn" : "text-txt-3 hover:text-txt-1"
               )}
             >
@@ -249,7 +249,7 @@ export function EquityChart() {
         </svg>
       )}
 
-      <div className="mt-1.5 text-[9px] leading-snug text-txt-3">
+      <div className="mt-1.5 text-3xs leading-snug text-txt-3">
         Оба кошелька вместе — переводы между ними не двигают линию.
       </div>
     </div>

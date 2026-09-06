@@ -103,7 +103,7 @@ export function RangeSlider({
         )}
       </div>
       {ticks && ticks.length > 0 && tickLabel && (
-        <div className="relative mx-2 h-3 text-[9px] text-txt-3">
+        <div className="relative mx-2 h-3 text-3xs text-txt-3">
           {ticks.map((t) => (
             <span
               key={t}

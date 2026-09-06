@@ -22,6 +22,7 @@ import { toast } from "../store/toast";
 import { ApiError } from "../lib/api";
 import { IconCoin, IconListView, IconMoon, IconOrderHistory, IconSun, IconTrade } from "../components/icons/Icon";
 import type { OrderStatus, Timeframe } from "../lib/types";
+import { buttonCls, fieldCls } from "../lib/ui";
 
 /** Wallet and Balance were two tabs describing one thing — what's in the
  * account — split by whether you wanted to act on it or read it. They're one
@@ -60,12 +61,12 @@ function InfoForm() {
         <label className="block">
           <span className="mb-1 block text-2xs text-txt-2">Full Name (ФИО)</span>
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={80}
-            className="w-full rounded border border-line bg-bg-2 px-2.5 py-1.5 text-xs outline-none focus:border-accent" />
+            className={fieldCls("md", "w-full")} />
         </label>
         <label className="block">
           <span className="mb-1 block text-2xs text-txt-2">Date of Birth</span>
           <input type="date" value={dob} onChange={(e) => setDob(e.target.value)}
-            className="w-full rounded border border-line bg-bg-2 px-2.5 py-1.5 text-xs outline-none focus:border-accent" />
+            className={fieldCls("md", "w-full")} />
         </label>
         <label className="block sm:col-span-2">
           <span className="mb-1 block text-2xs text-txt-2">Email</span>
@@ -73,7 +74,7 @@ function InfoForm() {
             className="w-full cursor-not-allowed rounded border border-line bg-bg-2/50 px-2.5 py-1.5 text-xs text-txt-2" />
         </label>
       </div>
-      <button type="submit" disabled={updateProfile.isPending} className="btn-fx tap-sm mt-3 rounded-lg bg-accent-fill px-4 py-1.5 text-xs font-semibold text-white hover:bg-accent-dim disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent">
+      <button type="submit" disabled={updateProfile.isPending} className={buttonCls("primary", "md", "mt-3")}>
         {updateProfile.isPending ? "Сохранение…" : "Save"}
       </button>
     </form>
@@ -325,7 +326,7 @@ export function ProfilePage() {
             ["settings", t("profileTabs.settings")],
           ] as [Tab, string][]
         ).map(([id, label]) => (
-          <button key={id} onClick={() => setTab(id)} className={classNames("btn-fx tap-sm whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent", tab === id ? "bg-accent-soft text-accent" : "text-txt-2")}>
+          <button key={id} onClick={() => setTab(id)} className={classNames("btn-fx tap-sm whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent", tab === id ? "bg-accent-soft text-accent" : "text-txt-2")}>
             {label}
           </button>
         ))}

@@ -4,6 +4,7 @@ import { fmtDateTime } from "../../lib/format";
 import { toast } from "../../store/toast";
 import { ApiError } from "../../lib/api";
 import { SkeletonLines } from "../common/States";
+import { buttonCls, textareaCls } from "../../lib/ui";
 
 /**
  * Comments, paged rather than an inline list that grows without bound the
@@ -46,13 +47,13 @@ export function CommentsPanel({ leadId, leadName }: { leadId: string; leadName: 
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Что сказал клиент, о чём договорились, когда перезвонить…"
-          className="w-full resize-none rounded-lg border border-line bg-bg-2 px-2.5 py-2 text-xs text-txt-0 outline-none placeholder:text-txt-3 focus:border-accent"
+          className={textareaCls("md", "w-full resize-none")}
         />
         <div className="mt-1.5 flex justify-end">
           <button
             type="submit"
             disabled={!text.trim() || addComment.isPending}
-            className="btn-fx rounded-lg bg-accent-fill px-3 py-1.5 text-2xs font-semibold text-white hover:brightness-110 disabled:opacity-40"
+            className={buttonCls("primary", "md")}
           >
             {addComment.isPending ? "Отправка…" : "Добавить"}
           </button>
@@ -92,7 +93,7 @@ export function CommentsPanel({ leadId, leadName }: { leadId: string; leadName: 
           <button
             disabled={page <= 1}
             onClick={() => setPage((p) => p - 1)}
-            className="btn-fx rounded-lg border border-line px-2.5 py-1 disabled:opacity-40"
+            className={buttonCls("secondary", "sm")}
           >
             Назад
           </button>
@@ -102,7 +103,7 @@ export function CommentsPanel({ leadId, leadName }: { leadId: string; leadName: 
           <button
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
-            className="btn-fx rounded-lg border border-line px-2.5 py-1 disabled:opacity-40"
+            className={buttonCls("secondary", "sm")}
           >
             Вперёд
           </button>

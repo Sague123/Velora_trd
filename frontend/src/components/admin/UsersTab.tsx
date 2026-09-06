@@ -4,6 +4,7 @@ import { UserDetailDrawer } from "./UserDetailDrawer";
 import { ErrorRow, EmptyRow, SkeletonTableRows } from "../common/States";
 import { classNames, fmtDateTime, fmtUsd } from "../../lib/format";
 import type { UserStatus } from "../../lib/types";
+import { buttonCls, fieldCls } from "../../lib/ui";
 
 const PAGE_SIZE = 20;
 
@@ -31,7 +32,7 @@ export function UsersTab() {
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           placeholder="Поиск по email или имени…"
-          className="w-64 rounded-lg border border-line bg-bg-2 px-2.5 py-1.5 text-xs outline-none focus:border-accent"
+          className={fieldCls("md", "w-64")}
         />
         <div className="flex gap-0.5 rounded-lg border border-line p-0.5">
           {(["ALL", "ACTIVE", "SUSPENDED"] as const).map((s) => (
@@ -103,7 +104,7 @@ export function UsersTab() {
           <button
             disabled={page <= 1}
             onClick={() => setPage((p) => p - 1)}
-            className="rounded-lg border border-line px-2 py-1 text-txt-2 hover:text-txt-0 disabled:opacity-30"
+            className={buttonCls("secondary", "sm")}
           >
             ← Prev
           </button>
@@ -113,7 +114,7 @@ export function UsersTab() {
           <button
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
-            className="rounded-lg border border-line px-2 py-1 text-txt-2 hover:text-txt-0 disabled:opacity-30"
+            className={buttonCls("secondary", "sm")}
           >
             Next →
           </button>

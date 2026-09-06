@@ -63,7 +63,7 @@ export function BottomPanel() {
             onClick={() => setTab(id)}
             aria-pressed={tab === id}
             className={classNames(
-              "btn-fx tap-sm flex shrink-0 items-center gap-1.5 rounded-md border-b-2 px-3 py-1.5 text-2xs font-medium transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent",
+              "btn-fx tap-sm flex shrink-0 items-center gap-1.5 rounded border-b-2 px-3 py-1.5 text-2xs font-medium transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent",
               tab === id
                 ? "border-accent bg-bg-2 text-txt-0 shadow-btn"
                 : "border-transparent text-txt-2 hover:bg-bg-2/60 hover:text-txt-0"

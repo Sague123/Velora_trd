@@ -7,6 +7,7 @@ import { toast } from "../../store/toast";
 import { ApiError } from "../../lib/api";
 import { useModalExit } from "../../hooks/useModalExit";
 import { IconClose } from "../icons/Icon";
+import { buttonCls, fieldCls } from "../../lib/ui";
 
 export function PositionEditModal({ position, onClose }: { position: Position; onClose: () => void }) {
   const { closing, requestClose } = useModalExit(onClose);
@@ -55,7 +56,7 @@ export function PositionEditModal({ position, onClose }: { position: Position; o
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" onClick={requestClose}>
       <div
-        className={`${closing ? "anim-rise-out" : "anim-rise"} w-full max-w-sm rounded-xl border border-line bg-bg-1 p-5 shadow-2xl`}
+        className={`${closing ? "anim-rise-out" : "anim-rise"} w-full max-w-sm rounded-xl border border-line bg-bg-1 p-5 shadow-lift`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
@@ -85,12 +86,12 @@ export function PositionEditModal({ position, onClose }: { position: Position; o
             <label className="block">
               <span className="mb-1 block text-2xs font-medium text-buy">Take Profit</span>
               <input value={tp} onChange={(e) => setTp(e.target.value)} inputMode="decimal" placeholder="—"
-                className="w-full rounded border border-line bg-bg-2 px-2 py-1.5 text-xs tabular outline-none focus:border-buy" />
+                className={fieldCls("md", "w-full tabular focus:border-buy")} />
             </label>
             <label className="block">
               <span className="mb-1 block text-2xs font-medium text-sell">Stop Loss</span>
               <input value={sl} onChange={(e) => setSl(e.target.value)} inputMode="decimal" placeholder="—"
-                className="w-full rounded border border-line bg-bg-2 px-2 py-1.5 text-xs tabular outline-none focus:border-sell" />
+                className={fieldCls("md", "w-full tabular focus:border-sell")} />
             </label>
           </div>
 
@@ -119,7 +120,7 @@ export function PositionEditModal({ position, onClose }: { position: Position; o
             <button type="button" onClick={handleClose} disabled={close.isPending} className="btn-fx flex-1 rounded-lg border border-sell/40 py-2 text-xs font-medium text-sell hover:bg-sell-soft disabled:opacity-50">
               {close.isPending ? "…" : "Close Position"}
             </button>
-            <button type="submit" disabled={update.isPending} className="btn-fx flex-1 rounded-lg bg-accent-fill py-2 text-xs font-semibold text-white hover:bg-accent-dim disabled:opacity-50">
+            <button type="submit" disabled={update.isPending} className={buttonCls("primary", "md", "flex-1")}>
               {update.isPending ? "Сохранение…" : "Save"}
             </button>
           </div>

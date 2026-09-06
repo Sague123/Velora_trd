@@ -6,6 +6,7 @@ import { toast } from "../../store/toast";
 import { ApiError } from "../../lib/api";
 import { classNames, fmtUsd, n } from "../../lib/format";
 import { IconArrowRight, IconSwap } from "../icons/Icon";
+import { Button } from "../common/Button";
 
 type Direction = "TO_FUTURES" | "TO_SPOT";
 
@@ -56,7 +57,7 @@ export function SpotTransferModal({ onClose, initial = "TO_FUTURES" }: { onClose
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" onClick={requestClose}>
       <div
-        className={`${closing ? "anim-rise-out" : "anim-rise"} w-full max-w-sm rounded-xl border border-accent/40 bg-bg-1 p-5 shadow-2xl`}
+        className={`${closing ? "anim-rise-out" : "anim-rise"} w-full max-w-sm rounded-xl border border-accent/40 bg-bg-1 p-5 shadow-lift`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-txt-0">
@@ -119,16 +120,12 @@ export function SpotTransferModal({ onClose, initial = "TO_FUTURES" }: { onClose
           </div>
 
           <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={transfer.isPending || overBalance}
-              className="btn-fx tap flex-1 rounded-2xl bg-accent-fill py-3 text-sm font-bold text-white shadow-btn hover:brightness-110 disabled:opacity-40"
-            >
+            <Button type="submit" variant="primary" size="lg" className="flex-1" disabled={transfer.isPending || overBalance}>
               {transfer.isPending ? "Переводим…" : "Перевести"}
-            </button>
-            <button type="button" onClick={requestClose} className="btn-fx tap rounded-2xl border border-line bg-bg-3 px-5 text-sm font-semibold text-txt-1 hover:text-txt-0">
+            </Button>
+            <Button size="lg" onClick={requestClose} className="px-5">
               Отмена
-            </button>
+            </Button>
           </div>
         </form>
       </div>

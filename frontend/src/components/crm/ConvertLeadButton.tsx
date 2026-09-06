@@ -2,6 +2,7 @@ import { useConvertLead } from "../../hooks/useCrm";
 import { toast } from "../../store/toast";
 import { ApiError } from "../../lib/api";
 import { IconCheck, IconWarning } from "../icons/Icon";
+import { buttonCls } from "../../lib/ui";
 
 /**
  * Turns a lead into a real platform account with one click. The server
@@ -36,7 +37,7 @@ export function ConvertLeadButton({
         onClick={run}
         disabled={!hasEmail || convert.isPending}
         title={!hasEmail ? "Нужен email — добавьте его в карточке" : undefined}
-        className="btn-fx rounded-lg bg-accent-fill px-3 py-1.5 text-2xs font-semibold text-white hover:brightness-110 disabled:opacity-40"
+        className={buttonCls("primary", "md")}
       >
         {convert.isPending ? "Создание…" : "Перевести в пользователя платформы"}
       </button>

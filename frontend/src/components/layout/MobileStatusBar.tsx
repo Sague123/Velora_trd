@@ -7,6 +7,7 @@ import { toast } from "../../store/toast";
 import { classNames } from "../../lib/format";
 import { Popover } from "../common/Popover";
 import { IconBot, IconShield } from "../icons/Icon";
+import { buttonCls } from "../../lib/ui";
 
 /**
  * Mobile's replacement for EmailVerificationBanner + ActiveBotsBanner: the
@@ -82,7 +83,7 @@ export function MobileStatusBar() {
               )}
             >
               <IconBot size={17} />
-              <span className="absolute -right-1 -top-1 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-current px-0.5 text-[9px] font-bold text-bg-0">
+              <span className="absolute -right-1 -top-1 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-current px-0.5 text-3xs font-bold text-bg-0">
                 {errored.length > 0 ? errored.length : running.length}
               </span>
             </button>
@@ -155,7 +156,7 @@ export function MobileStatusBar() {
                 </button>
                 <button
                   onClick={() => { setVerifyDismissed(true); close(); }}
-                  className="btn-fx tap-sm rounded-lg border border-line px-2.5 text-2xs text-txt-2 hover:text-txt-0"
+                  className={buttonCls("secondary", "sm")}
                 >
                   Скрыть
                 </button>

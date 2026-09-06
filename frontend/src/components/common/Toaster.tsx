@@ -27,13 +27,13 @@ export function Toaster() {
         <div
           key={t.id}
           className={classNames(
-            "toast-in flex items-start gap-2 rounded border px-3 py-2 shadow-lg backdrop-blur",
+            "toast-in flex items-start gap-2 rounded border px-3 py-2 shadow-float backdrop-blur",
             "bg-bg-2/95 border-line",
           )}
         >
           <span
             className={classNames(
-              "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold",
+              "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-2xs font-bold",
               KIND_STYLES[t.kind],
             )}
           >

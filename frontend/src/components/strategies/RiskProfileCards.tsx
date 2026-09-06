@@ -17,7 +17,7 @@ const NOT_ENFORCED = "Параметр пресета, который движо
 function Spec({ label, value, tone, muted }: { label: string; value: string; tone?: "buy" | "sell"; muted?: boolean }) {
   const body = (
     <>
-      <div className="flex items-center gap-1 text-[9px] uppercase tracking-wide text-txt-3">
+      <div className="flex items-center gap-1 text-3xs uppercase tracking-wide text-txt-3">
         {label}
         {muted && <span className="text-warn">*</span>}
       </div>
@@ -63,7 +63,7 @@ function Card({
       <div className="mb-2 flex items-center gap-2">
         <span className={classNames("h-2 w-2 shrink-0 rounded-full", TONE_DOT[tone])} />
         <span className="text-xs font-semibold text-txt-0">{label}</span>
-        <span className="ml-auto truncate text-[9px] text-txt-3">{blurb}</span>
+        <span className="ml-auto truncate text-3xs text-txt-3">{blurb}</span>
       </div>
       <div className="grid grid-cols-3 gap-x-2 gap-y-1.5">{children}</div>
     </button>
@@ -103,7 +103,7 @@ export function RiskProfileCards({
               </Card>
             ))}
       </div>
-      <p className="mt-1.5 text-[9px] leading-snug text-txt-3">
+      <p className="mt-1.5 text-3xs leading-snug text-txt-3">
         <span className="text-warn">*</span> — параметр пресета, который движок пока не исполняет (равномерный шаг сетки,
         стоп-лосса у ботов нет). Остальные значения подставляются в форму и реально уходят на сервер.
       </p>

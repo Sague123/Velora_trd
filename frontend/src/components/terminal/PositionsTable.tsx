@@ -10,6 +10,7 @@ import { toast } from "../../store/toast";
 import { ApiError } from "../../lib/api";
 import { PositionEditModal } from "./PositionEditModal";
 import { IconGear } from "../icons/Icon";
+import { buttonCls } from "../../lib/ui";
 
 function TpSlEditor({ position, onDone }: { position: Position; onDone: () => void }) {
   const [tp, setTp] = useState(position.takeProfit ?? "");
@@ -31,7 +32,7 @@ function TpSlEditor({ position, onDone }: { position: Position; onDone: () => vo
   }
 
   return (
-    <div className="absolute right-0 top-full z-40 mt-1 w-52 rounded border border-line bg-bg-2 p-2 shadow-xl">
+    <div className="absolute right-0 top-full z-40 mt-1 w-52 rounded border border-line bg-bg-2 p-2 shadow-float">
       <label className="mb-1.5 block text-2xs text-txt-2">
         Take Profit
         <input
@@ -54,7 +55,7 @@ function TpSlEditor({ position, onDone }: { position: Position; onDone: () => vo
         <button
           onClick={save}
           disabled={update.isPending}
-          className="btn-fx flex-1 rounded bg-accent-fill py-1 text-2xs font-medium text-white hover:bg-accent-dim disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+          className={buttonCls("primary", "sm", "flex-1")}
         >
           Сохранить
         </button>
@@ -238,7 +239,7 @@ export function PositionsTable({ positions, compact = false }: { positions: Posi
                       <button
                         onClick={() => handleClose(p)}
                         disabled={closingId === p.id}
-                        className="btn-fx rounded border border-line px-2 py-0.5 text-2xs text-txt-1 hover:border-sell hover:text-sell disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sell"
+                        className={buttonCls("danger", "sm")}
                       >
                         {closingId === p.id ? "…" : "Close"}
                       </button>

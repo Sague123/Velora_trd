@@ -5,6 +5,7 @@ import { classNames, fmtPrice, fmtQty, fmtUsd } from "../../lib/format";
 import { leverageTicks, MAINTENANCE_MARGIN_RATIO } from "../../lib/tradeMath";
 import { RangeSlider } from "../common/RangeSlider";
 import type { OrderType } from "../../lib/types";
+import { fieldCls } from "../../lib/ui";
 
 const TYPES: OrderType[] = ["MARKET", "LIMIT", "STOP"];
 const SIZE_STEPS = [0, 25, 50, 75, 100];
@@ -12,7 +13,7 @@ const SIZE_STEPS = [0, 25, 50, 75, 100];
 function InfoCell({ label, value, tone }: { label: string; value: string; tone?: "buy" | "sell" | "warn" }) {
   return (
     <div className="rounded-lg border border-line-soft bg-bg-2 px-2 py-1.5">
-      <div className="text-[9px] text-txt-3">{label}</div>
+      <div className="text-3xs text-txt-3">{label}</div>
       <div
         className={classNames(
           "tabular text-2xs font-semibold",
@@ -80,7 +81,7 @@ export function MobileOrderTicket() {
         {side && (
           <span
             className={classNames(
-              "rounded px-2 py-1 text-[9px] font-extrabold",
+              "rounded px-2 py-1 text-3xs font-extrabold",
               side === "BUY" ? "bg-buy-soft text-buy" : "bg-sell-soft text-sell"
             )}
           >
@@ -106,7 +107,7 @@ export function MobileOrderTicket() {
               onClick={() => setAmountMode(m)}
               aria-pressed={amountMode === m}
               className={classNames(
-                "rounded-md px-1 py-0.5 text-[10px] font-bold transition-[background-color,box-shadow,color]",
+                "rounded px-1 py-0.5 text-2xs font-bold transition-[background-color,box-shadow,color]",
                 amountMode === m ? "glow-accent bg-accent-fill text-white" : "text-txt-3 hover:text-txt-1"
               )}
             >
@@ -137,7 +138,7 @@ export function MobileOrderTicket() {
               type="button"
               onClick={() => setType(ty)}
               className={classNames(
-                "rounded px-1 py-0.5 text-[10px] font-bold transition-[background-color,box-shadow,color]",
+                "rounded px-1 py-0.5 text-2xs font-bold transition-[background-color,box-shadow,color]",
                 type === ty ? "glow-accent bg-accent-fill text-white" : "text-txt-3"
               )}
             >
@@ -160,7 +161,7 @@ export function MobileOrderTicket() {
             onChange={(e) => setPrice(e.target.value.replace(/[^0-9.]/g, ""))}
             inputMode="decimal"
             placeholder={fmtPrice(inst?.livePrice, inst?.priceDecimals ?? 2)}
-            className="w-full rounded-lg border border-line bg-bg-2 px-2.5 py-2 text-xs font-semibold tabular text-txt-0 outline-none focus:border-accent"
+            className={fieldCls("md", "w-full font-semibold tabular")}
           />
         </label>
       )}
@@ -186,7 +187,7 @@ export function MobileOrderTicket() {
           snapTolerance={2}
           ariaLabel={t("terminal.positionSize")}
         />
-        <div className="flex justify-between text-[9px] text-txt-3">
+        <div className="flex justify-between text-3xs text-txt-3">
           {SIZE_STEPS.map((s) => <span key={s}>{s}%</span>)}
         </div>
       </div>
@@ -220,14 +221,14 @@ export function MobileOrderTicket() {
               onChange={(e) => setTp(e.target.value.replace(/[^0-9.]/g, ""))}
               inputMode="decimal"
               placeholder={t("terminal.takeProfit")}
-              className="w-full rounded-lg border border-line bg-bg-2 px-2 py-1.5 text-2xs tabular text-buy outline-none focus:border-buy"
+              className={fieldCls("md", "w-full tabular text-buy focus:border-buy")}
             />
             <input
               value={sl}
               onChange={(e) => setSl(e.target.value.replace(/[^0-9.]/g, ""))}
               inputMode="decimal"
               placeholder={t("terminal.stopLoss")}
-              className="w-full rounded-lg border border-line bg-bg-2 px-2 py-1.5 text-2xs tabular text-sell outline-none focus:border-sell"
+              className={fieldCls("md", "w-full tabular text-sell focus:border-sell")}
             />
           </div>
         )}
@@ -272,7 +273,7 @@ export function MobileOrderTicket() {
           tone={estimate.liqLong !== null ? "warn" : undefined}
         />
       </div>
-      <p className="mt-1.5 text-[9px] leading-snug text-txt-3">
+      <p className="mt-1.5 text-3xs leading-snug text-txt-3">
         Maintenance margin {(MAINTENANCE_MARGIN_RATIO * 100).toFixed(1)}% — оценка, финальная цена считается сервером.
       </p>
 

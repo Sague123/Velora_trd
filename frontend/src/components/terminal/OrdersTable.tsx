@@ -7,6 +7,7 @@ import { EmptyRow } from "../common/States";
 import { toast } from "../../store/toast";
 import { ApiError } from "../../lib/api";
 import { IconBot } from "../icons/Icon";
+import { buttonCls } from "../../lib/ui";
 
 type OriginFilter = "ALL" | "MANUAL" | "BOT";
 
@@ -98,7 +99,7 @@ export function OrdersTable({ orders, showStatus = false, showOriginFilter = tru
                     <button
                       onClick={() => handleCancel(o)}
                       disabled={cancelingId === o.id}
-                      className="btn-fx tap-sm w-full rounded border border-line text-2xs text-txt-1 hover:border-sell hover:text-sell disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sell"
+                      className={buttonCls("danger", "sm", "w-full")}
                     >
                       {cancelingId === o.id ? "…" : "Cancel"}
                     </button>
@@ -150,7 +151,7 @@ export function OrdersTable({ orders, showStatus = false, showOriginFilter = tru
                         <button
                           onClick={() => handleCancel(o)}
                           disabled={cancelingId === o.id}
-                          className="btn-fx rounded border border-line px-2 py-0.5 text-2xs text-txt-1 hover:border-sell hover:text-sell disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sell"
+                          className={buttonCls("danger", "sm")}
                         >
                           {cancelingId === o.id ? "…" : "Cancel"}
                         </button>

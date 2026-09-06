@@ -13,9 +13,10 @@ import { toast } from "../store/toast";
 import { ApiError } from "../lib/api";
 import type { SavingsAccount, SavingsPlan } from "../lib/types";
 import { IconLock, IconTrendUp } from "../components/icons/Icon";
+import { fieldCls, labelCls } from "../lib/ui";
+import { Button } from "../components/common/Button";
 
-const inputCls = "w-full rounded border border-line bg-bg-2 px-2 py-1.5 text-xs tabular outline-none focus:border-accent";
-const labelCls = "mb-1 block text-2xs font-medium text-txt-2";
+const inputCls = fieldCls("md", "w-full tabular");
 
 function PlanCard({
   plan, disabled, onOpen, busy,
@@ -61,13 +62,9 @@ function PlanCard({
           placeholder="0.00"
         />
       </label>
-      <button
-        type="submit"
-        disabled={disabled || busy}
-        className="btn-fx rounded-lg bg-accent-fill px-3 py-2 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
-      >
+      <Button type="submit" variant="primary" size="md" block disabled={disabled || busy}>
         Открыть счёт
-      </button>
+      </Button>
     </form>
   );
 }
@@ -119,22 +116,27 @@ function AccountRow({ account }: { account: SavingsAccount }) {
           <span className={labelCls}>Сумма</span>
           <input value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" className={inputCls} placeholder="0.00" />
         </label>
-        <button
+        {/* Deposit was buy-green and withdraw sell-red, which in a trading UI
+            reads as long/short rather than money in/out — these are wallet
+            moves, not market direction. Neutral secondary + the destructive
+            (sell-on-hover) tone the terminal already uses for cancel/close. */}
+        <Button
+          size="sm"
           onClick={() => run("deposit")}
           disabled={busy || account.locked}
           title={account.locked ? "Срочный вклад пополнить нельзя — откройте ещё один счёт" : undefined}
-          className="btn-fx tap-sm rounded border border-buy/40 px-2.5 py-1.5 text-2xs font-medium text-buy hover:bg-buy-soft disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
         >
           Пополнить
-        </button>
-        <button
+        </Button>
+        <Button
+          size="sm"
+          variant="danger"
           onClick={() => run("withdraw")}
           disabled={busy || account.locked}
           title={account.locked ? "Средства заблокированы до окончания срока" : undefined}
-          className="btn-fx tap-sm rounded border border-line px-2.5 py-1.5 text-2xs font-medium text-txt-1 hover:border-sell/40 hover:text-sell disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sell"
         >
           {Number(amount) > 0 ? "Снять" : "Снять всё и закрыть"}
-        </button>
+        </Button>
       </div>
     </div>
   );

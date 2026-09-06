@@ -30,7 +30,7 @@ export function LanguageSwitcher() {
         <span className="hidden text-2xs sm:inline">{current.flag}</span>
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 max-h-80 w-44 overflow-y-auto rounded border border-line bg-bg-2 py-1 shadow-xl">
+        <div className="absolute right-0 top-full z-50 mt-1 max-h-80 w-44 overflow-y-auto rounded border border-line bg-bg-2 py-1 shadow-float">
           {LANGUAGES.map((l) => (
             <button
               key={l.code}

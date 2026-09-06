@@ -24,7 +24,7 @@ function SourceBadge({ source }: { source: string }) {
   if (source === "DERIVED") {
     return (
       <Tooltip label={SPOT_BASED_LABEL}>
-        <span className="shrink-0 rounded border border-accent/40 bg-accent-soft px-1 py-px text-[9px] text-accent">spot-based</span>
+        <span className="shrink-0 rounded border border-accent/40 bg-accent-soft px-1 py-px text-3xs text-accent">spot-based</span>
       </Tooltip>
     );
   }

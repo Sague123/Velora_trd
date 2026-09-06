@@ -10,6 +10,7 @@ import { IconCoin } from "../components/icons/Icon";
 import type { Category } from "../lib/types";
 import { SiteFooter } from "../components/layout/SiteFooter";
 import { Tooltip } from "../components/common/Tooltip";
+import { fieldCls } from "../lib/ui";
 
 // Same disclosure ChartPanel already shows on an instrument's own chart —
 // repeated here because this table is the other place a trader sees a PERP
@@ -22,7 +23,7 @@ function SourceBadge({ source }: { source: string }) {
   if (source === "DERIVED") {
     return (
       <Tooltip label={SPOT_BASED_LABEL}>
-        <span className="shrink-0 rounded border border-accent/40 bg-accent-soft px-1 py-px text-[9px] text-accent">spot-based</span>
+        <span className="shrink-0 rounded border border-accent/40 bg-accent-soft px-1 py-px text-3xs text-accent">spot-based</span>
       </Tooltip>
     );
   }
@@ -98,7 +99,7 @@ export function MarketsPage() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t("markets.searchPlaceholder")}
-          className="tap-sm w-56 max-w-full rounded border border-line bg-bg-2 px-2.5 py-1.5 text-xs outline-none focus:border-accent"
+          className={fieldCls("md", "tap-sm w-56 max-w-full")}
         />
         <div className="flex gap-0.5 rounded border border-line p-0.5">
           {CATEGORIES.map((c) => (
@@ -170,7 +171,7 @@ export function MarketsPage() {
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex min-w-0 items-center gap-1.5">
                         <span className="truncate text-xs font-medium text-txt-0">{i.symbol}</span>
-                        <span className="shrink-0 rounded bg-bg-3 px-1 py-px text-[9px] font-medium uppercase tracking-wide text-txt-3">{i.category.slice(0, 4)}</span>
+                        <span className="shrink-0 rounded bg-bg-3 px-1 py-px text-3xs font-medium uppercase tracking-wide text-txt-3">{i.category.slice(0, 4)}</span>
                         <SourceBadge source={i.source} />
                       </div>
                       <span className={classNames("shrink-0 tabular text-xs font-semibold", i.dir === "up" ? "text-buy" : i.dir === "down" ? "text-sell" : "text-txt-0")}>

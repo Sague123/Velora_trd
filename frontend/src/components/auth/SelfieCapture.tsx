@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { captureVideoFrame, compressImageToFit } from "../../lib/image";
 import { IconCamera, IconClose } from "../icons/Icon";
+import { buttonCls } from "../../lib/ui";
 
 /**
  * Live selfie capture. `getUserMedia` is the right tool — a photo taken now,
@@ -105,14 +106,14 @@ export function SelfieCapture({
             <button
               type="button"
               onClick={shoot}
-              className="tap-sm btn-fx flex-1 rounded-lg bg-accent-fill py-2 text-xs font-semibold text-white hover:brightness-110"
+              className={buttonCls("primary", "md", "flex-1")}
             >
               Сделать снимок
             </button>
             <button
               type="button"
               onClick={stop}
-              className="tap-sm btn-fx rounded-lg border border-line px-3 py-2 text-xs text-txt-2 hover:text-txt-0"
+              className={buttonCls("secondary", "md")}
             >
               Отмена
             </button>

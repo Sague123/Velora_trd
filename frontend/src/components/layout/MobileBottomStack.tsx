@@ -25,7 +25,7 @@ const NAV = [
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
-      <div className="truncate text-[9px] text-txt-3">{label}</div>
+      <div className="truncate text-3xs text-txt-3">{label}</div>
       <div className="truncate tabular text-2xs font-bold text-txt-0">{value}</div>
     </div>
   );
@@ -122,7 +122,7 @@ function NavRow({ user, isManager }: { user: AuthUser | null; isManager: boolean
 
   const tabCls = (active: boolean) =>
     classNames(
-      "tap flex flex-1 basis-0 flex-col items-center justify-center gap-0.5 rounded-lg py-1 text-[10px] font-medium transition-colors",
+      "tap flex flex-1 basis-0 flex-col items-center justify-center gap-0.5 rounded-lg py-1 text-2xs font-medium transition-colors",
       active ? "text-accent" : "text-txt-3 hover:text-txt-1"
     );
   const itemCls = (active: boolean, warn?: boolean) =>

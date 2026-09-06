@@ -93,6 +93,10 @@ export default {
       },
       fontSize: {
         "2xs": ["10.5px", { lineHeight: "14px" }],
+        // The design system's hard floor, and a real tier: 30-odd badges and
+        // micro-labels were already reaching for it as `text-[9px]`. Named so
+        // it is greppable and so nothing drifts below it by arithmetic.
+        "3xs": ["9px", { lineHeight: "12px" }],
       },
       boxShadow: {
         // reads the theme-aware token from globals.css instead of a fixed

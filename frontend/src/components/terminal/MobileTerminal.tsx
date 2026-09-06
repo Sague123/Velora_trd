@@ -48,7 +48,7 @@ function IndicatorLegend() {
 
   return (
     <div className="flex items-center gap-3 px-3.5 pb-1 pt-1">
-      <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden text-[10px] tabular">
+      <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden text-2xs tabular">
         {items.length === 0 ? (
           <span className="text-txt-3">Индикаторы выключены</span>
         ) : (
@@ -190,7 +190,7 @@ export function MobileTerminal() {
             <div className="mt-1 flex items-baseline gap-2">
               <span
                 className={classNames(
-                  "text-[22px] font-bold leading-none tabular tracking-tight",
+                  "text-xl font-bold leading-none tabular tracking-tight",
                   inst?.dir === "up" ? "text-buy" : inst?.dir === "down" ? "text-sell" : "text-txt-0"
                 )}
               >

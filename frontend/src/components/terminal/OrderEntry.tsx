@@ -7,6 +7,7 @@ import { RangeSlider } from "../common/RangeSlider";
 import { Tooltip } from "../common/Tooltip";
 import { IconBearMarket, IconBullMarket } from "../icons/Icon";
 import type { OrderType } from "../../lib/types";
+import { fieldCls } from "../../lib/ui";
 
 const TYPES: OrderType[] = ["MARKET", "LIMIT", "STOP"];
 
@@ -79,7 +80,7 @@ export function OrderEntry() {
               onChange={(e) => setPrice(e.target.value)}
               inputMode="decimal"
               placeholder="0.00"
-              className="w-full rounded border border-line bg-bg-2 px-2 py-1.5 text-xs tabular outline-none focus:border-accent"
+              className={fieldCls("md", "w-full tabular")}
             />
           </label>
         )}
@@ -194,7 +195,7 @@ export function OrderEntry() {
                     inputMode="decimal"
                     placeholder="price"
                     tabIndex={useTpSl ? 0 : -1}
-                    className="w-full rounded border border-line bg-bg-3 px-1.5 py-1.5 text-2xs tabular outline-none focus:border-buy"
+                    className={fieldCls("sm", "w-full bg-bg-3 tabular focus:border-buy")}
                   />
                 </div>
                 <div>
@@ -205,7 +206,7 @@ export function OrderEntry() {
                     inputMode="decimal"
                     placeholder="price"
                     tabIndex={useTpSl ? 0 : -1}
-                    className="w-full rounded border border-line bg-bg-3 px-1.5 py-1.5 text-2xs tabular outline-none focus:border-sell"
+                    className={fieldCls("sm", "w-full bg-bg-3 tabular focus:border-sell")}
                   />
                 </div>
               </div>
