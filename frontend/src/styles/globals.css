@@ -58,6 +58,12 @@
   --c-sell-soft: 42 18 22;
   --c-sell-fill: 210 63 81;
   --c-warn: 224 165 60;
+  /* Convert's own fill, distinct from --c-accent-fill so Convert and Transfer
+   * stop reading as the same blue button. A solid, isolated button fill isn't
+   * affected by the surrounding theme, so one value serves both themes here
+   * (unlike buy/sell above, which sit against different ambient chrome per
+   * theme). White text on this measures 5.79:1. */
+  --c-convert-fill: 130 60 220;
   /* Categorical palette for the CRM lead pipeline only — ten funnel stages
    * need to be told apart at a glance, and the four semantic tones above
    * (accent/buy/sell/warn) can't stretch to cover that without recruiting
@@ -146,6 +152,8 @@
   --c-sell-soft: 251 223 226;
   --c-sell-fill: 200 33 49;
   --c-warn: 168 105 22;
+  /* Same value as dark theme — see the --c-convert-fill comment there. */
+  --c-convert-fill: 130 60 220;
   /* Same six categorical hues, redarkened for a white surface — same rule as
    * the rest of the ramp: 4.5:1 on bg-1, on bg-3, and on their own -soft tint. */
   --c-cat-gold: 105 109 9;

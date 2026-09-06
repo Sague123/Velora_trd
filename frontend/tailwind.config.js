@@ -35,6 +35,9 @@ export default {
           // white legibly. See globals.css for the arithmetic.
           fill: rgbVar("--c-accent-fill"),
         },
+        // Convert's own button fill — see globals.css for why it needs one
+        // distinct from accent-fill.
+        convert: { fill: rgbVar("--c-convert-fill") },
         buy: {
           DEFAULT: rgbVar("--c-buy"),
           dim: rgbVar("--c-buy-dim"),

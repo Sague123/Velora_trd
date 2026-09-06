@@ -31,16 +31,19 @@ const KYC_LABEL: Record<KycStatus, { text: string; cls: string }> = {
   REJECTED: { text: "отклонена", cls: "text-sell" },
 };
 
-type ActionTone = "buy" | "sell" | "accent";
+type ActionTone = "buy" | "sell" | "accent" | "convert";
 // Solid fills, not the tinted -soft backgrounds these started with: at four
 // tiles side by side the tints read as disabled, which is the opposite of
 // what a primary action row should say. These are the same -fill tokens the
 // terminal's own Buy/Sell buttons use, each already contrast-checked against
-// the text colour sitting on it.
+// the text colour sitting on it. Convert gets its own tone rather than
+// reusing "accent" — Transfer already owns that blue, and side by side the
+// two were indistinguishable.
 const ACTION_TONE_CLS: Record<ActionTone, string> = {
   buy: "border-transparent bg-buy-fill text-black hover:brightness-110",
   sell: "border-transparent bg-sell-fill text-white hover:brightness-110",
   accent: "border-transparent bg-accent-fill text-white hover:brightness-110",
+  convert: "border-transparent bg-convert-fill text-white hover:brightness-110",
 };
 
 function ActionTile({
@@ -161,17 +164,9 @@ export function AccountOverview({ onSeeAllHistory }: { onSeeAllHistory?: () => v
       <div className="grid grid-cols-4 gap-2">
         <ActionTile Icon={IconWalletPlus} label="Deposit" tone="buy" onClick={() => setWalletModal("deposit")} />
         <ActionTile Icon={IconWalletMinus} label="Withdraw" tone="sell" onClick={() => setWalletModal("withdraw")} />
-        <ActionTile Icon={IconSwap} label="Convert" tone="accent" onClick={() => setExchange({ mode: "convert" })} />
+        <ActionTile Icon={IconSwap} label="Convert" tone="convert" onClick={() => setExchange({ mode: "convert" })} />
         <ActionTile Icon={IconRefresh} label="Transfer" tone="accent" onClick={() => setTransferOpen(true)} />
       </div>
-      <button
-        type="button"
-        onClick={() => setWalletModal("transfer")}
-        className="btn-fx -mt-2 self-start text-2xs text-txt-3 hover:text-accent hover:underline"
-      >
-        Отправить другому пользователю Velora →
-      </button>
-
       {/* ---- Futures: Equity, Available, Unrealized PnL ---- */}
       {account.data && (
         <section className="rounded-lg border border-line bg-bg-1 p-3.5">

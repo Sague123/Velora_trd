@@ -349,6 +349,8 @@ export interface LedgerEntry {
   note: string | null;
   actorUserId: string | null;
   createdAt: string;
+  refType: string | null;
+  refId: string | null;
 }
 
 export type AlertDirection = "ABOVE" | "BELOW";

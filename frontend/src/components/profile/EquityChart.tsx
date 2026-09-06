@@ -30,9 +30,8 @@ const H = 120;
  * The one thing no journal can give back is what an asset was *worth* at some
  * past moment — a held BTC's price then, or an open position's float then;
  * neither is stored anywhere. So history is carried at recorded value, and the
- * final point is today's live Total Balance, mark-to-market. The gap between
- * them is unrealised market movement, and the caption says so rather than
- * letting the reader assume the whole curve is marked.
+ * final point is today's live Total Balance, mark-to-market — the rest of the
+ * curve is at recorded value, not re-priced day by day.
  */
 function useTotalSeries(range: Range) {
   const ledger = useLedger(true);
@@ -48,25 +47,51 @@ function useTotalSeries(range: Range) {
     const rows: Row[] = [
       ...cash.map((e) => ({ t: new Date(e.createdAt).getTime(), kind: "cash" as const, e })),
       ...assets.map((e) => ({ t: new Date(e.createdAt).getTime(), kind: "spot" as const, e })),
-    ].sort((a, b) => a.t - b.t);
+    ];
+
+    // A transfer, buy/sell or convert writes one journal row per leg — a
+    // Spot<->Futures transfer touches both journals, a trade touches two rows
+    // of the same one — and each leg's own recorded value is only ever
+    // designed to cancel against the *other* leg, never to stand on its own.
+    // Walking the legs as separate, sequentially-timestamped points meant the
+    // instant between them rendered as money briefly lost or gained in
+    // transit — a real dip-and-recover spike on the line, not a display
+    // artifact, and it got worse the further apart the two legs' timestamps
+    // ended up (backdating one side of a position through the trade-edit tool
+    // is exactly that). The backend already links every multi-row operation
+    // with a shared refId (routes/spot.ts, lib/ledger.ts); grouping by it
+    // applies both legs at once, so the running total only ever moves by what
+    // the operation actually added or removed.
+    const groups = new Map<string, Row[]>();
+    for (const row of rows) {
+      const key = row.e.refId ? `${row.e.refType}:${row.e.refId}` : `solo:${row.kind}:${row.e.id}`;
+      const group = groups.get(key);
+      if (group) group.push(row);
+      else groups.set(key, [row]);
+    }
+    const batches = [...groups.values()]
+      .map((group) => ({ t: Math.max(...group.map((r) => r.t)), rows: group }))
+      .sort((a, b) => a.t - b.t);
 
     let futuresCash = 0, heldMargin = 0, spotUsd = 0, assetCost = 0;
     const all: { t: number; v: number }[] = [];
-    for (const { t, kind, e } of rows) {
-      if (kind === "cash") {
-        // balanceAfter is absolute, so cash self-corrects even if the journal
-        // window starts mid-history; margin can only be accumulated.
-        futuresCash = n(e.balanceAfter);
-        if (e.type === "MARGIN_HOLD") heldMargin += Math.abs(n(e.amount));
-        else if (e.type === "MARGIN_RELEASE") heldMargin = Math.max(0, heldMargin - Math.abs(n(e.amount)));
-      } else if (e.asset === "USD") {
-        spotUsd = n(e.balanceAfter);
-      } else {
-        // Signed by the leg's direction: buying adds what it cost, selling
-        // removes what it was recorded at.
-        const qty = n(e.qty);
-        const usd = n(e.usdValue);
-        assetCost += (qty < 0 ? -1 : 1) * Math.abs(usd);
+    for (const { t, rows: legs } of batches) {
+      for (const { kind, e } of legs) {
+        if (kind === "cash") {
+          // balanceAfter is absolute, so cash self-corrects even if the
+          // journal window starts mid-history; margin can only be accumulated.
+          futuresCash = n(e.balanceAfter);
+          if (e.type === "MARGIN_HOLD") heldMargin += Math.abs(n(e.amount));
+          else if (e.type === "MARGIN_RELEASE") heldMargin = Math.max(0, heldMargin - Math.abs(n(e.amount)));
+        } else if (e.asset === "USD") {
+          spotUsd = n(e.balanceAfter);
+        } else {
+          // Signed by the leg's direction: buying adds what it cost, selling
+          // removes what it was recorded at.
+          const qty = n(e.qty);
+          const usd = n(e.usdValue);
+          assetCost += (qty < 0 ? -1 : 1) * Math.abs(usd);
+        }
       }
       all.push({ t, v: futuresCash + heldMargin + spotUsd + assetCost });
     }
@@ -119,11 +144,12 @@ export function EquityChart() {
   const first = points[0]?.v;
   const last = points.at(-1)?.v;
   const change = first !== undefined && last !== undefined ? last - first : null;
-  const changePct = first ? ((change ?? 0) / first) * 100 : null;
-  // How far today's marked value sits from the last recorded point — the
-  // unrealised part, spot appreciation and open-position float together.
-  const lastRecorded = points.length > 1 ? points[points.length - 2].v : null;
-  const unrealised = lastRecorded !== null && last !== undefined ? last - lastRecorded : 0;
+  // A starting balance under a dollar is a real state (a brand-new account,
+  // or a history window that happens to open right after everything was
+  // withdrawn) but a division floor for it isn't — over/under a few cents
+  // turns any ordinary change into a swing of hundreds of thousands of
+  // percent, which is noise dressed up as a number.
+  const changePct = first !== undefined && Math.abs(first) >= 1 ? ((change ?? 0) / first) * 100 : null;
 
   const geometry = useMemo(() => {
     if (points.length < 2) return null;
@@ -151,7 +177,8 @@ export function EquityChart() {
           <div className="text-2xs font-semibold uppercase tracking-wide text-txt-2">Total Balance History</div>
           {change !== null && (
             <div className={classNames("tabular text-xs font-medium", change >= 0 ? "text-buy" : "text-sell")}>
-              {fmtSigned(change)} ({changePct?.toFixed(1)}%) за {range === "7D" ? "7 дней" : "30 дней"}
+              {fmtSigned(change)}
+              {changePct !== null && ` (${changePct.toFixed(1)}%)`} за {range === "7D" ? "7 дней" : "30 дней"}
             </div>
           )}
         </div>
@@ -207,10 +234,7 @@ export function EquityChart() {
       )}
 
       <div className="mt-1.5 text-[9px] leading-snug text-txt-3">
-        Оба кошелька: спот по стоимости покупки плюс фьючерсы с маржой. Переводы между кошельками не
-        двигают линию — это одни и те же деньги.
-        {Math.abs(unrealised) >= 0.01 &&
-          ` Правый край — сегодняшняя рыночная оценка, она отличается от последней записи на ${fmtSigned(unrealised)} за счёт нереализованной переоценки.`}
+        Оба кошелька вместе — переводы между ними не двигают линию.
       </div>
     </div>
   );

@@ -44,6 +44,11 @@ export const sLedger = (e: any) => ({
   amount: out(asBig(e.amount_scaled), 2),
   balanceAfter: out(asBig(e.balance_after_scaled), 2),
   note: e.note, actorUserId: e.actor_user_id, createdAt: e.created_at,
+  // Both legs of a Spot<->Futures transfer share one refId (see
+  // routes/spot.ts's /transfer) — exposing it is what lets EquityChart tell
+  // "one transfer, two journal rows" apart from two unrelated events that
+  // just happened to land close together.
+  refType: e.ref_type ?? null, refId: e.ref_id ?? null,
 });
 
 /* ----------------------------------- CRM ---------------------------------- */
