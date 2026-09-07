@@ -6,6 +6,7 @@ import { classNames, fmtCompact, fmtPct, fmtPrice } from "../../lib/format";
 import { LoadingRow, ErrorRow, EmptyRow } from "../common/States";
 import { IconCoin, IconSearchDollar } from "../icons/Icon";
 import type { Category } from "../../lib/types";
+import { buttonCls } from "../../lib/ui";
 
 const CATEGORIES: Array<{ id: Category | "ALL"; label: string; Icon?: typeof IconCoin }> = [
   { id: "ALL", label: "All" },
@@ -43,15 +44,13 @@ export function MarketWatch({ onSelect }: { onSelect?: () => void } = {}) {
             className="tap-sm w-full rounded border border-line bg-bg-2 py-1.5 pl-6 pr-2 text-2xs text-txt-0 outline-none focus:border-accent"
           />
         </div>
-        <div className="mt-2 flex gap-0.5">
+        <div className="mt-2 flex gap-1">
           {CATEGORIES.map((c) => (
             <button
               key={c.id}
               onClick={() => setCategory(c.id)}
-              className={classNames(
-                "tap-sm flex flex-1 items-center justify-center gap-1 rounded px-1 py-1 text-2xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent",
-                category === c.id ? "bg-accent-soft text-accent" : "text-txt-2 hover:bg-bg-3 hover:text-txt-0"
-              )}
+              aria-pressed={category === c.id}
+              className={classNames("flex-1 justify-center gap-1 px-1", buttonCls(category === c.id ? "primary" : "secondary", "sm"))}
             >
               {c.Icon && <c.Icon size={11} />}
               {c.label}

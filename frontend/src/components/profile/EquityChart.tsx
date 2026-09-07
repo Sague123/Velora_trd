@@ -134,20 +134,31 @@ function useTotalSeries(range: Range) {
 
 /** Catmull-Rom through the points, converted to cubic béziers — a curve that
  * actually passes through every reading rather than a spline that rounds the
- * corners off the data. */
-function smoothPath(pts: { x: number; y: number }[]): string {
+ * corners off the data.
+ *
+ * Catmull-Rom control points are extrapolated from the tangent between
+ * neighbouring points, so a sharp bend — a long flat run then a steep last
+ * leg, exactly what a burst of deposits at the end of a quiet window looks
+ * like — can push a control point's y past the data's own min/max. The
+ * viewBox's padding only accounts for the plotted points, not that
+ * overshoot, so the curve's peak was rendering above y=0 and getting cut
+ * off by the SVG's default overflow:hidden. Clamping each control point to
+ * the viewBox keeps the curve inside what's actually visible. */
+function smoothPath(pts: { x: number; y: number }[], w: number, h: number): string {
   if (pts.length === 0) return "";
   if (pts.length === 1) return `M ${pts[0].x} ${pts[0].y}`;
+  const clampX = (x: number) => Math.min(w, Math.max(0, x));
+  const clampY = (y: number) => Math.min(h, Math.max(0, y));
   let d = `M ${pts[0].x} ${pts[0].y}`;
   for (let i = 0; i < pts.length - 1; i++) {
     const p0 = pts[i - 1] ?? pts[i];
     const p1 = pts[i];
     const p2 = pts[i + 1];
     const p3 = pts[i + 2] ?? p2;
-    const c1x = p1.x + (p2.x - p0.x) / 6;
-    const c1y = p1.y + (p2.y - p0.y) / 6;
-    const c2x = p2.x - (p3.x - p1.x) / 6;
-    const c2y = p2.y - (p3.y - p1.y) / 6;
+    const c1x = clampX(p1.x + (p2.x - p0.x) / 6);
+    const c1y = clampY(p1.y + (p2.y - p0.y) / 6);
+    const c2x = clampX(p2.x - (p3.x - p1.x) / 6);
+    const c2y = clampY(p2.y - (p3.y - p1.y) / 6);
     d += ` C ${c1x.toFixed(2)} ${c1y.toFixed(2)}, ${c2x.toFixed(2)} ${c2y.toFixed(2)}, ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`;
   }
   return d;
@@ -182,7 +193,7 @@ export function EquityChart() {
       x: tMax === tMin ? W : ((p.t - tMin) / (tMax - tMin)) * W,
       y: H - ((p.v - lo) / (hi - lo)) * H,
     }));
-    const line = smoothPath(xy);
+    const line = smoothPath(xy, W, H);
     return { line, area: `${line} L ${W} ${H} L 0 ${H} Z` };
   }, [points]);
 
