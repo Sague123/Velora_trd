@@ -54,8 +54,6 @@ export function useChartBars(symbol: string | null, category: Category | undefin
     staleTime: 8_000,
   });
 
-  const veloraQuery = useCandles(binanceEligible ? null : symbol, tf);
-
   const binanceBars = useMemo(() => {
     if (!binanceQuery.data) return null;
     // pages arrive newest-first (each fetchNextPage goes further back); each
@@ -63,12 +61,27 @@ export function useChartBars(symbol: string | null, category: Category | undefin
     return [...binanceQuery.data.pages].reverse().flat().filter((b): b is Bar => b !== null);
   }, [binanceQuery.data]);
 
-  if (binanceEligible) {
-    const anyPageNull = binanceQuery.data?.pages.some((p) => p === null) ?? false;
+  // fetchBinanceKlines calls api.binance.com/fapi.binance.com straight from
+  // the browser (see lib/binance.ts) — a deliberate move off the server,
+  // which can't reach Binance from its own region. That trade means a
+  // client that can't reach Binance either (a blocked region, an
+  // ad-blocker treating *.binance.com as a tracker, a restrictive network)
+  // hits the same wall, and used to dead-end on a hard error with Velora's
+  // own working candles endpoint sitting right there unused — the doc
+  // comment above already promised this endpoint as "the fallback", it just
+  // never actually ran for an instrument Binance has a market for once the
+  // live fetch failed. Falls back here instead of only for instruments with
+  // no Binance mapping at all.
+  const anyPageNull = binanceQuery.data?.pages.some((p) => p === null) ?? false;
+  const binanceFailed = binanceQuery.isError || (binanceQuery.isSuccess && anyPageNull && !binanceBars?.length);
+  const useVelora = !binanceEligible || binanceFailed;
+  const veloraQuery = useCandles(useVelora ? symbol : null, tf);
+
+  if (binanceEligible && !binanceFailed) {
     return {
       data: binanceBars ? { bars: binanceBars, source: "BINANCE" as const, real: true } : undefined,
       isLoading: binanceQuery.isLoading,
-      isError: binanceQuery.isError || (binanceQuery.isSuccess && anyPageNull && !binanceBars?.length),
+      isError: false,
       isFetching: binanceQuery.isFetching,
       refetch: binanceQuery.refetch,
       loadMore: () => binanceQuery.fetchNextPage(),
@@ -85,7 +98,11 @@ export function useChartBars(symbol: string | null, category: Category | undefin
     isLoading: veloraQuery.isLoading,
     isError: veloraQuery.isError,
     isFetching: veloraQuery.isFetching,
-    refetch: veloraQuery.refetch,
+    // Binance keeps retrying itself in the background (refetchInterval
+    // above) regardless of which source is currently showing, so a manual
+    // retry here gives both a fresh shot — if Binance recovers, the next
+    // render switches back to it on its own.
+    refetch: () => { if (binanceEligible) binanceQuery.refetch(); veloraQuery.refetch(); },
     loadMore: () => {},
     hasMore: false,
     isLoadingMore: false,

@@ -429,7 +429,11 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
           </div>
         )}
         {notReal && !isLoading && (
-          <div className="absolute left-2 bottom-2 rounded border border-warn/40 bg-bg-1/90 px-2 py-1 text-2xs text-warn">
+          // top-left, not bottom: bottom-center is the "К текущей цене" pill
+          // (compact/mobile) and this label's text is long enough to run
+          // straight into it there — collided visibly once the chart
+          // actually had data to fall back to and render.
+          <div className="absolute left-2 top-2 rounded border border-warn/40 bg-bg-1/90 px-2 py-1 text-2xs text-warn">
             Смоделированные свечи — нет доступного live-фида для {symbol}
           </div>
         )}
