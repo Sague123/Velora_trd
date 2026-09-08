@@ -23,6 +23,7 @@ import { ApiError } from "../lib/api";
 import { IconCoin, IconListView, IconMoon, IconOrderHistory, IconSun, IconTrade } from "../components/icons/Icon";
 import type { OrderStatus, Timeframe } from "../lib/types";
 import { buttonCls, fieldCls } from "../lib/ui";
+import { Page } from "../components/layout/Page";
 
 /** Wallet and Balance were two tabs describing one thing — what's in the
  * account — split by whether you wanted to act on it or read it. They're one
@@ -291,7 +292,7 @@ export function ProfilePage() {
     // content below them changes, the same way TopBar does for the terminal's
     // views. Only the tab content scrolls, so switching tabs never scrolls
     // the header away or re-runs its entrance animation.
-    <div className="mx-auto flex h-full w-full max-w-4xl flex-col p-3">
+    <Page width="narrow">
       <div className="anim-rise relative flex shrink-0 items-center gap-3 overflow-hidden rounded-xl border border-line bg-bg-1 p-3">
         <div className="hero-glow" aria-hidden />
         <div className="relative"><AvatarUpload size={44} /></div>
@@ -349,6 +350,6 @@ export function ProfilePage() {
 
         {tab === "settings" && <SettingsTab />}
       </div>
-    </div>
+    </Page>
   );
 }

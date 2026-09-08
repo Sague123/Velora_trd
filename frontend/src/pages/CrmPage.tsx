@@ -6,7 +6,7 @@ import {
   LEAD_STATUS_LABEL, LEAD_STATUS_TONE, TONE_TEXT_CLASS, VERIFICATION_LABEL, VERIFICATION_TONE,
 } from "../components/crm/leadLabels";
 import { EmptyRow, SkeletonTableRows } from "../components/common/States";
-import { SiteFooter } from "../components/layout/SiteFooter";
+import { Page } from "../components/layout/Page";
 import { classNames, fmtDateTime } from "../lib/format";
 import { toast } from "../store/toast";
 import { ApiError } from "../lib/api";
@@ -171,7 +171,7 @@ export function CrmPage() {
   }
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-[1600px] flex-col overflow-y-auto p-3">
+    <Page>
       {openId && <LeadCard leadId={openId} onClose={() => setOpenId(null)} />}
 
       <div className="anim-rise relative mb-3 overflow-hidden rounded-xl border border-line bg-bg-1 px-4 py-3">
@@ -378,8 +378,7 @@ export function CrmPage() {
         </div>
       )}
 
-      <SiteFooter compact />
-    </div>
+    </Page>
   );
 }
 

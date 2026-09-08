@@ -4,6 +4,7 @@ import { UsersTab } from "../components/admin/UsersTab";
 import { AuditTab } from "../components/admin/AuditTab";
 import { InstrumentsTab } from "../components/admin/InstrumentsTab";
 import { classNames } from "../lib/format";
+import { Page } from "../components/layout/Page";
 
 type Tab = "team" | "audit" | "instruments";
 
@@ -19,7 +20,7 @@ export function AdminPage() {
   const [tab, setTab] = useState<Tab>("team");
 
   return (
-    <div className="flex h-full flex-col overflow-hidden p-3">
+    <Page variant="app" className="overflow-hidden p-3">
       <div className="anim-rise relative mb-3 shrink-0 overflow-hidden rounded-xl border border-line bg-bg-1 px-4 py-3">
         <div className="section-glow" aria-hidden />
         <div className="neon-strip" aria-hidden />
@@ -60,6 +61,6 @@ export function AdminPage() {
           {tab === "instruments" && <InstrumentsTab />}
         </div>
       </div>
-    </div>
+    </Page>
   );
 }

@@ -12,7 +12,7 @@ import { ErrorRow, SkeletonBar } from "../components/common/States";
 import { classNames, fmtPct, fmtSigned, fmtUsd, n } from "../lib/format";
 import { AnimatedNumber } from "../components/common/AnimatedNumber";
 import { IconArrowRight, IconBolt, IconTrendDown, IconTrendUp, IconWalletPlus } from "../components/icons/Icon";
-import { SiteFooter } from "../components/layout/SiteFooter";
+import { Page } from "../components/layout/Page";
 
 // A fixed shortlist of the most liquid instruments — computing a technical
 // signal needs a full candle fetch per symbol, so this stays deliberately
@@ -75,7 +75,7 @@ export function OverviewPage() {
     // its padding, clipping the Start Trading/Deposit buttons — the
     // long-standing "buttons disappear on mobile" bug. Block layout has no
     // shrink algorithm, so this footgun can't happen.
-    <div className="h-full overflow-y-auto p-3">
+    <Page>
       {showDeposit && <QuickDepositModal onClose={() => setShowDeposit(false)} />}
 
       {/* Hero — kept, but dialed down: this is what a returning trader sees
@@ -201,7 +201,6 @@ export function OverviewPage() {
         </div>
       )}
 
-      <SiteFooter compact />
-    </div>
+    </Page>
   );
 }

@@ -8,7 +8,7 @@ import { classNames, fmtCompact, fmtPct, fmtPrice } from "../lib/format";
 import { ErrorRow, EmptyRow, SkeletonBar, SkeletonTableRows } from "../components/common/States";
 import { IconCoin } from "../components/icons/Icon";
 import type { Category } from "../lib/types";
-import { SiteFooter } from "../components/layout/SiteFooter";
+import { Page } from "../components/layout/Page";
 import { Tooltip } from "../components/common/Tooltip";
 import { buttonCls, fieldCls } from "../lib/ui";
 
@@ -92,7 +92,7 @@ export function MarketsPage() {
     // inner scrollbar — that way the list has a real end, and the footer below
     // marks it. This element is also what the table's sticky header anchors
     // to, so nothing between it and the <thead> may create its own scroll box.
-    <div className="h-full overflow-auto p-3">
+    <Page>
       <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2">
         <h1 className="mr-2 text-sm font-semibold text-txt-0">{t("nav.markets")}</h1>
         <input
@@ -251,7 +251,6 @@ export function MarketsPage() {
         )}
       </div>
 
-      <SiteFooter compact />
-    </div>
+    </Page>
   );
 }

@@ -7,7 +7,7 @@ import {
 } from "../hooks/useSavings";
 import { LedgerTable } from "../components/terminal/LedgerTable";
 import { LoadingRow } from "../components/common/States";
-import { SiteFooter } from "../components/layout/SiteFooter";
+import { Page } from "../components/layout/Page";
 import { classNames, fmtDateTime, fmtUsd } from "../lib/format";
 import { toast } from "../store/toast";
 import { ApiError } from "../lib/api";
@@ -167,7 +167,7 @@ export function SavingsPage() {
   }
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-[1200px] flex-col overflow-y-auto p-3">
+    <Page>
       <div className="anim-rise mb-3 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-sm font-semibold text-txt-0">Накопительные счета</h1>
         <div className="flex gap-4 text-2xs">
@@ -215,7 +215,6 @@ export function SavingsPage() {
         {history.isLoading ? <LoadingRow /> : <LedgerTable entries={history.data?.entries ?? []} />}
       </div>
 
-      <SiteFooter compact />
-    </div>
+    </Page>
   );
 }

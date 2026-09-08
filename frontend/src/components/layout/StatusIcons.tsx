@@ -10,15 +10,18 @@ import { IconBot, IconShield } from "../icons/Icon";
 import { buttonCls } from "../../lib/ui";
 
 /**
- * Mobile's replacement for EmailVerificationBanner + ActiveBotsBanner: the
- * same two pieces of real state (a running/errored bot, an unverified
- * address), as two small icon buttons sitting right in TopBar's own top row
- * (next to language/theme) rather than a full-width text banner permanently
- * eating a row of its own above the chart. Detail and actions open on tap,
- * in place. Renders nothing when there is nothing to report. Desktop keeps
- * the original full banners (see App.tsx) since it has the width to spare.
+ * Two pieces of real account state — a running/errored bot, an unverified
+ * address — as small icon buttons in the header, with the detail and the
+ * actions opening in place on tap. Renders nothing when there is nothing to
+ * report.
+ *
+ * This was mobile-only, with desktop showing the same two facts as
+ * full-width EmailVerificationBanner/ActiveBotsBanner rows above the page.
+ * Two presentations of one state is precisely the header drift this layout
+ * pass exists to remove, so the icons are what both platforms get now and
+ * the banner components are gone.
  */
-export function MobileStatusBar() {
+export function StatusIcons() {
   const user = useAuthStore((s) => s.user);
   const { data } = useBots(!!user);
   const stop = useStopBot();

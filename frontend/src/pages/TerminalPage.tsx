@@ -9,6 +9,7 @@ import { Resizer } from "../components/common/Resizer";
 import { useResizable, useResizableInverted } from "../hooks/useResizable";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { MobileTerminal } from "../components/terminal/MobileTerminal";
+import { Page } from "../components/layout/Page";
 
 export function TerminalPage() {
   const isMobile = useIsMobile();
@@ -27,7 +28,7 @@ export function TerminalPage() {
   if (isMobile) return <MobileTerminal />;
 
   return (
-    <div className="flex h-full flex-col">
+    <Page variant="app">
       <div className="flex min-h-0 flex-1">
         {!watchCollapsed && (
           <>
@@ -61,6 +62,6 @@ export function TerminalPage() {
       </div>
 
       <AccountStrip />
-    </div>
+    </Page>
   );
 }

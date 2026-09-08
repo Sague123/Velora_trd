@@ -1,26 +1,14 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
-import { NavLink, useLocation } from "react-router-dom";
-import { useTranslation } from "react-i18next";
+import { useLocation } from "react-router-dom";
 import { useAuthStore } from "../../store/auth";
 import { useTerminalStore } from "../../store/terminal";
 import { useAccount } from "../../hooks/useTrading";
 import { useOrderTicket } from "../../hooks/useOrderTicket";
 import { useIsMobile } from "../../hooks/useIsMobile";
 import { classNames, fmtCompact, fmtUsd, n } from "../../lib/format";
-import { Popover } from "../common/Popover";
-import { LanguageSwitcher } from "./LanguageSwitcher";
-import {
-  IconBearMarket, IconBot, IconBullMarket, IconClipboard, IconDots, IconGear,
-  IconHome, IconMarkets, IconTrade, IconVault,
-} from "../icons/Icon";
-import type { AuthUser, OrderSide } from "../../lib/types";
-
-const NAV = [
-  { to: "/overview", key: "nav.overview", Icon: IconHome },
-  { to: "/terminal", key: "nav.trade", Icon: IconTrade },
-  { to: "/markets", key: "nav.markets", Icon: IconMarkets },
-  { to: "/strategies", key: "nav.strategies", Icon: IconBot },
-];
+import { MainNav } from "./MainNav";
+import { IconBearMarket, IconBullMarket } from "../icons/Icon";
+import type { OrderSide } from "../../lib/types";
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -114,67 +102,6 @@ function TradeButtons() {
   );
 }
 
-function NavRow({ user, isManager }: { user: AuthUser | null; isManager: boolean }) {
-  const { t } = useTranslation();
-  const location = useLocation();
-  const moreRoutes = ["/savings", ...(isManager ? ["/crm"] : []), ...(user?.role === "ADMIN" ? ["/admin"] : []), "/profile"];
-  const moreActive = moreRoutes.includes(location.pathname);
-
-  const tabCls = (active: boolean) =>
-    classNames(
-      "tap flex flex-1 basis-0 flex-col items-center justify-center gap-0.5 rounded-lg py-1 text-2xs font-medium transition-colors",
-      active ? "text-accent" : "text-txt-3 hover:text-txt-1"
-    );
-  const itemCls = (active: boolean, warn?: boolean) =>
-    classNames(
-      "tap-sm flex items-center gap-2 rounded px-2.5 text-xs font-medium",
-      active ? (warn ? "bg-warn/10 text-warn" : "bg-accent-soft text-accent") : warn ? "text-warn/80 hover:bg-bg-3" : "text-txt-1 hover:bg-bg-3"
-    );
-
-  return (
-    <nav className="flex items-stretch gap-1 px-1.5 pb-1.5 pt-1">
-      {NAV.map((item) => (
-        <NavLink key={item.to} to={item.to} className={({ isActive }) => tabCls(isActive)}>
-          <item.Icon size={19} />
-          {t(item.key)}
-        </NavLink>
-      ))}
-      <Popover
-        align="right"
-        side="top"
-        trigger={(open, toggle) => (
-          <button onClick={toggle} className={tabCls(open || moreActive)}>
-            <IconDots size={19} />
-            {t("nav.more")}
-          </button>
-        )}
-      >
-        {(close) => (
-          <div className="w-48 p-1">
-            <NavLink to="/savings" onClick={close} className={({ isActive }) => itemCls(isActive)}>
-              <IconVault size={17} /> {t("nav.savings")}
-            </NavLink>
-            {isManager && (
-              <NavLink to="/crm" onClick={close} className={({ isActive }) => itemCls(isActive)}>
-                <IconClipboard size={17} /> {t("nav.crm")}
-              </NavLink>
-            )}
-            {user?.role === "ADMIN" && (
-              <NavLink to="/admin" onClick={close} className={({ isActive }) => itemCls(isActive, true)}>
-                <IconGear size={17} /> {t("nav.admin")}
-              </NavLink>
-            )}
-            <div className="my-1 border-t border-line-soft" />
-            <div className="px-1 py-0.5">
-              <LanguageSwitcher />
-            </div>
-          </div>
-        )}
-      </Popover>
-    </nav>
-  );
-}
-
 /**
  * The phone's pinned bottom block: account summary, Buy/Sell, and the app
  * navigation that used to live in the top bar.
@@ -189,7 +116,6 @@ export function MobileBottomStack() {
   const isMobile = useIsMobile();
   const location = useLocation();
   const user = useAuthStore((s) => s.user);
-  const isManager = user?.role === "MANAGER" || user?.role === "ADMIN";
   const onTerminal = location.pathname === "/terminal";
   const ref = useRef<HTMLDivElement>(null);
 
@@ -223,7 +149,7 @@ export function MobileBottomStack() {
           <TradeButtons />
         </>
       )}
-      <NavRow user={user} isManager={isManager} />
+      <MainNav variant="tabs" />
     </div>
   );
 }

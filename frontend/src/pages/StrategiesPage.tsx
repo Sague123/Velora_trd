@@ -23,7 +23,7 @@ import {
   IconSliders, IconTarget, IconTrendDown, IconTrendUp, IconWarning,
 } from "../components/icons/Icon";
 import { ApiError } from "../lib/api";
-import { SiteFooter } from "../components/layout/SiteFooter";
+import { Page } from "../components/layout/Page";
 import { buttonCls, fieldCls, labelCls } from "../lib/ui";
 
 const inputCls = fieldCls("md", "w-full tabular");
@@ -147,7 +147,7 @@ export function StrategiesPage() {
   const activeMart = martingalePreset(risk);
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-[1700px] flex-col overflow-y-auto p-3">
+    <Page>
       {openBotId && <BotDetailModal botId={openBotId} onClose={() => setOpenBotId(null)} />}
 
       {/* One centred column at every width. The old three-pane desktop layout
@@ -440,8 +440,7 @@ export function StrategiesPage() {
           )}
         </form>
 
-        <SiteFooter compact />
       </div>
-    </div>
+    </Page>
   );
 }

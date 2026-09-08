@@ -2,14 +2,12 @@ import { useEffect, useRef } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { useAuthStore } from "./store/auth";
 import { useThemeStore } from "./store/theme";
-import { NAV_ORDER } from "./lib/navOrder";
+import { NAV_ORDER } from "./lib/nav";
 import { useEnsurePriceSocket } from "./hooks/useLivePrices";
 import { useBinanceTickerFeed } from "./hooks/useBinanceTickerFeed";
 import { useIsMobile } from "./hooks/useIsMobile";
-import { TopBar } from "./components/layout/TopBar";
+import { Header } from "./components/layout/Header";
 import { MobileBottomStack } from "./components/layout/MobileBottomStack";
-import { ActiveBotsBanner } from "./components/layout/ActiveBotsBanner";
-import { EmailVerificationBanner } from "./components/layout/EmailVerificationBanner";
 import { Toaster } from "./components/common/Toaster";
 import { AdminRoute, GuestRoute, ManagerRoute, ProtectedRoute } from "./routes/ProtectedRoute";
 import { HomePage } from "./pages/HomePage";
@@ -52,16 +50,12 @@ function AppLayout() {
 
   return (
     <div className="app-shell flex flex-col bg-bg-0 text-txt-0">
-      <TopBar />
-      {/* Mobile shows this same state as two small icons inside TopBar's own
-          top row instead (see MobileStatusBar), not as a full-width row here
-          — desktop keeps the original banners since it has the width to spare. */}
-      {!isMobile && (
-        <>
-          <EmailVerificationBanner />
-          <ActiveBotsBanner />
-        </>
-      )}
+      {/* Unverified-email and running-bot state used to render here as
+          desktop-only full-width banners while the phone got the same two
+          facts as icons in the header. Both platforms get the icons now
+          (Header → StatusIcons), so the shell is header + page + bottom bar
+          and nothing else. */}
+      <Header />
       <div
         className="min-h-0 flex-1"
         // Reserves exactly the height the pinned bottom block reports for
@@ -119,9 +113,13 @@ export default function App() {
     <>
       <Toaster />
       <Routes>
-        {/* Public regardless of auth state — the exchange Home, and the
-            privacy policy linked from the register form */}
-        <Route path="/" element={<HomePage />} />
+        {/* The public exchange Home is for visitors who aren't signed in.
+            A signed-in user landing here used to get a second, unrelated
+            chrome — HomeNavbar's own logo casing, icon set and tab names on
+            top of the app they were already inside — which is the single
+            biggest reason the product read as "glued together". Signed in,
+            `/` goes to the dashboard; signed out, it's still the storefront. */}
+        <Route path="/" element={user ? <Navigate to="/overview" replace /> : <HomePage />} />
         <Route path="/legal/privacy" element={<LegalPage />} />
         {/* Reached from a link in an inbox, which may be on a different device
             from the one that's signed in — so these must work in either state,
