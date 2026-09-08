@@ -182,6 +182,30 @@
 * { box-sizing: border-box; }
 
 html, body { height: 100%; }
+
+/* Reserve the scrollbar's width whether or not a scrollbar is actually there.
+ *
+ * The two kinds of page in this product differ in exactly that: `.app-shell`
+ * is 100dvh with overflow:hidden and can never show a document scrollbar,
+ * while the public pages scroll the document and (measured: scrollHeight 1350
+ * vs a 900px viewport) do show one. On any desktop browser with classic,
+ * space-taking scrollbars, moving between the two changes the content width
+ * by ~15px — every centred column jumps sideways and back, which is the
+ * reported horizontal jitter. It doesn't reproduce under headless Chromium
+ * because that uses overlay scrollbars, which take no width at all.
+ *
+ * `scrollbar-gutter: stable` is the property meant for this: the gutter is
+ * always reserved, so the width is the same in both states and nothing
+ * shifts. This is deliberately not `overflow-x: hidden` — that would hide
+ * the symptom of any overflow rather than keep the width constant.
+ *
+ * Gated to fine pointers, the same way `tap`/`tap-sm` are gated to coarse
+ * ones: a touch device's scrollbar is always an overlay that takes no width,
+ * so reserving a gutter there is 8px of a 390px screen given up for a
+ * scrollbar that will never appear. */
+@media (pointer: fine) {
+  html { scrollbar-gutter: stable; }
+}
 /* min-height, not height: the fixed-viewport terminal shell sets its own
  * height explicitly, while the public marketing pages need to be free to grow
  * past one screen and scroll the document normally. */
