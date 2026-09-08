@@ -1,8 +1,10 @@
+import { useTranslation } from "react-i18next";
 import { useMemo, useState } from "react";
 import { useAccount, useLedger } from "../../hooks/useTrading";
 import { useSpotLedger } from "../../hooks/useSpot";
 import { classNames, fmtSigned, n } from "../../lib/format";
 import { EmptyRow, ErrorRow, LoadingRow } from "../common/States";
+import { Tabs } from "../common/Tabs";
 
 type Range = "7D" | "1M";
 const RANGE_MS: Record<Range, number> = { "7D": 7 * 86_400_000, "1M": 30 * 86_400_000 };
@@ -165,6 +167,7 @@ function smoothPath(pts: { x: number; y: number }[], w: number, h: number): stri
 }
 
 export function EquityChart() {
+  const { t } = useTranslation();
   const [range, setRange] = useState<Range>("7D");
   const { points, isLoading, isError, refetch } = useTotalSeries(range);
 
@@ -201,7 +204,7 @@ export function EquityChart() {
     <div className="rounded-xl border border-line-soft bg-bg-2/40 p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <div className="text-2xs font-semibold uppercase tracking-wide text-txt-2">Total Balance History</div>
+          <div className="text-2xs font-semibold uppercase tracking-wide text-txt-2">{t("account.balanceHistory")}</div>
           {change !== null && (
             <div className={classNames("tabular text-xs font-medium", change >= 0 ? "text-buy" : "text-sell")}>
               {fmtSigned(change)}
@@ -209,21 +212,12 @@ export function EquityChart() {
             </div>
           )}
         </div>
-        <div className="flex shrink-0 gap-0.5 rounded-lg border border-line p-0.5">
-          {(["7D", "1M"] as Range[]).map((r) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => setRange(r)}
-              className={classNames(
-                "btn-fx rounded-lg px-2.5 py-1 text-2xs font-semibold",
-                range === r ? "bg-warn/15 text-warn" : "text-txt-3 hover:text-txt-1"
-              )}
-            >
-              {r}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          className="shrink-0"
+          value={range}
+          onChange={setRange}
+          items={[{ id: "7D" as Range, label: "7D" }, { id: "1M" as Range, label: "1M" }]}
+        />
       </div>
 
       {isLoading && <LoadingRow />}

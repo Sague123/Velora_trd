@@ -2,6 +2,7 @@ import { useAccount } from "../../hooks/useTrading";
 import { useAuthStore } from "../../store/auth";
 import { classNames, fmtRate, fmtSigned, fmtUsd } from "../../lib/format";
 import { IconMeter } from "../icons/Icon";
+import { useTranslation } from "react-i18next";
 
 function Metric({ label, value, tone }: { label: string; value: string; tone?: "buy" | "sell" | "warn" | "default" }) {
   return (
@@ -30,6 +31,7 @@ function Divider() {
 }
 
 export function AccountStrip() {
+  const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const { data, isLoading } = useAccount(!!user);
 
@@ -47,18 +49,18 @@ export function AccountStrip() {
         <>
           {/* Balance: what the account is worth right now. */}
           <div className="flex shrink-0 items-center gap-4">
-            <Metric label="Equity" value={fmtUsd(data.equity)} />
-            <Metric label="Free Margin" value={fmtUsd(freeMargin)} />
+            <Metric label={t("account.equity")} value={fmtUsd(data.equity)} />
+            <Metric label={t("account.freeMargin")} value={fmtUsd(freeMargin)} />
           </div>
           <Divider />
 
           {/* Risk: how much of that is committed and how close to trouble. */}
           <div className="flex shrink-0 items-center gap-4">
-            <Metric label="Used Margin" value={fmtUsd(data.usedMargin)} />
-            <Metric label="Locked (orders)" value={fmtUsd(data.lockedMargin)} />
+            <Metric label={t("account.usedMargin")} value={fmtUsd(data.usedMargin)} />
+            <Metric label={t("account.lockedOrders")} value={fmtUsd(data.lockedMargin)} />
             <div className="flex items-center gap-1.5">
               <IconMeter size={12} className="shrink-0 text-txt-3" />
-              <span className="text-2xs text-txt-2">Margin Usage</span>
+              <span className="text-2xs text-txt-2">{t("account.marginUsage")}</span>
               <div className="h-1.5 w-20 overflow-hidden rounded-full bg-bg-3">
                 <div
                   className={classNames("h-full", marginUsage > 80 ? "bg-sell" : marginUsage > 50 ? "bg-warn" : "bg-buy")}
@@ -72,11 +74,11 @@ export function AccountStrip() {
 
           {/* Performance: how the trading itself is going. */}
           <div className="flex shrink-0 items-center gap-4">
-            <Metric label="Unrealised PnL" value={fmtSigned(data.unrealisedPnl)} tone={uPnl > 0 ? "buy" : uPnl < 0 ? "sell" : "default"} />
-            <Metric label="Realised PnL" value={fmtSigned(data.realisedPnl)} tone={Number(data.realisedPnl) >= 0 ? "buy" : "sell"} />
-            <Metric label="Open Positions" value={String(data.openPositions)} />
-            <Metric label="Open Orders" value={String(data.openOrders)} />
-            {data.winRatePct !== null && <Metric label="Win Rate" value={fmtRate(data.winRatePct)} />}
+            <Metric label={t("account.unrealisedPnl")} value={fmtSigned(data.unrealisedPnl)} tone={uPnl > 0 ? "buy" : uPnl < 0 ? "sell" : "default"} />
+            <Metric label={t("account.realisedPnl")} value={fmtSigned(data.realisedPnl)} tone={Number(data.realisedPnl) >= 0 ? "buy" : "sell"} />
+            <Metric label={t("account.openPositions")} value={String(data.openPositions)} />
+            <Metric label={t("account.openOrders")} value={String(data.openOrders)} />
+            {data.winRatePct !== null && <Metric label={t("account.winRate")} value={fmtRate(data.winRatePct)} />}
           </div>
         </>
       ) : (

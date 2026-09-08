@@ -4,6 +4,7 @@ import { useSpotLedger } from "../../hooks/useSpot";
 import { useAuthStore } from "../../store/auth";
 import { classNames, fmtRate, fmtSigned, fmtUsd } from "../../lib/format";
 import { ErrorRow, SkeletonBar } from "../common/States";
+import { useTranslation } from "react-i18next";
 
 function Stat({ label, value, tone, sub }: { label: string; value: string; tone?: "buy" | "sell"; sub?: string }) {
   return (
@@ -45,6 +46,7 @@ function StatGroup({ title, hint, children }: { title: string; hint?: string; ch
 }
 
 export function BalanceStats() {
+  const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const account = useAccount(!!user);
   const ledger = useLedger(!!user);
@@ -106,17 +108,17 @@ export function BalanceStats() {
           result those two don't show on their own: realised, unrealised, ROI. */}
       <StatGroup title="Результат">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <Stat label="Realised PnL" value={fmtSigned(a.realisedPnl)} tone={Number(a.realisedPnl) >= 0 ? "buy" : "sell"} />
-          <Stat label="Unrealised PnL" value={fmtSigned(a.unrealisedPnl)} tone={Number(a.unrealisedPnl) >= 0 ? "buy" : "sell"} />
-          <Stat label="ROI (net contributions)" value={stats.roi !== null ? `${stats.roi >= 0 ? "+" : ""}${stats.roi.toFixed(1)}%` : "—"} tone={stats.roi !== null ? (stats.roi >= 0 ? "buy" : "sell") : undefined} />
+          <Stat label={t("account.realisedPnl")} value={fmtSigned(a.realisedPnl)} tone={Number(a.realisedPnl) >= 0 ? "buy" : "sell"} />
+          <Stat label={t("account.unrealisedPnl")} value={fmtSigned(a.unrealisedPnl)} tone={Number(a.unrealisedPnl) >= 0 ? "buy" : "sell"} />
+          <Stat label={t("account.roi")} value={stats.roi !== null ? `${stats.roi >= 0 ? "+" : ""}${stats.roi.toFixed(1)}%` : "—"} tone={stats.roi !== null ? (stats.roi >= 0 ? "buy" : "sell") : undefined} />
         </div>
       </StatGroup>
 
       <StatGroup title="Движение средств">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <Stat label="Total Deposited" value={fmtUsd(stats.deposited)} />
-          <Stat label="Total Withdrawn" value={fmtUsd(stats.withdrawn)} />
-          <Stat label="Net Transfers" value={fmtSigned(stats.transferIn - stats.transferOut)} tone={stats.transferIn - stats.transferOut >= 0 ? "buy" : "sell"} />
+          <Stat label={t("account.totalDeposited")} value={fmtUsd(stats.deposited)} />
+          <Stat label={t("account.totalWithdrawn")} value={fmtUsd(stats.withdrawn)} />
+          <Stat label={t("account.netTransfers")} value={fmtSigned(stats.transferIn - stats.transferOut)} tone={stats.transferIn - stats.transferOut >= 0 ? "buy" : "sell"} />
         </div>
       </StatGroup>
 
@@ -128,11 +130,11 @@ export function BalanceStats() {
               only carry the closing fee, so the two figures legitimately
               differ; both now say which half they count rather than showing
               two unexplained numbers for "fees". */}
-          <Stat label="Fees Paid" value={fmtUsd(stats.fees, 4)} sub="вход + закрытие" />
-          <Stat label="Win Rate" value={a.winRatePct !== null ? fmtRate(a.winRatePct) : "—"} sub={`${a.totalTrades} trades`} />
-          <Stat label="Used Margin" value={fmtUsd(a.usedMargin)} sub={`${a.marginUsagePct.toFixed(1)}% of equity`} />
-          <Stat label="Open Positions" value={String(a.openPositions)} />
-          <Stat label="Open Orders" value={String(a.openOrders)} />
+          <Stat label={t("account.feesPaid")} value={fmtUsd(stats.fees, 4)} sub="вход + закрытие" />
+          <Stat label={t("account.winRate")} value={a.winRatePct !== null ? fmtRate(a.winRatePct) : "—"} sub={`${a.totalTrades} trades`} />
+          <Stat label={t("account.usedMargin")} value={fmtUsd(a.usedMargin)} sub={`${a.marginUsagePct.toFixed(1)}% of equity`} />
+          <Stat label={t("account.openPositions")} value={String(a.openPositions)} />
+          <Stat label={t("account.openOrders")} value={String(a.openOrders)} />
         </div>
       </StatGroup>
     </div>

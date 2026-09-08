@@ -6,15 +6,13 @@ import { classNames, fmtCompact, fmtPct, fmtPrice } from "../../lib/format";
 import { LoadingRow, ErrorRow, EmptyRow } from "../common/States";
 import { IconCoin, IconSearchDollar } from "../icons/Icon";
 import type { Category } from "../../lib/types";
-import { buttonCls } from "../../lib/ui";
-
+import { Tabs } from "../common/Tabs";
 const CATEGORIES: Array<{ id: Category | "ALL"; label: string; Icon?: typeof IconCoin }> = [
   { id: "ALL", label: "All" },
   { id: "SPOT", label: "Spot" },
   { id: "PERP", label: "Perp" },
   { id: "COMMODITY", label: "Metals", Icon: IconCoin },
 ];
-
 export function MarketWatch({ onSelect }: { onSelect?: () => void } = {}) {
   const { isLoading, isError, refetch } = useInstruments();
   const instruments = useLiveInstruments();
@@ -22,7 +20,6 @@ export function MarketWatch({ onSelect }: { onSelect?: () => void } = {}) {
   const setSymbol = useTerminalStore((s) => s.setSymbol);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<Category | "ALL">("ALL");
-
   const filtered = useMemo(() => {
     const q = query.trim().toUpperCase();
     return instruments.filter((i) => {
@@ -31,7 +28,6 @@ export function MarketWatch({ onSelect }: { onSelect?: () => void } = {}) {
       return true;
     });
   }, [instruments, query, category]);
-
   return (
     <div className="flex h-full flex-col border-r border-line bg-bg-1">
       <div className="border-b border-line p-2">
@@ -44,27 +40,18 @@ export function MarketWatch({ onSelect }: { onSelect?: () => void } = {}) {
             className="tap-sm w-full rounded border border-line bg-bg-2 py-1.5 pl-6 pr-2 text-2xs text-txt-0 outline-none focus:border-accent"
           />
         </div>
-        <div className="mt-2 flex gap-1">
-          {CATEGORIES.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => setCategory(c.id)}
-              aria-pressed={category === c.id}
-              className={classNames("flex-1 justify-center gap-1 px-1", buttonCls(category === c.id ? "primary" : "secondary", "sm"))}
-            >
-              {c.Icon && <c.Icon size={11} />}
-              {c.label}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          items={CATEGORIES.map((c) => ({ id: c.id, label: c.label, Icon: c.Icon }))}
+          value={category}
+          onChange={setCategory}
+          className="mt-2 [&>button]:flex-1 [&>button]:px-1"
+        />
       </div>
-
       <div className="grid grid-cols-[1fr_auto_auto] gap-x-2 border-b border-line-soft px-2 py-1.5 text-2xs text-txt-3">
         <span>Symbol</span>
         <span className="text-right">Last</span>
         <span className="text-right">24h%</span>
       </div>
-
       <div className="min-h-0 flex-1 overflow-y-auto">
         {isLoading && <LoadingRow label="Загрузка инструментов…" />}
         {isError && <ErrorRow label="Не удалось загрузить инструменты" onRetry={() => refetch()} />}
@@ -118,7 +105,6 @@ export function MarketWatch({ onSelect }: { onSelect?: () => void } = {}) {
             );
           })}
       </div>
-
       {!isLoading && !isError && (
         <div className="border-t border-line px-2 py-1 text-2xs text-txt-3">
           {filtered.length} инструмент{filtered.length === 1 ? "" : "ов"} · vol{" "}

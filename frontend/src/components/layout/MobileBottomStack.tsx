@@ -9,6 +9,7 @@ import { classNames, fmtCompact, fmtUsd, n } from "../../lib/format";
 import { MainNav } from "./MainNav";
 import { IconBearMarket, IconBullMarket } from "../icons/Icon";
 import type { OrderSide } from "../../lib/types";
+import { useTranslation } from "react-i18next";
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -27,14 +28,15 @@ function money(v: string | number | null | undefined) {
 }
 
 function EquityRow() {
+  const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const { data } = useAccount(!!user);
   if (!data) return null;
   return (
     <div className="grid grid-cols-3 gap-2 border-b border-line-soft px-3.5 py-1.5">
-      <Stat label="Equity" value={money(data.equity)} />
-      <Stat label="Free Margin" value={money(data.cash)} />
-      <Stat label="Used" value={money(data.usedMargin)} />
+      <Stat label={t("account.equity")} value={money(data.equity)} />
+      <Stat label={t("account.freeMargin")} value={money(data.cash)} />
+      <Stat label={t("account.used")} value={money(data.usedMargin)} />
     </div>
   );
 }
@@ -49,6 +51,7 @@ function EquityRow() {
  * leverage and liquidation price first became visible.
  */
 function TradeButtons() {
+  const { t } = useTranslation();
   const { inst, canSubmit, armed, isPending, side, handleSubmitClick } = useOrderTicket();
   const mobileMode = useTerminalStore((s) => s.mobileMode);
   const setMobileMode = useTerminalStore((s) => s.setMobileMode);
@@ -92,7 +95,7 @@ function TradeButtons() {
             "Подтвердить"
           ) : (
             <>
-              {s === "BUY" ? "Buy / Long" : "Sell / Short"}
+              {s === "BUY" ? t("terminal.buyLong") : t("terminal.sellShort")}
               {priceLabel && <span className="font-bold opacity-60">· {priceLabel}</span>}
             </>
           )}

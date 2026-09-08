@@ -24,6 +24,7 @@ import { IconCoin, IconListView, IconMoon, IconOrderHistory, IconSun, IconTrade 
 import type { OrderStatus, Timeframe } from "../lib/types";
 import { buttonCls, fieldCls } from "../lib/ui";
 import { Page } from "../components/layout/Page";
+import { Tabs } from "../components/common/Tabs";
 
 /** Wallet and Balance were two tabs describing one thing — what's in the
  * account — split by whether you wanted to act on it or read it. They're one
@@ -314,24 +315,20 @@ export function ProfilePage() {
           vertically — and it clipped "Настройки" off the right edge, so the
           last tab was findable only by dragging. A wrapped second row costs
           one line and hides nothing. */}
-      <div
-        className="mt-3 flex shrink-0 flex-wrap gap-0.5 rounded-lg border border-line bg-bg-1 p-0.5"
-        style={{ maxWidth: "100%" }}
-      >
-        {(
-          [
-            ["account", t("profileTabs.account")],
-            ["portfolio", t("profileTabs.portfolio")],
-            ["history", t("profileTabs.history")],
-            ["security", t("profileTabs.security")],
-            ["settings", t("profileTabs.settings")],
-          ] as [Tab, string][]
-        ).map(([id, label]) => (
-          <button key={id} onClick={() => setTab(id)} className={classNames("btn-fx tap-sm whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent", tab === id ? "bg-accent-soft text-accent" : "text-txt-2")}>
-            {label}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        variant="underline"
+        scroll
+        className="mt-3 shrink-0 rounded-lg border border-line bg-bg-1"
+        value={tab}
+        onChange={setTab}
+        items={[
+          { id: "account", label: t("profileTabs.account") },
+          { id: "portfolio", label: t("profileTabs.portfolio") },
+          { id: "history", label: t("profileTabs.history") },
+          { id: "security", label: t("profileTabs.security") },
+          { id: "settings", label: t("profileTabs.settings") },
+        ] satisfies { id: Tab; label: string }[]}
+      />
 
       <div className="mt-3 min-h-0 flex-1 overflow-y-auto pb-1">
         {/* Balance and actions in one place: the deposit/withdraw controls and

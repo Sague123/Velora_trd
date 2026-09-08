@@ -8,6 +8,7 @@ import { OrdersTable } from "./OrdersTable";
 import { TradesTable } from "./TradesTable";
 import { AlertsTab } from "./AlertsTab";
 import { LoadingRow, ErrorRow } from "../common/States";
+import { Tabs } from "../common/Tabs";
 import { classNames } from "../../lib/format";
 import { IconBell, IconListView, IconOrderHistory, IconTrade } from "../icons/Icon";
 import type { ComponentType } from "react";
@@ -52,28 +53,18 @@ export function BottomPanel() {
 
   return (
     <div className="flex h-full flex-col bg-bg-1">
-      {/* overflow-x-auto rather than forcing all four tabs to shrink to fit —
-          on a 390px phone that used to squeeze "Открытые ордера"/"История
-          сделок" down to their tightest possible width; this keeps every
-          label at full, readable size and lets the strip scroll instead. */}
-      <div className="flex shrink-0 items-center gap-0.5 overflow-x-auto border-b border-line px-1 py-1">
-        {TABS.map(({ id, Icon }) => (
-          <button
-            key={id}
-            onClick={() => setTab(id)}
-            aria-pressed={tab === id}
-            className={classNames(
-              "btn-fx tap-sm flex shrink-0 items-center gap-1.5 rounded border-b-2 px-3 py-1.5 text-2xs font-medium transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent",
-              tab === id
-                ? "border-accent bg-bg-2 text-txt-0 shadow-btn"
-                : "border-transparent text-txt-2 hover:bg-bg-2/60 hover:text-txt-0"
-            )}
-          >
-            <Icon size={14} className={tab === id ? "text-accent" : undefined} />
-            {LABELS[id]}
-          </button>
-        ))}
-      </div>
+      {/* `scroll` rather than forcing all four tabs to shrink to fit — on a
+          390px phone that used to squeeze "Открытые ордера"/"История сделок"
+          down to their tightest possible width; this keeps every label at
+          full, readable size and lets the strip scroll instead. */}
+      <Tabs
+        variant="underline"
+        scroll
+        className="shrink-0"
+        value={tab}
+        onChange={setTab}
+        items={TABS.map(({ id, Icon }) => ({ id, label: LABELS[id], Icon }))}
+      />
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {tab === "positions" && (

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useMemo } from "react";
 import { useCandles } from "../../hooks/useMarket";
 import { useLiveInstrument } from "../../hooks/useLivePrices";
@@ -10,6 +11,7 @@ const RATING_STYLE: Record<Rating, string> = {
 };
 
 export function SignalCard({ symbol, onClick }: { symbol: string; onClick?: () => void }) {
+  const { t } = useTranslation();
   const inst = useLiveInstrument(symbol);
   const { data, isLoading } = useCandles(symbol, "1H");
   // Drop the still-forming last candle — its close wiggles with every live
@@ -56,9 +58,9 @@ export function SignalCard({ symbol, onClick }: { symbol: string; onClick?: () =
               />
             </div>
             <div className="mt-0.5 flex justify-between text-2xs text-txt-3">
-              <span>Sell</span>
+              <span>{t("signals.sell")}</span>
               <span className="tabular text-txt-2">{probability}% buy</span>
-              <span>Buy</span>
+              <span>{t("signals.buy")}</span>
             </div>
           </div>
         </>

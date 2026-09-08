@@ -1,3 +1,4 @@
+import i18n from "../i18n";
 import { ema, macd, rsi, sma } from "./indicators";
 
 export type Rating = "STRONG_SELL" | "SELL" | "NEUTRAL" | "BUY" | "STRONG_BUY";
@@ -8,16 +9,19 @@ export interface SignalResult {
   votes: { label: string; direction: -1 | 0 | 1 }[];
 }
 
-const RATING_LABEL: Record<Rating, string> = {
-  STRONG_SELL: "Strong Sell",
-  SELL: "Sell",
-  NEUTRAL: "Neutral",
-  BUY: "Buy",
-  STRONG_BUY: "Strong Buy",
+/** i18n keys rather than literals: this module is imported by components in
+ * three places, and hard-coded English verdicts here were the last thing
+ * keeping the Overview signal cards bilingual. */
+const RATING_KEY: Record<Rating, string> = {
+  STRONG_SELL: "signals.strongSell",
+  SELL: "signals.sell",
+  NEUTRAL: "signals.neutral",
+  BUY: "signals.buy",
+  STRONG_BUY: "signals.strongBuy",
 };
 
 export function ratingLabel(r: Rating): string {
-  return RATING_LABEL[r];
+  return i18n.t(RATING_KEY[r]);
 }
 
 /** Score (-6..+6, sum of the vote tally) mapped to a 0-100 "bullish" reading

@@ -15,6 +15,7 @@ import {
   IconChevron, IconRefresh, IconSwap, IconWalletMinus, IconWalletPlus,
 } from "../icons/Icon";
 import type { KycStatus, Role } from "../../lib/types";
+import { useTranslation } from "react-i18next";
 
 const ROLE_LABEL: Record<Role, string> = {
   USER: "Стандартный",
@@ -109,6 +110,7 @@ function MiniStat({ label, value, tone }: { label: string; value: string; tone?:
  * under the number, so the balance and its own breakdown get read first.
  */
 export function AccountOverview({ onSeeAllHistory }: { onSeeAllHistory?: () => void }) {
+  const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const account = useAccount(!!user);
   const [walletModal, setWalletModal] = useState<WalletMethod | null>(null);
@@ -132,7 +134,7 @@ export function AccountOverview({ onSeeAllHistory }: { onSeeAllHistory?: () => v
           <ErrorRow label="Не удалось загрузить баланс" onRetry={() => account.refetch()} />
         ) : (
           <div className="relative">
-            <div className="text-2xs font-medium uppercase tracking-wide text-txt-2">Total Balance</div>
+            <div className="text-2xs font-medium uppercase tracking-wide text-txt-2">{t("account.totalBalance")}</div>
             <div className="tabular mt-1 text-3xl font-bold text-txt-0 sm:text-4xl">{fmtUsd(account.data.totalBalance)}</div>
             {/* No daily-change figure here: the platform has no snapshot of
                 what the combined spot+futures total was at the start of the
@@ -162,10 +164,10 @@ export function AccountOverview({ onSeeAllHistory }: { onSeeAllHistory?: () => v
 
       {/* ---- Actions: after Spot, not under the balance ---- */}
       <div className="grid grid-cols-4 gap-2">
-        <ActionTile Icon={IconWalletPlus} label="Deposit" tone="buy" onClick={() => setWalletModal("deposit")} />
-        <ActionTile Icon={IconWalletMinus} label="Withdraw" tone="sell" onClick={() => setWalletModal("withdraw")} />
-        <ActionTile Icon={IconSwap} label="Convert" tone="convert" onClick={() => setExchange({ mode: "convert" })} />
-        <ActionTile Icon={IconRefresh} label="Transfer" tone="accent" onClick={() => setTransferOpen(true)} />
+        <ActionTile Icon={IconWalletPlus} label={t("account.deposit")} tone="buy" onClick={() => setWalletModal("deposit")} />
+        <ActionTile Icon={IconWalletMinus} label={t("account.withdraw")} tone="sell" onClick={() => setWalletModal("withdraw")} />
+        <ActionTile Icon={IconSwap} label={t("account.convert")} tone="convert" onClick={() => setExchange({ mode: "convert" })} />
+        <ActionTile Icon={IconRefresh} label={t("account.transfer")} tone="accent" onClick={() => setTransferOpen(true)} />
       </div>
       {/* ---- Futures: Equity, Available, Unrealized PnL ---- */}
       {account.data && (
@@ -175,10 +177,10 @@ export function AccountOverview({ onSeeAllHistory }: { onSeeAllHistory?: () => v
             <div className="text-2xs text-txt-3">Торговый счёт с плечом — залог под открытые позиции</div>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            <MiniStat label="Equity" value={fmtUsd(account.data.equity)} />
-            <MiniStat label="Available" value={fmtUsd(account.data.cash)} />
+            <MiniStat label={t("account.equity")} value={fmtUsd(account.data.equity)} />
+            <MiniStat label={t("account.available")} value={fmtUsd(account.data.cash)} />
             <MiniStat
-              label="Unrealized PnL"
+              label={t("account.unrealisedPnl")}
               value={fmtSigned(account.data.unrealisedPnl)}
               tone={Number(account.data.unrealisedPnl) >= 0 ? "buy" : "sell"}
             />

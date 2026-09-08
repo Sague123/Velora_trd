@@ -10,7 +10,8 @@ import { IconCoin } from "../components/icons/Icon";
 import type { Category } from "../lib/types";
 import { Page } from "../components/layout/Page";
 import { Tooltip } from "../components/common/Tooltip";
-import { buttonCls, fieldCls } from "../lib/ui";
+import { fieldCls } from "../lib/ui";
+import { Tabs } from "../components/common/Tabs";
 
 // Same disclosure ChartPanel already shows on an instrument's own chart —
 // repeated here because this table is the other place a trader sees a PERP
@@ -101,28 +102,11 @@ export function MarketsPage() {
           placeholder={t("markets.searchPlaceholder")}
           className={fieldCls("md", "tap-sm w-56 max-w-full")}
         />
-        {/* Was a soft accent tint on the active tab and bare text on the rest
-            — inactive options had no visible edge at all, so "Spot"/"Perpetual"
-            read as labels, not as buttons. Same segmented-control language as
-            the order ticket's Amount/mode switches: a bordered container, a
-            solid accent fill for the chosen segment, a real border on the
-            others so every option looks equally clickable. */}
-        <div className="flex gap-1 rounded-lg border border-line-soft bg-bg-1 p-1">
-          {CATEGORIES.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => setCategory(c.id)}
-              aria-pressed={category === c.id}
-              className={classNames(
-                "flex items-center gap-1",
-                buttonCls(category === c.id ? "primary" : "secondary", "sm")
-              )}
-            >
-              {c.Icon && <c.Icon size={11} />}
-              {c.label}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          items={CATEGORIES.map((c) => ({ id: c.id, label: c.label, Icon: c.Icon }))}
+          value={category}
+          onChange={setCategory}
+        />
         {data && (
           <span className="ml-auto text-2xs text-txt-3">
             Фид: {data.feed.healthy ? <span className="text-buy">live</span> : <span className="text-warn">stale</span>}
