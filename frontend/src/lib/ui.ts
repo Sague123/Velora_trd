@@ -82,3 +82,17 @@ const BUTTON_BASE =
 export function buttonCls(variant: ButtonVariant = "secondary", size: ButtonSize = "md", extra = ""): string {
   return `${BUTTON_BASE} ${BUTTON_SIZES[size]} ${BUTTON_VARIANTS[variant]} ${extra}`.trim();
 }
+
+/**
+ * The header's icon buttons — bell, theme, language, status.
+ *
+ * These were four hand-written class strings that had drifted into two
+ * radii (`rounded` vs `rounded-lg`) and two sizings (a fixed 32x32 box vs
+ * padding-derived height), which read as four buttons of different shapes
+ * sitting in a row. One string, one shape. The avatar is the deliberate
+ * exception — it stays a circle, because it's an identity, not a control.
+ */
+export const iconButtonCls =
+  "btn-fx tap-sm relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg " +
+  "border border-line bg-bg-1 text-txt-2 transition-colors hover:border-accent hover:text-accent " +
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent";

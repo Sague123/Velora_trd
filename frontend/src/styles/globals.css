@@ -277,6 +277,19 @@ body:has(.app-shell) { overscroll-behavior-y: contain; }
   .tap-sm { min-height: 38px; min-width: 38px; }
 }
 
+/* A strip that scrolls sideways (the profile's tab row, the terminal's bottom
+ * panel tabs) should scroll — but a horizontal scrollbar drawn under a row of
+ * tabs reads as the *page* being too wide, which is exactly the symptom this
+ * product has been chasing. Scroll without the bar. */
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Nothing may scroll the document sideways. Any strip that genuinely needs to
+ * (tab rows, wide tables) carries its own `overflow-x: auto`, so clipping here
+ * only ever catches something that overflowed by accident. Vertical scrolling
+ * is untouched — `overflow-x` alone, never `overflow`. */
+body, #root { overflow-x: hidden; }
+
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgb(var(--c-line)); border-radius: 4px; }

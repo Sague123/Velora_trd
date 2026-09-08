@@ -34,6 +34,7 @@ export function Tabs<T extends string>({
   onChange,
   variant = "segment",
   scroll = false,
+  size = "default",
   className,
 }: {
   items: TabItem<T>[];
@@ -42,6 +43,14 @@ export function Tabs<T extends string>({
   variant?: "segment" | "underline";
   /** Let the strip scroll sideways instead of squeezing labels (narrow screens). */
   scroll?: boolean;
+  /**
+   * `compact` is for a range switch sitting inside a panel header (the balance
+   * chart's 7D/1M), where the full control height competes with the heading it
+   * sits next to. It deliberately opts out of `tap-sm`'s 38px coarse-pointer
+   * floor — the accessible-size rule is worth breaking only here, for a
+   * secondary control with a large, forgiving neighbour.
+   */
+  size?: "default" | "compact";
   className?: string;
 }) {
   if (variant === "underline") {
@@ -50,7 +59,7 @@ export function Tabs<T extends string>({
         role="tablist"
         className={classNames(
           "flex items-center gap-0.5 border-b border-line px-1 py-1",
-          scroll && "overflow-x-auto",
+          scroll && "no-scrollbar overflow-x-auto",
           className
         )}
       >
@@ -84,8 +93,9 @@ export function Tabs<T extends string>({
     <div
       role="tablist"
       className={classNames(
-        "flex gap-1 rounded-lg border border-line-soft bg-bg-1 p-1",
-        scroll && "overflow-x-auto",
+        "flex rounded-lg border border-line-soft bg-bg-1",
+        size === "compact" ? "gap-0.5 p-0.5" : "gap-1 p-1",
+        scroll && "no-scrollbar overflow-x-auto",
         className
       )}
     >
@@ -97,7 +107,15 @@ export function Tabs<T extends string>({
             role="tab"
             aria-selected={active}
             onClick={() => onChange(id)}
-            className={classNames("gap-1", buttonCls(active ? "primary" : "secondary", "sm"))}
+            className={
+              size === "compact"
+                ? classNames(
+                    "btn-fx inline-flex h-7 shrink-0 items-center gap-1 rounded px-2.5 text-2xs font-semibold transition-colors",
+                    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent",
+                    active ? "bg-accent-fill text-white" : "border border-line text-txt-2 hover:text-txt-0"
+                  )
+                : classNames("gap-1", buttonCls(active ? "primary" : "secondary", "sm"))
+            }
           >
             {Icon && <Icon size={11} />}
             {label}

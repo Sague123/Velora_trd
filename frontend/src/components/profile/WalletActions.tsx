@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useMemo } from "react";
 import { useLedger } from "../../hooks/useTrading";
 import { useSpotLedger } from "../../hooks/useSpot";
@@ -64,6 +65,7 @@ const WALLET_CHIP: Record<Wallet, { label: string; cls: string }> = {
  * the full ledger.
  */
 export function RecentWalletActivity({ onSeeAll }: { onSeeAll?: () => void } = {}) {
+  const { t } = useTranslation();
   const ledger = useLedger(true);
   const spot = useSpotLedger(true);
 
@@ -96,7 +98,7 @@ export function RecentWalletActivity({ onSeeAll }: { onSeeAll?: () => void } = {
   return (
     <div className="rounded-lg border border-line bg-bg-1">
       <div className="flex items-center justify-between gap-2 border-b border-line-soft px-3 py-2">
-        <span className="text-2xs font-semibold uppercase tracking-wide text-txt-2">Recent Wallet Activity</span>
+        <span className="text-2xs font-semibold uppercase tracking-wide text-txt-2">{t("account.recentActivity")}</span>
         {onSeeAll && entries.length > 0 && (
           <button onClick={onSeeAll} className="btn-fx tap-sm rounded px-1.5 text-2xs font-medium text-accent hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent">
             Смотреть всё

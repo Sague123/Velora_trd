@@ -7,7 +7,7 @@ import { toast } from "../../store/toast";
 import { classNames } from "../../lib/format";
 import { Popover } from "../common/Popover";
 import { IconBot, IconShield } from "../icons/Icon";
-import { buttonCls } from "../../lib/ui";
+import { buttonCls, iconButtonCls } from "../../lib/ui";
 
 /**
  * Two pieces of real account state — a running/errored bot, an unverified
@@ -64,9 +64,9 @@ export function StatusIcons() {
     }
   }
 
-  const iconBtnCls =
-    "tap-sm relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border shadow-lift " +
-    "transition-transform duration-100 active:scale-95";
+  // Same box as every other header icon; only the border/tint colour below
+  // varies, because that colour is the status being reported.
+  const iconBtnCls = iconButtonCls + " shadow-lift active:scale-95";
 
   return (
     <>

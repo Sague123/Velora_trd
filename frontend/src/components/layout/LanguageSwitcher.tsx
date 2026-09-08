@@ -1,3 +1,4 @@
+import { iconButtonCls } from "../../lib/ui";
 import { useRef, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { LANGUAGES, setLanguage } from "../../i18n";
@@ -24,7 +25,7 @@ export function LanguageSwitcher() {
         onClick={() => setOpen((v) => !v)}
         aria-label="Language"
         title="Language"
-        className="btn-fx tap-sm flex items-center gap-1 rounded border border-line px-1.5 py-1 text-txt-2 hover:border-accent hover:text-accent"
+        className={iconButtonCls}
       >
         <IconGlobe size={14} />
         <span className="hidden text-2xs sm:inline">{current.flag}</span>

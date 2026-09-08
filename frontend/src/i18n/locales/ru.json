@@ -91,7 +91,9 @@
     "orderTypeLimit": "Лимит",
     "orderTypeStop": "Стоп",
     "takeProfitStopLoss": "Тейк-профит / Стоп-лосс",
-    "orderBook": "Стакан"
+    "orderBook": "Стакан",
+    "long": "Лонг",
+    "short": "Шорт"
   },
   "profileTabs": {
     "portfolio": "Портфель",
@@ -194,7 +196,8 @@
     "transfer": "Перевести",
     "spotHoldings": "Спотовые активы",
     "ledger": "Движение средств",
-    "balanceHistory": "История общего баланса"
+    "balanceHistory": "История общего баланса",
+    "recentActivity": "Последние операции"
   },
   "settings": {
     "basicInfo": "Основные данные",

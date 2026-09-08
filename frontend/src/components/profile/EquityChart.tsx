@@ -134,36 +134,28 @@ function useTotalSeries(range: Range) {
   };
 }
 
-/** Catmull-Rom through the points, converted to cubic béziers — a curve that
- * actually passes through every reading rather than a spline that rounds the
- * corners off the data.
+/**
+ * Straight segments between readings — deliberately not a spline.
  *
- * Catmull-Rom control points are extrapolated from the tangent between
- * neighbouring points, so a sharp bend — a long flat run then a steep last
- * leg, exactly what a burst of deposits at the end of a quiet window looks
- * like — can push a control point's y past the data's own min/max. The
- * viewBox's padding only accounts for the plotted points, not that
- * overshoot, so the curve's peak was rendering above y=0 and getting cut
- * off by the SVG's default overflow:hidden. Clamping each control point to
- * the viewBox keeps the curve inside what's actually visible. */
-function smoothPath(pts: { x: number; y: number }[], w: number, h: number): string {
+ * The points are events, not samples: a balance changes at a deposit, a fill,
+ * a fee, and holds flat in between. Catmull-Rom drew a curve *through* those
+ * points, which meant inventing slope that never happened between two events,
+ * and its control points are extrapolated from neighbouring tangents, so a
+ * long quiet stretch followed by a steep one overshot the data's own range.
+ * Clamping the control points into the viewBox stopped the overshoot from
+ * being clipped, but traded it for visible corners where the clamp bit — the
+ * kinks in the rendered line.
+ *
+ * A polyline has neither problem and is the honest shape for this data: every
+ * vertex is a real event at its real time (x is `(t - tMin) / (tMax - tMin)`,
+ * so a burst of activity genuinely is a steep segment), and nothing is drawn
+ * between them that the journals don't support.
+ */
+function linePath(pts: { x: number; y: number }[]): string {
   if (pts.length === 0) return "";
-  if (pts.length === 1) return `M ${pts[0].x} ${pts[0].y}`;
-  const clampX = (x: number) => Math.min(w, Math.max(0, x));
-  const clampY = (y: number) => Math.min(h, Math.max(0, y));
-  let d = `M ${pts[0].x} ${pts[0].y}`;
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[i - 1] ?? pts[i];
-    const p1 = pts[i];
-    const p2 = pts[i + 1];
-    const p3 = pts[i + 2] ?? p2;
-    const c1x = clampX(p1.x + (p2.x - p0.x) / 6);
-    const c1y = clampY(p1.y + (p2.y - p0.y) / 6);
-    const c2x = clampX(p2.x - (p3.x - p1.x) / 6);
-    const c2y = clampY(p2.y - (p3.y - p1.y) / 6);
-    d += ` C ${c1x.toFixed(2)} ${c1y.toFixed(2)}, ${c2x.toFixed(2)} ${c2y.toFixed(2)}, ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`;
-  }
-  return d;
+  const [first, ...rest] = pts;
+  return `M ${first.x.toFixed(2)} ${first.y.toFixed(2)}` +
+    rest.map((p) => ` L ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join("");
 }
 
 export function EquityChart() {
@@ -196,7 +188,7 @@ export function EquityChart() {
       x: tMax === tMin ? W : ((p.t - tMin) / (tMax - tMin)) * W,
       y: H - ((p.v - lo) / (hi - lo)) * H,
     }));
-    const line = smoothPath(xy, W, H);
+    const line = linePath(xy);
     return { line, area: `${line} L ${W} ${H} L 0 ${H} Z` };
   }, [points]);
 
@@ -213,6 +205,7 @@ export function EquityChart() {
           )}
         </div>
         <Tabs
+          size="compact"
           className="shrink-0"
           value={range}
           onChange={setRange}

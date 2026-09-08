@@ -330,7 +330,7 @@ export function ProfilePage() {
         ] satisfies { id: Tab; label: string }[]}
       />
 
-      <div className="mt-3 min-h-0 flex-1 overflow-y-auto pb-1">
+      <div className="mt-3 pb-1">
         {/* Balance and actions in one place: the deposit/withdraw controls and
             the account number on top, then what the account is worth, then
             the last few movements — the sequence someone actually reads,

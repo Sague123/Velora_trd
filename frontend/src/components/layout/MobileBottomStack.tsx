@@ -83,7 +83,7 @@ function TradeButtons() {
           // can get through — the dimming below is cosmetic, not a gate.
           disabled={isPending && side === s}
           className={classNames(
-            "tap flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-extrabold shadow-lift transition-transform duration-100 active:scale-[0.97] disabled:cursor-not-allowed",
+            "tap flex min-w-0 items-center justify-center gap-1.5 overflow-hidden whitespace-nowrap rounded-xl px-2 py-2.5 text-2xs font-extrabold shadow-lift transition-transform duration-100 active:scale-[0.97] disabled:cursor-not-allowed",
             !canSubmit && armed !== s && "opacity-60",
             s === "BUY" ? "bg-buy-fill text-black" : "bg-sell-fill text-white"
           )}
@@ -95,8 +95,8 @@ function TradeButtons() {
             "Подтвердить"
           ) : (
             <>
-              {s === "BUY" ? t("terminal.buyLong") : t("terminal.sellShort")}
-              {priceLabel && <span className="font-bold opacity-60">· {priceLabel}</span>}
+              <span className="truncate">{s === "BUY" ? t("terminal.long") : t("terminal.short")}</span>
+              {priceLabel && <span className="shrink-0 font-bold opacity-70">&nbsp;· {priceLabel}</span>}
             </>
           )}
         </button>

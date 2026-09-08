@@ -7,9 +7,11 @@ import { useServerHealth } from "../../hooks/useHealth";
 import { useAlerts } from "../../hooks/useTrading";
 import { useIsMobile } from "../../hooks/useIsMobile";
 import { classNames } from "../../lib/format";
+import { iconButtonCls } from "../../lib/ui";
 import type { AuthUser } from "../../lib/types";
 import { IconBell } from "../icons/Icon";
 import { ThemeToggle } from "./ThemeToggle";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 import { StatusIcons } from "./StatusIcons";
 import { MainNav } from "./MainNav";
 import { Logo } from "./Logo";
@@ -49,7 +51,7 @@ function AlertsBell() {
       to="/terminal"
       onClick={() => { setMobileMode("history"); setHistoryTab("alerts"); }}
       aria-label={fired ? `Сработавших алертов: ${fired}` : "Алерты"}
-      className="btn-fx tap-sm relative flex h-8 w-8 items-center justify-center rounded-lg border border-line bg-bg-1 text-txt-2 hover:text-accent"
+      className={iconButtonCls}
     >
       <IconBell size={16} />
       {fired > 0 && <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-sell" />}
@@ -66,7 +68,7 @@ function FeedStatus() {
   const label = live ? t("topbar.live") : wsStatus === "connecting" ? t("topbar.connecting") : t("topbar.offline");
 
   return (
-    <span className="flex items-center gap-1.5" title={health?.feed.lastFetch ?? label}>
+    <span className="flex shrink-0 items-center gap-1.5" title={health?.feed.lastFetch ?? label}>
       <span
         aria-label={label}
         className={classNames(
@@ -74,8 +76,13 @@ function FeedStatus() {
           live ? "bg-buy" : wsStatus === "connecting" ? "bg-warn animate-pulse" : "bg-sell"
         )}
       />
+      {/* Text drops below `sm`: at 360px it was eating enough of the row to push
+          the avatar off the right edge. The dot beside it already carries the
+          same state, and its title/aria-label still says which. */}
       {health && !health.feed.healthy && (
-        <span className="rounded border border-warn/40 bg-warn/10 px-1 py-px text-2xs text-warn">{t("topbar.feedStale")}</span>
+        <span className="hidden shrink-0 whitespace-nowrap rounded border border-warn/40 bg-warn/10 px-1 py-px text-3xs leading-none text-warn sm:inline">
+          {t("topbar.feedStale")}
+        </span>
       )}
     </span>
   );
@@ -110,7 +117,7 @@ export function Header() {
     <header className="sticky top-0 z-20 flex h-11 shrink-0 items-center gap-2 border-b border-line bg-bg-1 px-3 text-xs">
       <Link to="/overview" className="btn-fx tap-sm flex shrink-0 items-center gap-1.5 pr-1 hover:opacity-90" aria-label="Velora">
         <Logo />
-        <span className="font-semibold tracking-tight text-txt-0">Velora</span>
+        <span className="text-sm font-extrabold tracking-[0.08em] text-txt-0">VELORA</span>
       </Link>
 
       <FeedStatus />
@@ -120,6 +127,7 @@ export function Header() {
       <div className="ml-auto flex items-center gap-1.5">
         <StatusIcons />
         <AlertsBell />
+        <LanguageSwitcher />
         <ThemeToggle />
         <NavLink to="/profile" title={t("nav.profile")} className="btn-fx tap-sm flex items-center">
           <Avatar user={user} />
