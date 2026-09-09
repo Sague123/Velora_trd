@@ -128,12 +128,12 @@ const HIT_PX = 6;
 const INITIAL_VISIBLE_BARS = 50;
 // Empty space held to the right of the last candle. This is part of the
 // *view*, not a layout margin — the canvas still spans the full container —
-// and MIN_RIGHT_PAD_PX is enforced on every clamp, not just on the initial
-// fit, because the complaint was that the newest candle ends up flush
-// against the price column once you pan or zoom, with the axis figures
-// printed over the candles.
+// and it is applied on the initial fit. Holding it at every zoom level was
+// tried and reverted: forcing viewEnd to stay past the last bar also stops
+// viewEnd from ever decreasing, which is exactly what panning left into
+// history does — it made the chart immovable. The standing gap between the
+// candles and the figures is the reserved scale column instead (see plotW).
 const INITIAL_RIGHT_PAD_PX = 80;
-const MIN_RIGHT_PAD_PX = 72;
 
 function niceStep(range: number, targetTicks: number): number {
   if (range <= 0) return 1;
@@ -461,17 +461,6 @@ export class ChartEngine {
       this.viewStart = mid - clampedSpan / 2;
       this.viewEnd = mid + clampedSpan / 2;
     }
-    // Hold a real gap between the last candle and the price scale, at every
-    // zoom level — not just on the initial fit. Without this, panning right
-    // parks the newest candle under the axis figures.
-    const barWidth = this.plotW / Math.max(1e-6, clampedSpan);
-    const minPadBars = MIN_RIGHT_PAD_PX / barWidth;
-    if (this.viewEnd < n + minPadBars) {
-      const d = n + minPadBars - this.viewEnd;
-      this.viewStart += d;
-      this.viewEnd += d;
-    }
-
     const overscan = Math.max(2, clampedSpan * 0.15);
     if (this.viewStart < -overscan) {
       const d = -overscan - this.viewStart;
@@ -485,14 +474,22 @@ export class ChartEngine {
     }
   }
 
-  /** Plot area = the full canvas. Every pointer <-> index/price conversion
-   * must use this, not a narrower value, or pan/zoom/click drift from what's
-   * actually drawn (this was the root of the original "can't zoom/move
-   * freely" bug this getter used to guard against with a reserved gutter).
-   * The price-scale labels no longer reserve their own undrawn strip — see
-   * `axisLabelX` for where they anchor instead. */
+  /**
+   * Plot area = the canvas minus the price-scale column.
+   *
+   * This was briefly the *full* canvas, with the scale's labels painted as
+   * pills on top of the candles. That is what put price figures directly
+   * over price action. The column is reserved again — so the strip on the
+   * right is genuinely empty and the newest candle has room to breathe.
+   *
+   * The reservation was blamed once for a "can't zoom/move freely" bug, but
+   * the actual cause there was `plotW` disagreeing with the width things
+   * were drawn at: every pointer <-> index/price conversion goes through
+   * this getter, so as long as rendering uses it too (it does), pan, zoom
+   * and clicks line up with what's on screen.
+   */
   private get plotW() {
-    return Math.max(1, this.cssW);
+    return Math.max(1, this.cssW - PRICE_SCALE_W);
   }
 
   /** x where price-scale labels/pills anchor, and the pointer-down boundary
