@@ -93,7 +93,19 @@
     "takeProfitStopLoss": "Тейк-профит / Стоп-лосс",
     "orderBook": "Стакан",
     "long": "Лонг",
-    "short": "Шорт"
+    "short": "Шорт",
+    "closePositionTitle": "Закрыть позицию по рынку?",
+    "closePositionConfirm": "Закрыть",
+    "loadingCandles": "Загрузка свечей…",
+    "modelledCandles": "Смоделированные свечи — нет доступного live-фида для {{symbol}}",
+    "backToPrice": "К текущей цене",
+    "chart": "График",
+    "book": "Стакан",
+    "searchInstrument": "Поиск инструмента…",
+    "noAccountData": "Нет данных счёта",
+    "sending": "Отправка…",
+    "confirm": "Подтвердить",
+    "chartLoadFailed": "Не удалось загрузить график"
   },
   "profileTabs": {
     "portfolio": "Портфель",

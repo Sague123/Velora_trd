@@ -46,14 +46,34 @@ export interface HLineDrawing { id: string; type: "hline"; price: number }
 export type Drawing = TrendDrawing | HLineDrawing;
 
 /** The open position for the chart's current symbol, drawn directly on the
- * price axis — entry as a solid line with a close button, TP/SL as dashed
- * lines you can grab and drag to reprice. */
+ * price axis — entry as a pennant tag on its line, TP/SL as dashed lines you
+ * can grab and drag to reprice.
+ *
+ * The fields are the parts, not a pre-formatted sentence: the tag used to be
+ * handed a single "Long 0.05 · +$12.30 (3.4%)" string, which forced the word
+ * Long/Short into the label and left the engine unable to colour by
+ * direction. Direction is colour here, the way it is everywhere else in the
+ * product, so the word is gone. */
 export interface PositionMarker {
   side: "BUY" | "SELL";
   entry: number;
   tp: number | null;
   sl: number | null;
-  label: string; // e.g. "Long 0.05 · +$12.30 (3.4%)"
+  qty: string;
+  pnl: string;
+  pnlPct: string;
+  pnlPositive: boolean;
+}
+
+/** Where a position was opened or closed, as a dot on the time axis. */
+export interface TradeMarker {
+  time: number;                       // unix seconds
+  kind: "OL" | "CL" | "OS" | "CS";    // Open/Close Long/Short
+  price: number;
+  qty: string;
+  /** Realised P&L text — closes only; null for opens. */
+  pnl: string | null;
+  pnlPositive: boolean;
 }
 export interface PositionHandlers {
   onTpChange?: (price: number) => void;
@@ -104,14 +124,16 @@ const HIT_PX = 6;
 // A fresh load or timeframe switch shows the most recent INITIAL_VISIBLE_BARS
 // bars — enough to read price action without candles turning into hairlines,
 // never "every bar currently loaded" (which could be a handful or a
-// thousand depending on how much history happens to be cached). Kept well
-// inside the 20-30 asked for so it isn't knocked out of range by rounding.
-const INITIAL_VISIBLE_BARS = 25;
-// Empty space reserved to the right of the last candle on that same fresh
-// fit, so it doesn't sit flush against the container's edge — computed as
-// part of the view (see fitContent), not a layout margin, since the canvas
-// itself still spans the full container width.
+// thousand depending on how much history happens to be cached).
+const INITIAL_VISIBLE_BARS = 50;
+// Empty space held to the right of the last candle. This is part of the
+// *view*, not a layout margin — the canvas still spans the full container —
+// and MIN_RIGHT_PAD_PX is enforced on every clamp, not just on the initial
+// fit, because the complaint was that the newest candle ends up flush
+// against the price column once you pan or zoom, with the axis figures
+// printed over the candles.
 const INITIAL_RIGHT_PAD_PX = 80;
+const MIN_RIGHT_PAD_PX = 72;
 
 function niceStep(range: number, targetTicks: number): number {
   if (range <= 0) return 1;
@@ -187,6 +209,10 @@ export class ChartEngine {
 
   private position: PositionMarker | null = null;
   private positionHandlers: PositionHandlers = {};
+  private tradeMarkers: TradeMarker[] = [];
+  /** Hit boxes for the time-axis dots, rebuilt each render. */
+  private tradeMarkerHits: { x: number; y: number; r: number; m: TradeMarker }[] = [];
+  private activeTradeMarker: TradeMarker | null = null;
   private draggingPosLine: "tp" | "sl" | null = null;
   private posDragPreviewPrice: number | null = null;
   private entryCloseHotspot: { x: number; y: number; w: number; h: number } | null = null;
@@ -298,6 +324,16 @@ export class ChartEngine {
 
   setPositionHandlers(handlers: PositionHandlers) {
     this.positionHandlers = handlers;
+  }
+
+  /** Opens/closes for this symbol, drawn as dots on the time axis. */
+  setTradeMarkers(markers: TradeMarker[]) {
+    this.tradeMarkers = markers;
+    // A marker that is no longer in the list can't stay selected.
+    if (this.activeTradeMarker && !markers.some((m) => m.time === this.activeTradeMarker!.time && m.kind === this.activeTradeMarker!.kind)) {
+      this.activeTradeMarker = null;
+    }
+    this.scheduleRender();
   }
 
   /** Replaces all bar data. Pass `keepView` to preserve pan/zoom (background
@@ -425,6 +461,17 @@ export class ChartEngine {
       this.viewStart = mid - clampedSpan / 2;
       this.viewEnd = mid + clampedSpan / 2;
     }
+    // Hold a real gap between the last candle and the price scale, at every
+    // zoom level — not just on the initial fit. Without this, panning right
+    // parks the newest candle under the axis figures.
+    const barWidth = this.plotW / Math.max(1e-6, clampedSpan);
+    const minPadBars = MIN_RIGHT_PAD_PX / barWidth;
+    if (this.viewEnd < n + minPadBars) {
+      const d = n + minPadBars - this.viewEnd;
+      this.viewStart += d;
+      this.viewEnd += d;
+    }
+
     const overscan = Math.max(2, clampedSpan * 0.15);
     if (this.viewStart < -overscan) {
       const d = -overscan - this.viewStart;
@@ -607,6 +654,22 @@ export class ChartEngine {
         this.posDragPreviewPrice = this.position.sl;
         this.canvas.setPointerCapture(e.pointerId);
         return;
+      }
+    }
+
+    // A tap on a time-axis trade dot opens/closes its detail box. Checked
+    // before the pan handler below so the tap isn't swallowed as a drag.
+    if (this.tradeMarkerHits.length > 0) {
+      const hit = this.tradeMarkerHits.find((h) => Math.hypot(x - h.x, y - h.y) <= h.r);
+      if (hit) {
+        const same = this.activeTradeMarker && this.activeTradeMarker.time === hit.m.time && this.activeTradeMarker.kind === hit.m.kind;
+        this.activeTradeMarker = same ? null : hit.m;
+        this.scheduleRender();
+        return;
+      }
+      if (this.activeTradeMarker) {
+        this.activeTradeMarker = null;
+        this.scheduleRender();
       }
     }
 
@@ -997,6 +1060,86 @@ export class ChartEngine {
       ctx.fillText(label, x, priceH + TIME_SCALE_H - 6);
     }
 
+    // ---- trade markers: where this symbol was opened and closed ----
+    //
+    // Dots on the time axis rather than pins in the price area: the question
+    // they answer is "when did I get in and out", and the price area is
+    // already carrying candles, overlays and the position's own lines.
+    // Green for long-side operations, red for short-side — the same colour
+    // rule as everywhere else.
+    this.tradeMarkerHits = [];
+    if (this.tradeMarkers.length > 0) {
+      // Just inside the plot, above the axis rule — on a short mobile chart
+      // `priceH - 10` put the dot on top of the time labels themselves.
+      const markerY = priceH - 14;
+      const r = 8;
+      for (const m of this.tradeMarkers) {
+        const idx = this.indexForTime(m.time);
+        if (idx < this.viewStart - 1 || idx > this.viewEnd + 1) continue;
+        const x = xForIndex(idx);
+        if (x < -r || x > plotW + r) continue;
+        const long = m.kind === "OL" || m.kind === "CL";
+        const color = long ? theme.buy : theme.sell;
+        const open = m.kind === "OL" || m.kind === "OS";
+        ctx.beginPath();
+        ctx.arc(x, markerY, r, 0, Math.PI * 2);
+        // Opens are filled, closes are hollow — so the pair reads as a round
+        // trip at a glance even before the letters are legible.
+        if (open) {
+          ctx.fillStyle = color;
+          ctx.fill();
+        } else {
+          ctx.fillStyle = theme.bg;
+          ctx.fill();
+          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = color;
+          ctx.stroke();
+        }
+        ctx.font = "bold 8px Inter, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillStyle = open ? (long ? "#06231a" : "#ffffff") : color;
+        ctx.fillText(m.kind, x, markerY + 3);
+        this.tradeMarkerHits.push({ x, y: markerY, r: r + 4, m });
+      }
+      ctx.font = "10px Inter, sans-serif";
+    }
+
+    // ---- tapped marker: details, drawn on canvas so it survives fullscreen ----
+    if (this.activeTradeMarker) {
+      const hit = this.tradeMarkerHits.find(
+        (h) => h.m.time === this.activeTradeMarker!.time && h.m.kind === this.activeTradeMarker!.kind
+      );
+      if (hit) {
+        const m = hit.m;
+        const d = new Date(m.time * 1000);
+        const when = `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")} ` +
+          `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+        const rows = [
+          m.price.toFixed(this.priceDecimals),
+          m.qty,
+          when,
+          ...(m.pnl ? [m.pnl] : []),
+        ];
+        ctx.font = "10px 'JetBrains Mono', monospace";
+        const w = Math.max(...rows.map((t) => ctx.measureText(t).width)) + 16;
+        const h = rows.length * 13 + 10;
+        const bx = Math.max(2, Math.min(plotW - w - 2, hit.x - w / 2));
+        const by = hit.y - hit.r - h - 6;
+        ctx.fillStyle = theme.axisLabelBg;
+        ctx.fillRect(bx, by, w, h);
+        ctx.strokeStyle = (m.kind === "OL" || m.kind === "CL") ? theme.buy : theme.sell;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(bx + 0.5, by + 0.5, w - 1, h - 1);
+        ctx.textAlign = "left";
+        rows.forEach((text, i) => {
+          ctx.fillStyle = i === rows.length - 1 && m.pnl
+            ? (m.pnlPositive ? theme.buy : theme.sell)
+            : theme.text;
+          ctx.fillText(text, bx + 8, by + 15 + i * 13);
+        });
+      }
+    }
+
     // ---- grid-bot level overlay ----
     for (const g of this.gridLevels) {
       const y = yForPrice(g.price) + 0.5;
@@ -1119,37 +1262,75 @@ export class ChartEngine {
       ctx.setLineDash([]);
     }
 
-    // ---- open position: entry (solid, closable) + TP/SL (dashed, draggable) ----
+    // ---- open position: entry pennant + TP/SL pennants (dashed, draggable) ----
+    //
+    // All three use the same shape — a tag with a point on the side facing
+    // the price it marks — so entry, TP and SL read as one family instead of
+    // the old mix of a wide blue bar for the position and bare triangles for
+    // TP/SL. Colour carries meaning: the entry tag is buy-green for a long
+    // and sell-red for a short (the words "Long"/"Short" are gone), TP is
+    // always green and SL always red because that is what they are.
     this.entryCloseHotspot = null;
     if (this.position) {
       const pos = this.position;
+      const posColor = pos.side === "BUY" ? theme.buy : theme.sell;
+
+      /** A tag whose point sits at (tipX, y), body extending `dir` from it. */
+      const pennant = (text: string, y: number, tipX: number, dir: -1 | 1, color: string, sub?: string) => {
+        ctx.font = "10px 'JetBrains Mono', monospace";
+        const textW = ctx.measureText(text).width + (sub ? ctx.measureText(sub).width + 6 : 0);
+        const w = textW + 14;
+        const h = 16;
+        const point = 5;
+        const bodyX = dir === 1 ? tipX + point : tipX - point - w;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(tipX, y);
+        ctx.lineTo(tipX + dir * point, y - h / 2);
+        ctx.lineTo(bodyX + (dir === 1 ? w : 0), y - h / 2);
+        ctx.lineTo(bodyX + (dir === 1 ? w : 0), y + h / 2);
+        ctx.lineTo(tipX + dir * point, y + h / 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#fff";
+        ctx.textAlign = "left";
+        ctx.fillText(text, bodyX + 6, y + 3.5);
+        if (sub) {
+          ctx.globalAlpha = 0.8;
+          ctx.fillText(sub, bodyX + 6 + ctx.measureText(text).width + 6, y + 3.5);
+          ctx.globalAlpha = 1;
+        }
+        return { x: bodyX, w, h };
+      };
+
+      // entry line + its tag, on the left where there is chart to spare
       const entryY = yForPrice(pos.entry) + 0.5;
       ctx.setLineDash([]);
-      ctx.strokeStyle = theme.accent;
+      ctx.strokeStyle = posColor;
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(0, entryY);
       ctx.lineTo(plotW, entryY);
       ctx.stroke();
 
-      ctx.font = "10px 'JetBrains Mono', monospace";
-      ctx.textAlign = "left";
-      const labelText = pos.label;
-      const labelW = ctx.measureText(labelText).width + 10;
-      ctx.fillStyle = theme.accent;
-      ctx.fillRect(4, entryY - 9, labelW, 18);
-      ctx.fillStyle = "#fff";
-      ctx.fillText(labelText, 9, entryY + 3);
+      const body = pennant(pos.qty, entryY, 6, 1, posColor, `· ${pos.pnl} (${pos.pnlPct})`);
 
-      const hs = { x: 4 + labelW + 3, y: entryY, w: 18, h: 18 };
+      // Close button, immediately after the tag. The tap only *asks* to
+      // close — PositionHandlers.onClose opens a confirmation, because this
+      // sits on a chart people pan with their thumb and a stray tap used to
+      // market-close a live position outright.
+      // Slightly bigger than it looks: it no longer closes anything by
+      // itself (it opens a confirmation), so being easy to hit costs nothing
+      // and being hard to hit on a phone would cost the whole affordance.
+      const hs = { x: body.x + body.w + 3, y: entryY, w: 22, h: 18 };
       this.entryCloseHotspot = hs;
-      ctx.fillStyle = theme.accent;
+      ctx.fillStyle = theme.axisLabelBg;
       ctx.fillRect(hs.x, hs.y - hs.h / 2, hs.w, hs.h);
-      ctx.strokeStyle = "#fff";
+      ctx.strokeStyle = posColor;
       ctx.lineWidth = 1.3;
       ctx.beginPath();
-      ctx.moveTo(hs.x + 5, hs.y - 4); ctx.lineTo(hs.x + 13, hs.y + 4);
-      ctx.moveTo(hs.x + 13, hs.y - 4); ctx.lineTo(hs.x + 5, hs.y + 4);
+      ctx.moveTo(hs.x + 8, hs.y - 3.5); ctx.lineTo(hs.x + 14, hs.y + 3.5);
+      ctx.moveTo(hs.x + 14, hs.y - 3.5); ctx.lineTo(hs.x + 8, hs.y + 3.5);
       ctx.stroke();
 
       const drawDraggableLine = (price: number, kind: "tp" | "sl") => {
@@ -1164,15 +1345,9 @@ export class ChartEngine {
         ctx.lineTo(plotW, y);
         ctx.stroke();
         ctx.setLineDash([]);
-        // a small drag handle at the axis column, same anchor as every other label
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.moveTo(axisLabelX - 12, y - 5);
-        ctx.lineTo(axisLabelX, y);
-        ctx.lineTo(axisLabelX - 12, y + 5);
-        ctx.closePath();
-        ctx.fill();
-        drawAxisLabel(`${kind === "tp" ? "TP" : "SL"} ${live.toFixed(this.priceDecimals)}`, y, color);
+        // The pennant *is* the price label — drawAxisLabel would print the
+        // same number again right beside it.
+        pennant(`${kind === "tp" ? "TP" : "SL"} ${live.toFixed(this.priceDecimals)}`, y, plotW - 2, -1, color);
       };
       if (pos.tp !== null) drawDraggableLine(pos.tp, "tp");
       if (pos.sl !== null) drawDraggableLine(pos.sl, "sl");

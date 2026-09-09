@@ -82,7 +82,7 @@ export function AccountStrip() {
           </div>
         </>
       ) : (
-        <span className="text-txt-3">Нет данных счёта</span>
+        <span className="text-txt-3">{t("terminal.noAccountData")}</span>
       )}
     </div>
   );

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChartEngine, type Bar, type Drawing, type OverlayLine } from "../../lib/chartEngine";
+import { useTranslation } from "react-i18next";
+import { ChartEngine, type Bar, type Drawing, type OverlayLine, type TradeMarker } from "../../lib/chartEngine";
 import { chartThemeFor } from "../../lib/chartTheme";
 import { useChartBars } from "../../hooks/useMarket";
 import { useLiveInstrument } from "../../hooks/useLivePrices";
@@ -7,7 +8,7 @@ import { useTerminalStore } from "../../store/terminal";
 import { usePriceStore } from "../../store/prices";
 import { useThemeStore } from "../../store/theme";
 import { useAuthStore } from "../../store/auth";
-import { usePositions, useUpdatePosition, useClosePosition } from "../../hooks/useTrading";
+import { usePositions, useUpdatePosition, useClosePosition, useTrades } from "../../hooks/useTrading";
 import { useBinanceSymbolFeed } from "../../hooks/useBinanceSymbolFeed";
 import { classNames, fmtCompact, fmtPct, fmtPrice, fmtQty, fmtSigned, fmtUsd, n } from "../../lib/format";
 import { ema, macd as macdCalc, rsi as rsiCalc, sma } from "../../lib/indicators";
@@ -16,6 +17,7 @@ import { Tooltip } from "../common/Tooltip";
 import { LoadingRow, ErrorRow } from "../common/States";
 import { ChartToolbar } from "./ChartToolbar";
 import { IconRefresh, IconChevron, IconFit, IconExpand, IconCollapse } from "../icons/Icon";
+import { buttonCls } from "../../lib/ui";
 import { toast } from "../../store/toast";
 import { ApiError } from "../../lib/api";
 import type { Position } from "../../lib/types";
@@ -47,6 +49,7 @@ function saveDrawings(symbol: string, drawings: Drawing[]) {
  * for the checked/focus-visible states. Was a bare native checkbox before —
  * the only unstyled form control left in an otherwise fully custom UI kit. */
 export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: { onToggleWatch?: () => void; watchCollapsed?: boolean; compact?: boolean }) {
+  const { t } = useTranslation();
   const symbol = useTerminalStore((s) => s.symbol);
   const timeframe = useTerminalStore((s) => s.timeframe);
   const setTimeframe = useTerminalStore((s) => s.setTimeframe);
@@ -86,6 +89,8 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
   const [fullscreen, setFullscreen] = useState(false);
   const [atHistoryStart, setAtHistoryStart] = useState(false);
   const [legend, setLegend] = useState<Bar | null>(null);
+  /** Set by the chart's close button; cleared by the dialog. */
+  const [confirmClose, setConfirmClose] = useState<Position | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<ChartEngine | null>(null);
@@ -131,17 +136,12 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
           onError: (e) => toast.error("Не удалось обновить SL", e instanceof ApiError ? e.message : undefined),
         });
       },
+      // Only *asks*. The close button sits on a chart people pan with a
+      // thumb, and a stray tap used to market-close a live position outright.
       onClose: () => {
         const p = positionRef.current;
         if (!p) return;
-        closePosition.mutate(p.id, {
-          onSuccess: (res) => {
-            const pnl = Number(res.trade.pnl);
-            if (pnl >= 0) toast.success(`Позиция закрыта: +${fmtUsd(res.trade.pnl)}`, p.symbol);
-            else toast.error(`Позиция закрыта: ${fmtUsd(res.trade.pnl)}`, p.symbol);
-          },
-          onError: (e) => toast.error("Не удалось закрыть позицию", e instanceof ApiError ? e.message : undefined),
-        });
+        setConfirmClose(p);
       },
     });
     engineRef.current = engine;
@@ -174,9 +174,60 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
       entry: n(position.entryPrice),
       tp: position.takeProfit ? n(position.takeProfit) : null,
       sl: position.stopLoss ? n(position.stopLoss) : null,
-      label: `${position.side === "BUY" ? "Long" : "Short"} ${fmtQty(position.qty)} · ${fmtSigned(position.unrealisedPnl)} (${position.roePct.toFixed(1)}%)`,
+      qty: fmtQty(position.qty),
+      pnl: fmtSigned(position.unrealisedPnl),
+      pnlPct: `${position.roePct.toFixed(1)}%`,
+      pnlPositive: n(position.unrealisedPnl) >= 0,
     });
   }, [position]);
+
+  // ---- where this symbol was opened and closed, as dots on the time axis ----
+  //
+  // Closes come from the trade history; the open that produced each close is
+  // only placeable when the API joined `openedAt` in (the terminal's own
+  // trades list does not always), so an open without a known time is simply
+  // not drawn rather than guessed at. The live position contributes its own
+  // open, which is the one a trader is usually looking for.
+  const tradesQuery = useTrades(!!user);
+  const tradeMarkers = useMemo<TradeMarker[]>(() => {
+    const out: TradeMarker[] = [];
+    for (const tr of tradesQuery.data?.trades ?? []) {
+      if (tr.symbol !== symbol) continue;
+      const long = tr.side === "BUY";
+      const pnlPositive = n(tr.pnl) >= 0;
+      out.push({
+        time: Math.floor(new Date(tr.closedAt).getTime() / 1000),
+        kind: long ? "CL" : "CS",
+        price: n(tr.exitPrice),
+        qty: fmtQty(tr.qty),
+        pnl: fmtSigned(tr.pnl),
+        pnlPositive,
+      });
+      if (tr.openedAt) {
+        out.push({
+          time: Math.floor(new Date(tr.openedAt).getTime() / 1000),
+          kind: long ? "OL" : "OS",
+          price: n(tr.entryPrice),
+          qty: fmtQty(tr.qty),
+          pnl: null,
+          pnlPositive,
+        });
+      }
+    }
+    if (position) {
+      out.push({
+        time: Math.floor(new Date(position.openedAt).getTime() / 1000),
+        kind: position.side === "BUY" ? "OL" : "OS",
+        price: n(position.entryPrice),
+        qty: fmtQty(position.qty),
+        pnl: null,
+        pnlPositive: true,
+      });
+    }
+    return out;
+  }, [tradesQuery.data, symbol, position]);
+
+  useEffect(() => { engineRef.current?.setTradeMarkers(tradeMarkers); }, [tradeMarkers]);
 
   // drawings are per-symbol and persisted locally — real, user-made annotations
   useEffect(() => {
@@ -192,7 +243,14 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
     const engine = engineRef.current;
     if (!engine || !data?.bars?.length) return;
     const newBars = data.bars;
-    const key = `${symbol}:${timeframe}`;
+    // The source belongs in the key. When the direct-Binance fetch fails and
+    // useChartBars falls back to Velora's own candles (or Binance recovers
+    // and it swaps back), the whole series is replaced by a *different* one
+    // with different timestamps — but the key was symbol+timeframe only, so
+    // this took the `keepView` branch and re-anchored viewStart/viewEnd on
+    // timestamps that no longer exist in the new array. That is the jump a
+    // second after load. A source swap is a new dataset, so it refits.
+    const key = `${symbol}:${timeframe}:${data.source}`;
 
     if (fittedKeyRef.current !== key) {
       barsRef.current = newBars;
@@ -265,6 +323,18 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
     engine.updateLast({ high: Math.max(last.high, price), low: Math.min(last.low, price), close: price });
   }, [tick]);
 
+  function runClose(p: Position) {
+    setConfirmClose(null);
+    closePosition.mutate(p.id, {
+      onSuccess: (res) => {
+        const pnl = Number(res.trade.pnl);
+        if (pnl >= 0) toast.success(`Позиция закрыта: +${fmtUsd(res.trade.pnl)}`, p.symbol);
+        else toast.error(`Позиция закрыта: ${fmtUsd(res.trade.pnl)}`, p.symbol);
+      },
+      onError: (e) => toast.error("Не удалось закрыть позицию", e instanceof ApiError ? e.message : undefined),
+    });
+  }
+
   function toggleFullscreen() {
     // `fullscreen` state is never set optimistically here — only the
     // fullscreenchange listener below sets it, from the browser's actual
@@ -296,6 +366,39 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-bg-0">
+      {/* Closing a live position is irreversible and the button that starts it
+          sits on a surface people drag with a thumb, so it asks first and
+          names what it is about to close. */}
+      {confirmClose && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-bg-0/70 p-4"
+          onClick={() => setConfirmClose(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="w-full max-w-xs rounded-xl border border-line bg-bg-1 p-4 shadow-lift"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="mb-1 text-xs font-semibold text-txt-0">{t("terminal.closePositionTitle")}</h2>
+            <p className="mb-3 text-2xs text-txt-2">
+              {confirmClose.symbol} · {fmtQty(confirmClose.qty)} ·{" "}
+              <span className={classNames("tabular font-semibold", n(confirmClose.unrealisedPnl) >= 0 ? "text-buy" : "text-sell")}>
+                {fmtSigned(confirmClose.unrealisedPnl)}
+              </span>
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => runClose(confirmClose)} disabled={closePosition.isPending}
+                className={buttonCls("primary", "md", "flex-1")}>
+                {closePosition.isPending ? "…" : t("terminal.closePositionConfirm")}
+              </button>
+              <button onClick={() => setConfirmClose(null)} className={buttonCls("secondary", "md", "flex-1")}>
+                {t("common.cancel")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Desktop only — mobile's equivalent (symbol, price, Chart/Book toggle,
           ChartToolbar) lives one level up in MobileTerminal's own merged
           header row, so this row doesn't render at all in compact mode
@@ -420,12 +523,12 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
 
         {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-bg-0/60">
-            <LoadingRow label="Загрузка свечей…" />
+            <LoadingRow label={t("terminal.loadingCandles")} />
           </div>
         )}
         {isError && (
           <div className="absolute inset-0 flex items-center justify-center bg-bg-0/60">
-            <ErrorRow label="Не удалось загрузить график" onRetry={() => refetch()} />
+            <ErrorRow label={t("terminal.chartLoadFailed")} onRetry={() => refetch()} />
           </div>
         )}
         {notReal && !isLoading && (
@@ -434,7 +537,7 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
           // straight into it there — collided visibly once the chart
           // actually had data to fall back to and render.
           <div className="absolute left-2 top-2 rounded border border-warn/40 bg-bg-1/90 px-2 py-1 text-2xs text-warn">
-            Смоделированные свечи — нет доступного live-фида для {symbol}
+            {t("terminal.modelledCandles", { symbol })}
           </div>
         )}
         {isLoadingMore && (
@@ -454,7 +557,7 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
                 onClick={() => engineRef.current?.fitContent()}
                 className="btn-fx flex items-center gap-1 rounded-full border border-line bg-bg-1/90 px-2.5 py-1.5 text-2xs text-txt-1 shadow-panel focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
               >
-                <IconRefresh size={13} /> К текущей цене
+                <IconRefresh size={13} /> {t("terminal.backToPrice")}
               </button>
             </Tooltip>
           </div>

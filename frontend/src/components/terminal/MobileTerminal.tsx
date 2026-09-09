@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MarketWatch } from "./MarketWatch";
 import { ChartPanel } from "./ChartPanel";
@@ -15,10 +16,10 @@ import { IconBookOpenCover, IconCandles, IconChevron, IconClose, IconOrderHistor
 import type { MobileMode } from "../../store/terminal";
 import type { OrderSide } from "../../lib/types";
 
-const MODES: { id: MobileMode; Icon: typeof IconCandles; label: string }[] = [
-  { id: "chart", Icon: IconCandles, label: "График" },
-  { id: "book", Icon: IconBookOpenCover, label: "Стакан" },
-  { id: "history", Icon: IconOrderHistory, label: "История" },
+const MODES: { id: MobileMode; Icon: typeof IconCandles; labelKey: string }[] = [
+  { id: "chart", Icon: IconCandles, labelKey: "terminal.chart" },
+  { id: "book", Icon: IconBookOpenCover, labelKey: "terminal.book" },
+  { id: "history", Icon: IconOrderHistory, labelKey: "terminal.tradeHistory" },
 ];
 
 /** The moving averages actually drawn on the chart right now, with their last
@@ -110,6 +111,7 @@ function HeaderOhlc() {
  * pinned in MobileBottomStack, which is the only place an order is sent.
  */
 export function MobileTerminal() {
+  const { t } = useTranslation();
   const symbol = useTerminalStore((s) => s.symbol);
   const inst = useLiveInstrument(symbol);
   const mode = useTerminalStore((s) => s.mobileMode);
@@ -216,12 +218,12 @@ export function MobileTerminal() {
               and it has earned its footprint, so the emphasis comes from how
               it is drawn, not from the selected one growing. */}
           <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-line bg-bg-2 p-1">
-            {MODES.map(({ id, Icon, label }) => (
+            {MODES.map(({ id, Icon, labelKey }) => (
               <button
                 key={id}
                 onClick={() => setMode(id)}
-                aria-label={label}
-                title={label}
+                aria-label={t(labelKey)}
+                title={t(labelKey)}
                 aria-pressed={mode === id}
                 className={classNames(
                   "tap-sm flex h-9 w-[52px] items-center justify-center rounded-full",

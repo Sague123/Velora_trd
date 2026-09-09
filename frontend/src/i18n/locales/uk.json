@@ -86,7 +86,26 @@
     "qty": "К-сть",
     "newOrder": "Новий ордер",
     "orderPrice": "Ціна ордера",
-    "positionSize": "Розмір позиції"
+    "positionSize": "Розмір позиції",
+    "orderTypeMarket": "Маркет",
+    "orderTypeLimit": "Ліміт",
+    "orderTypeStop": "Стоп",
+    "takeProfitStopLoss": "Тейк-профіт / Стоп-лосс",
+    "orderBook": "Стакан",
+    "long": "Лонг",
+    "short": "Шорт",
+    "closePositionTitle": "Закрити позицію за ринком?",
+    "closePositionConfirm": "Закрити",
+    "loadingCandles": "Завантаження свічок…",
+    "modelledCandles": "Змодельовані свічки — немає доступного live-фіду для {{symbol}}",
+    "backToPrice": "До поточної ціни",
+    "chart": "Графік",
+    "book": "Стакан",
+    "searchInstrument": "Пошук інструмента…",
+    "noAccountData": "Немає даних рахунку",
+    "sending": "Надсилання…",
+    "confirm": "Підтвердити",
+    "chartLoadFailed": "Не вдалося завантажити графік"
   },
   "profileTabs": {
     "portfolio": "Портфель",
@@ -96,10 +115,27 @@
     "security": "Безпека"
   },
   "markets": {
-    "searchPlaceholder": "Пошук інструменту…"
+    "searchPlaceholder": "Пошук інструменту…",
+    "instrument": "Інструмент",
+    "category": "Категорія",
+    "lastPrice": "Ціна",
+    "change24h": "Зміна 24г",
+    "high24h": "Макс. 24г",
+    "low24h": "Мін. 24г",
+    "volume24h": "Обсяг 24г",
+    "maxLeverage": "Макс. плече",
+    "trade": "Торгувати"
   },
   "strategies": {
-    "title": "Стратегії"
+    "title": "Стратегії",
+    "gridBot": "Grid-бот",
+    "martingaleBot": "Мартингейл-бот",
+    "startAutoTrading": "Запустити автоторгівлю",
+    "baseOrderSize": "Базовий обсяг ордера",
+    "gridLevels": "Рівнів сітки",
+    "leverage": "Плече",
+    "long": "Лонг",
+    "short": "Шорт"
   },
   "home": {
     "navTools": "Торгові інструменти",
@@ -146,5 +182,56 @@
     "close": "Закрити",
     "loading": "Завантаження…",
     "logout": "Вийти"
+  },
+  "account": {
+    "totalBalance": "Загальний баланс",
+    "available": "Доступно",
+    "equity": "Кошти",
+    "freeMargin": "Вільна маржа",
+    "usedMargin": "Зайнята маржа",
+    "used": "Зайнято",
+    "lockedOrders": "Заблоковано (ордери)",
+    "marginUsage": "Завантаження маржі",
+    "unrealisedPnl": "Нереалізований PnL",
+    "realisedPnl": "Реалізований PnL",
+    "openPositions": "Відкриті позиції",
+    "openOrders": "Відкриті ордери",
+    "winRate": "Частка прибуткових",
+    "totalDeposited": "Усього поповнено",
+    "totalWithdrawn": "Усього виведено",
+    "netTransfers": "Чисті перекази",
+    "feesPaid": "Сплачено комісій",
+    "roi": "ROI (від чистих вкладень)",
+    "deposit": "Поповнити",
+    "withdraw": "Вивести",
+    "convert": "Конвертувати",
+    "transfer": "Переказати",
+    "spotHoldings": "Спотові активи",
+    "ledger": "Рух коштів",
+    "balanceHistory": "Історія загального балансу",
+    "recentActivity": "Останні операції"
+  },
+  "settings": {
+    "basicInfo": "Основні дані",
+    "fullName": "ПІБ",
+    "dateOfBirth": "Дата народження",
+    "email": "Email",
+    "registered": "Реєстрація",
+    "appearance": "Оформлення",
+    "tradingDefaults": "Параметри торгівлі за замовчуванням",
+    "defaultLeverage": "Плече за замовчуванням",
+    "defaultAmountMode": "Режим суми за замовчуванням",
+    "defaultTimeframe": "Таймфрейм за замовчуванням",
+    "baseAsset": "Базовий актив",
+    "totalUsd": "Сума (USD)",
+    "marginUsd": "Маржа (USD)",
+    "localOnly": "Зберігається локально, на сервер не надсилається."
+  },
+  "signals": {
+    "strongSell": "Сильний продаж",
+    "sell": "Продаж",
+    "neutral": "Нейтрально",
+    "buy": "Купівля",
+    "strongBuy": "Сильна купівля"
   }
 }

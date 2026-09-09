@@ -86,7 +86,26 @@
     "qty": "Množstvo",
     "newOrder": "Nový pokyn",
     "orderPrice": "Cena pokynu",
-    "positionSize": "Veľkosť pozície"
+    "positionSize": "Veľkosť pozície",
+    "orderTypeMarket": "Market",
+    "orderTypeLimit": "Limit",
+    "orderTypeStop": "Stop",
+    "takeProfitStopLoss": "Take Profit / Stop Loss",
+    "orderBook": "Kniha objednávok",
+    "long": "Long",
+    "short": "Short",
+    "closePositionTitle": "Zavrieť pozíciu za trhovú cenu?",
+    "closePositionConfirm": "Zavrieť",
+    "loadingCandles": "Načítanie sviečok…",
+    "modelledCandles": "Modelované sviečky — pre {{symbol}} nie je dostupný live feed",
+    "backToPrice": "Späť na cenu",
+    "chart": "Graf",
+    "book": "Kniha",
+    "searchInstrument": "Hľadať nástroj…",
+    "noAccountData": "Žiadne dáta účtu",
+    "sending": "Odosielanie…",
+    "confirm": "Potvrdiť",
+    "chartLoadFailed": "Graf sa nepodarilo načítať"
   },
   "profileTabs": {
     "portfolio": "Portfólio",
@@ -96,10 +115,27 @@
     "security": "Zabezpečenie"
   },
   "markets": {
-    "searchPlaceholder": "Hľadať nástroj…"
+    "searchPlaceholder": "Hľadať nástroj…",
+    "instrument": "Nástroj",
+    "category": "Kategória",
+    "lastPrice": "Cena",
+    "change24h": "Zmena 24h",
+    "high24h": "Max 24h",
+    "low24h": "Min 24h",
+    "volume24h": "Objem 24h",
+    "maxLeverage": "Max. páka",
+    "trade": "Obchodovať"
   },
   "strategies": {
-    "title": "Stratégie"
+    "title": "Stratégie",
+    "gridBot": "Grid bot",
+    "martingaleBot": "Martingale bot",
+    "startAutoTrading": "Spustiť autoobchodovanie",
+    "baseOrderSize": "Základný objem pokynu",
+    "gridLevels": "Úrovne mriežky",
+    "leverage": "Páka",
+    "long": "Long",
+    "short": "Short"
   },
   "home": {
     "navTools": "Obchodné nástroje",
@@ -146,5 +182,56 @@
     "close": "Zavrieť",
     "loading": "Načítava sa…",
     "logout": "Odhlásiť sa"
+  },
+  "account": {
+    "totalBalance": "Celkový zostatok",
+    "available": "K dispozícii",
+    "equity": "Kapitál",
+    "freeMargin": "Voľná marža",
+    "usedMargin": "Použitá marža",
+    "used": "Použité",
+    "lockedOrders": "Blokované (pokyny)",
+    "marginUsage": "Využitie marže",
+    "unrealisedPnl": "Nerealizovaný PnL",
+    "realisedPnl": "Realizovaný PnL",
+    "openPositions": "Otvorené pozície",
+    "openOrders": "Otvorené pokyny",
+    "winRate": "Úspešnosť",
+    "totalDeposited": "Celkovo vložené",
+    "totalWithdrawn": "Celkovo vybraté",
+    "netTransfers": "Čisté prevody",
+    "feesPaid": "Zaplatené poplatky",
+    "roi": "ROI (z čistých vkladov)",
+    "deposit": "Vložiť",
+    "withdraw": "Vybrať",
+    "convert": "Konvertovať",
+    "transfer": "Presunúť",
+    "spotHoldings": "Spotové aktíva",
+    "ledger": "Pohyby prostriedkov",
+    "balanceHistory": "História celkového zostatku",
+    "recentActivity": "Posledné operácie"
+  },
+  "settings": {
+    "basicInfo": "Základné údaje",
+    "fullName": "Celé meno",
+    "dateOfBirth": "Dátum narodenia",
+    "email": "E-mail",
+    "registered": "Registrácia",
+    "appearance": "Vzhľad",
+    "tradingDefaults": "Predvolené nastavenia obchodovania",
+    "defaultLeverage": "Predvolená páka",
+    "defaultAmountMode": "Predvolený režim sumy",
+    "defaultTimeframe": "Predvolený časový rámec",
+    "baseAsset": "Základné aktívum",
+    "totalUsd": "Suma (USD)",
+    "marginUsd": "Marža (USD)",
+    "localOnly": "Uložené lokálne, neodosiela sa na server."
+  },
+  "signals": {
+    "strongSell": "Silný predaj",
+    "sell": "Predaj",
+    "neutral": "Neutrálne",
+    "buy": "Nákup",
+    "strongBuy": "Silný nákup"
   }
 }

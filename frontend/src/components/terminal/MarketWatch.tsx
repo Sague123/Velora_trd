@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useMemo, useState } from "react";
 import { useInstruments } from "../../hooks/useMarket";
 import { useLiveInstruments } from "../../hooks/useLivePrices";
@@ -14,6 +15,7 @@ const CATEGORIES: Array<{ id: Category | "ALL"; label: string; Icon?: typeof Ico
   { id: "COMMODITY", label: "Metals", Icon: IconCoin },
 ];
 export function MarketWatch({ onSelect }: { onSelect?: () => void } = {}) {
+  const { t } = useTranslation();
   const { isLoading, isError, refetch } = useInstruments();
   const instruments = useLiveInstruments();
   const symbol = useTerminalStore((s) => s.symbol);
@@ -36,7 +38,7 @@ export function MarketWatch({ onSelect }: { onSelect?: () => void } = {}) {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Поиск инструмента…"
+            placeholder={t("terminal.searchInstrument")}
             className="tap-sm w-full rounded border border-line bg-bg-2 py-1.5 pl-6 pr-2 text-2xs text-txt-0 outline-none focus:border-accent"
           />
         </div>

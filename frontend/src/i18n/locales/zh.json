@@ -86,7 +86,26 @@
     "qty": "数量",
     "newOrder": "新订单",
     "orderPrice": "订单价格",
-    "positionSize": "仓位规模"
+    "positionSize": "仓位规模",
+    "orderTypeMarket": "市价",
+    "orderTypeLimit": "限价",
+    "orderTypeStop": "止损单",
+    "takeProfitStopLoss": "止盈 / 止损",
+    "orderBook": "订单簿",
+    "long": "做多",
+    "short": "做空",
+    "closePositionTitle": "以市价平仓？",
+    "closePositionConfirm": "平仓",
+    "loadingCandles": "正在加载K线…",
+    "modelledCandles": "模拟K线 — {{symbol}} 无可用实时行情",
+    "backToPrice": "回到当前价",
+    "chart": "图表",
+    "book": "订单簿",
+    "searchInstrument": "搜索交易品种…",
+    "noAccountData": "无账户数据",
+    "sending": "发送中…",
+    "confirm": "确认",
+    "chartLoadFailed": "无法加载图表"
   },
   "profileTabs": {
     "portfolio": "资产组合",
@@ -96,10 +115,27 @@
     "security": "安全"
   },
   "markets": {
-    "searchPlaceholder": "搜索交易对…"
+    "searchPlaceholder": "搜索交易对…",
+    "instrument": "交易品种",
+    "category": "类别",
+    "lastPrice": "价格",
+    "change24h": "24小时涨跌",
+    "high24h": "24小时最高",
+    "low24h": "24小时最低",
+    "volume24h": "24小时成交量",
+    "maxLeverage": "最大杠杆",
+    "trade": "交易"
   },
   "strategies": {
-    "title": "策略"
+    "title": "策略",
+    "gridBot": "网格机器人",
+    "martingaleBot": "马丁格尔机器人",
+    "startAutoTrading": "启动自动交易",
+    "baseOrderSize": "基础订单量",
+    "gridLevels": "网格层数",
+    "leverage": "杠杆",
+    "long": "做多",
+    "short": "做空"
   },
   "home": {
     "navTools": "交易工具",
@@ -146,5 +182,56 @@
     "close": "关闭",
     "loading": "加载中…",
     "logout": "退出登录"
+  },
+  "account": {
+    "totalBalance": "总资产",
+    "available": "可用",
+    "equity": "权益",
+    "freeMargin": "可用保证金",
+    "usedMargin": "已用保证金",
+    "used": "已用",
+    "lockedOrders": "冻结（挂单）",
+    "marginUsage": "保证金占用",
+    "unrealisedPnl": "未实现盈亏",
+    "realisedPnl": "已实现盈亏",
+    "openPositions": "持仓",
+    "openOrders": "挂单",
+    "winRate": "胜率",
+    "totalDeposited": "累计充值",
+    "totalWithdrawn": "累计提现",
+    "netTransfers": "净转账",
+    "feesPaid": "已付手续费",
+    "roi": "ROI（按净投入）",
+    "deposit": "充值",
+    "withdraw": "提现",
+    "convert": "兑换",
+    "transfer": "划转",
+    "spotHoldings": "现货资产",
+    "ledger": "资金流水",
+    "balanceHistory": "总资产历史",
+    "recentActivity": "最近操作"
+  },
+  "settings": {
+    "basicInfo": "基本资料",
+    "fullName": "姓名",
+    "dateOfBirth": "出生日期",
+    "email": "邮箱",
+    "registered": "注册时间",
+    "appearance": "外观",
+    "tradingDefaults": "交易默认设置",
+    "defaultLeverage": "默认杠杆",
+    "defaultAmountMode": "默认金额模式",
+    "defaultTimeframe": "默认周期",
+    "baseAsset": "基础资产",
+    "totalUsd": "金额（USD）",
+    "marginUsd": "保证金（USD）",
+    "localOnly": "仅保存在本地，不会发送到服务器。"
+  },
+  "signals": {
+    "strongSell": "强烈卖出",
+    "sell": "卖出",
+    "neutral": "中性",
+    "buy": "买入",
+    "strongBuy": "强烈买入"
   }
 }

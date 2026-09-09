@@ -86,7 +86,26 @@
     "qty": "Menge",
     "newOrder": "Neue Order",
     "orderPrice": "Orderpreis",
-    "positionSize": "Positionsgröße"
+    "positionSize": "Positionsgröße",
+    "orderTypeMarket": "Market",
+    "orderTypeLimit": "Limit",
+    "orderTypeStop": "Stop",
+    "takeProfitStopLoss": "Take Profit / Stop Loss",
+    "orderBook": "Orderbuch",
+    "long": "Long",
+    "short": "Short",
+    "closePositionTitle": "Position zum Marktpreis schließen?",
+    "closePositionConfirm": "Schließen",
+    "loadingCandles": "Kerzen werden geladen…",
+    "modelledCandles": "Modellierte Kerzen — kein Live-Feed für {{symbol}} verfügbar",
+    "backToPrice": "Zurück zum Kurs",
+    "chart": "Chart",
+    "book": "Buch",
+    "searchInstrument": "Instrument suchen…",
+    "noAccountData": "Keine Kontodaten",
+    "sending": "Wird gesendet…",
+    "confirm": "Bestätigen",
+    "chartLoadFailed": "Chart konnte nicht geladen werden"
   },
   "profileTabs": {
     "portfolio": "Portfolio",
@@ -96,10 +115,27 @@
     "security": "Sicherheit"
   },
   "markets": {
-    "searchPlaceholder": "Instrument suchen…"
+    "searchPlaceholder": "Instrument suchen…",
+    "instrument": "Instrument",
+    "category": "Kategorie",
+    "lastPrice": "Preis",
+    "change24h": "24h Änderung",
+    "high24h": "24h Hoch",
+    "low24h": "24h Tief",
+    "volume24h": "24h Volumen",
+    "maxLeverage": "Max. Hebel",
+    "trade": "Handeln"
   },
   "strategies": {
-    "title": "Strategien"
+    "title": "Strategien",
+    "gridBot": "Grid-Bot",
+    "martingaleBot": "Martingale-Bot",
+    "startAutoTrading": "Auto-Trading starten",
+    "baseOrderSize": "Basis-Ordergröße",
+    "gridLevels": "Grid-Stufen",
+    "leverage": "Hebel",
+    "long": "Long",
+    "short": "Short"
   },
   "home": {
     "navTools": "Handelstools",
@@ -146,5 +182,56 @@
     "close": "Schließen",
     "loading": "Lädt…",
     "logout": "Abmelden"
+  },
+  "account": {
+    "totalBalance": "Gesamtguthaben",
+    "available": "Verfügbar",
+    "equity": "Equity",
+    "freeMargin": "Freie Margin",
+    "usedMargin": "Genutzte Margin",
+    "used": "Genutzt",
+    "lockedOrders": "Gebunden (Orders)",
+    "marginUsage": "Margin-Auslastung",
+    "unrealisedPnl": "Unrealisierter PnL",
+    "realisedPnl": "Realisierter PnL",
+    "openPositions": "Offene Positionen",
+    "openOrders": "Offene Orders",
+    "winRate": "Trefferquote",
+    "totalDeposited": "Gesamt eingezahlt",
+    "totalWithdrawn": "Gesamt ausgezahlt",
+    "netTransfers": "Netto-Transfers",
+    "feesPaid": "Gezahlte Gebühren",
+    "roi": "ROI (netto eingezahlt)",
+    "deposit": "Einzahlen",
+    "withdraw": "Auszahlen",
+    "convert": "Umwandeln",
+    "transfer": "Übertragen",
+    "spotHoldings": "Spot-Bestände",
+    "ledger": "Kontobewegungen",
+    "balanceHistory": "Verlauf des Gesamtguthabens",
+    "recentActivity": "Letzte Vorgänge"
+  },
+  "settings": {
+    "basicInfo": "Stammdaten",
+    "fullName": "Vollständiger Name",
+    "dateOfBirth": "Geburtsdatum",
+    "email": "E-Mail",
+    "registered": "Registriert",
+    "appearance": "Darstellung",
+    "tradingDefaults": "Handels-Voreinstellungen",
+    "defaultLeverage": "Standard-Hebel",
+    "defaultAmountMode": "Standard-Betragsmodus",
+    "defaultTimeframe": "Standard-Zeitrahmen",
+    "baseAsset": "Basiswert",
+    "totalUsd": "Betrag (USD)",
+    "marginUsd": "Margin (USD)",
+    "localOnly": "Lokal gespeichert, wird nicht an den Server gesendet."
+  },
+  "signals": {
+    "strongSell": "Starker Verkauf",
+    "sell": "Verkauf",
+    "neutral": "Neutral",
+    "buy": "Kauf",
+    "strongBuy": "Starker Kauf"
   }
 }
