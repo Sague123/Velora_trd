@@ -50,6 +50,10 @@ export const IconUsers = (p: IconProps) => base({ ...p, children: <><circle cx="
 export const IconCard = (p: IconProps) => base({ ...p, children: <><rect x="2.5" y="5.5" width="19" height="13" rx="2" /><path d="M2.5 10h19" /><path d="M6 14.5h4" /></> });
 export const IconCrypto = (p: IconProps) => base({ ...p, children: <><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /><rect x="6" y="6" width="12" height="12" rx="3" /><path d="M9.5 9.5h3a1.7 1.7 0 0 1 0 3.4h-3m0 0h3.4a1.8 1.8 0 0 1 0 3.6h-3.4m0-7v-1.3m0 8.3v1.3m2.4-9.6v-1.3m0 8.3v1.3" /></> });
 export const IconCopy = (p: IconProps) => base({ ...p, children: <><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" /></> });
+export const IconPhone = (p: IconProps) => base({ ...p, children: <path d="M7.5 3.5h-2A2.5 2.5 0 0 0 3 6.2C3 14 10 21 17.8 21a2.5 2.5 0 0 0 2.7-2.5v-2a1 1 0 0 0-.8-1l-3.4-.7a1 1 0 0 0-1 .4l-1 1.4a13.5 13.5 0 0 1-5.9-5.9l1.4-1a1 1 0 0 0 .4-1l-.7-3.4a1 1 0 0 0-1-.8Z" /> });
+export const IconMail = (p: IconProps) => base({ ...p, children: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3.5 7 8.5 6 8.5-6" /></> });
+export const IconCalendar = (p: IconProps) => base({ ...p, children: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></> });
+export const IconColumns = (p: IconProps) => base({ ...p, children: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9.5 4v16M15 4v16" /></> });
 export const IconGlobe = (p: IconProps) => base({ ...p, children: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></> });
 export const IconSearch = (p: IconProps) => base({ ...p, children: <><circle cx="10.5" cy="10.5" r="6.5" /><path d="m20 20-4.35-4.35" /></> });
 export const IconChevron = ({ direction = "down", ...p }: IconProps & { direction?: "up" | "down" | "left" | "right" }) =>

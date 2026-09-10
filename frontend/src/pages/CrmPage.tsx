@@ -1,18 +1,31 @@
-import { FormEvent, useState } from "react";
-import { useCrmMeta, useImportLead, useLeads, type LeadFilters, type LeadSortColumn } from "../hooks/useCrm";
+import { FormEvent, useMemo, useRef, useState } from "react";
+import {
+  useCrmMeta, useImportLead, useLeads, useLeadsSummary,
+  type LeadFilters, type LeadSortColumn,
+} from "../hooks/useCrm";
+import { useLeadColumns } from "../hooks/useLeadColumns";
+import { useIsMobile } from "../hooks/useIsMobile";
+import { useAuthStore } from "../store/auth";
 import { LeadCard } from "../components/crm/LeadCard";
 import { StatusChip } from "../components/crm/StatusChip";
+import { StatusSelect } from "../components/crm/StatusSelect";
+import { NextActionCell } from "../components/crm/NextActionCell";
+import { ContactAction } from "../components/crm/ContactActions";
+import { ColumnManager } from "../components/crm/ColumnManager";
+import { BulkBar } from "../components/crm/BulkBar";
+import type { LeadColumn } from "../components/crm/leadColumns";
 import {
-  LEAD_STATUS_LABEL, LEAD_STATUS_TONE, TONE_TEXT_CLASS, VERIFICATION_LABEL, VERIFICATION_TONE,
+  ACCOUNT_STATUS_LABEL, ACCOUNT_STATUS_TONE, LEAD_STATUS_LABEL, VERIFICATION_LABEL,
 } from "../components/crm/leadLabels";
 import { EmptyRow, SkeletonTableRows } from "../components/common/States";
+import { Checkbox } from "../components/common/Checkbox";
 import { Page } from "../components/layout/Page";
-import { classNames, fmtDateTime } from "../lib/format";
+import { classNames } from "../lib/format";
 import { toast } from "../store/toast";
 import { ApiError } from "../lib/api";
 import { MultiSelect } from "../components/crm/MultiSelect";
-import type { CrmMeta, KycStatus, LeadStatus } from "../lib/types";
-import { IconChevron, IconClipboard, IconClose } from "../components/icons/Icon";
+import type { CrmMeta, KycStatus, Lead, LeadStatus } from "../lib/types";
+import { IconChevron, IconClipboard, IconClose, IconSliders } from "../components/icons/Icon";
 import { buttonCls, fieldCls } from "../lib/ui";
 
 const inputCls = fieldCls("md", "w-full");
@@ -22,10 +35,24 @@ const KYC_LABEL: Record<KycStatus, string> = {
   NONE: "Нет", PENDING: "На проверке", APPROVED: "Подтверждён", REJECTED: "Отклонён",
 };
 
+const ACCOUNT_FILTER_LABEL: Record<Exclude<LeadFilters["account"], "">, string> = {
+  NO_ACCOUNT: "Без аккаунта",
+  HAS_ACCOUNT: "С аккаунтом",
+  ACTIVE: "Аккаунт активен",
+  BLOCKED: "Аккаунт заблокирован",
+};
+
+const NEXT_ACTION_FILTER_LABEL: Record<Exclude<LeadFilters["nextAction"], "">, string> = {
+  TODAY: "Сегодня",
+  OVERDUE: "Просрочено",
+  NONE: "Без плана",
+};
+
 const DEFAULT_FILTERS: LeadFilters = {
   status: [], managerId: [], kycStatus: [], verificationStatus: [], source: [],
   search: "", converted: "", createdFrom: "", createdTo: "",
   fullName: "", phone: "", email: "", country: "", accountNumber: "",
+  account: "", nextAction: "",
   sortBy: "createdAt", sortDir: "desc", page: 1, pageSize: 25,
 };
 
@@ -121,8 +148,112 @@ function SortHeader({
   );
 }
 
+/** Drag the right edge of a header to resize its column. Sits inside the
+ * `<th>` and stops its own pointer events from reaching the sort button
+ * underneath — a resize must never also re-sort the table. */
+function ColumnResizer({ onDrag, onCommit }: { onDrag: (dx: number) => void; onCommit: () => void }) {
+  const last = useRef(0);
+  const dragging = useRef(false);
+
+  return (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      onPointerDown={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dragging.current = true;
+        last.current = e.clientX;
+        (e.target as Element).setPointerCapture(e.pointerId);
+      }}
+      onPointerMove={(e) => {
+        if (!dragging.current) return;
+        onDrag(e.clientX - last.current);
+        last.current = e.clientX;
+      }}
+      onPointerUp={(e) => {
+        dragging.current = false;
+        (e.target as Element).releasePointerCapture(e.pointerId);
+        onCommit();
+      }}
+      className="absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-accent/40"
+    />
+  );
+}
+
+/** The desk's own numbers, and a one-tap way into each of them. Each figure is
+ * a filter the manager would otherwise have assembled by hand, so the count
+ * and the view it describes are the same control. */
+function SummaryBar({
+  filters, onApply,
+}: { filters: LeadFilters; onApply: (next: Partial<LeadFilters>) => void }) {
+  const user = useAuthStore((s) => s.user);
+  const { data } = useLeadsSummary();
+  if (!data) return null;
+
+  const items: { key: string; label: string; value: number; tone?: string; apply: Partial<LeadFilters>; active: boolean }[] = [
+    {
+      key: "overdue", label: "Просрочено", value: data.overdue, tone: data.overdue > 0 ? "text-cat-rose" : undefined,
+      apply: { nextAction: "OVERDUE" }, active: filters.nextAction === "OVERDUE",
+    },
+    {
+      key: "today", label: "Сегодня", value: data.dueToday, tone: data.dueToday > 0 ? "text-warn" : undefined,
+      apply: { nextAction: "TODAY" }, active: filters.nextAction === "TODAY",
+    },
+    {
+      key: "new", label: "Новые", value: data.newLeads,
+      apply: { status: ["NEW"] as LeadStatus[] }, active: filters.status.length === 1 && filters.status[0] === "NEW",
+    },
+    {
+      key: "unassigned", label: "Без ответственного", value: data.unassigned,
+      apply: { managerId: ["none"] }, active: filters.managerId.length === 1 && filters.managerId[0] === "none",
+    },
+    {
+      key: "mine", label: "Мои", value: data.mine,
+      apply: { managerId: user ? [user.id] : [] }, active: !!user && filters.managerId.length === 1 && filters.managerId[0] === user.id,
+    },
+    {
+      key: "accounts", label: "С аккаунтом", value: data.activeAccounts,
+      apply: { account: "ACTIVE" }, active: filters.account === "ACTIVE",
+    },
+  ];
+
+  return (
+    <div className="no-scrollbar mb-3 flex gap-1.5 overflow-x-auto">
+      {items.map((it) => (
+        <button
+          key={it.key}
+          onClick={() => onApply(it.active ? resetOf(it.apply) : it.apply)}
+          className={classNames(
+            "btn-fx flex shrink-0 items-baseline gap-1.5 rounded-lg border px-2.5 py-1.5 text-2xs transition-colors",
+            it.active ? "border-accent bg-accent-soft text-accent" : "border-line bg-bg-1 text-txt-2 hover:border-accent/50"
+          )}
+        >
+          <span className={classNames("tabular text-xs font-semibold", it.active ? "text-accent" : it.tone ?? "text-txt-0")}>
+            {it.value}
+          </span>
+          {it.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Pressing an active summary chip clears exactly the filter it set, rather
+ * than resetting the whole toolbar out from under the manager. */
+function resetOf(applied: Partial<LeadFilters>): Partial<LeadFilters> {
+  const cleared: Partial<LeadFilters> = {};
+  for (const key of Object.keys(applied) as (keyof LeadFilters)[]) {
+    (cleared as Record<string, unknown>)[key] = Array.isArray(applied[key]) ? [] : "";
+  }
+  return cleared;
+}
+
 export function CrmPage() {
+  const user = useAuthStore((s) => s.user);
   const meta = useCrmMeta();
+  const isMobile = useIsMobile();
+  const columns = useLeadColumns(user?.id);
   const [filters, setFilters] = useState<LeadFilters>(DEFAULT_FILTERS);
   // Typed separately from the applied filter so the list isn't refetched on
   // every keystroke — each commits on blur or Enter, same pattern as the
@@ -132,10 +263,16 @@ export function CrmPage() {
   });
   const [openId, setOpenId] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+  const [moreFilters, setMoreFilters] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
 
   const { data, isLoading } = useLeads(filters);
   const patch = (next: Partial<LeadFilters>) => setFilters((f) => ({ ...f, page: 1, ...next }));
   const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / filters.pageSize));
+
+  const leads = data?.leads ?? [];
+  const pageIds = useMemo(() => leads.map((l) => l.id), [leads]);
+  const allOnPageSelected = pageIds.length > 0 && pageIds.every((id) => selected.includes(id));
 
   function sortBy(column: LeadSortColumn) {
     setFilters((f) => ({
@@ -146,7 +283,7 @@ export function CrmPage() {
 
   const hasAnyFilter = !!(filters.search
     || filters.fullName || filters.phone || filters.email || filters.country || filters.accountNumber
-    || filters.converted || filters.createdFrom || filters.createdTo)
+    || filters.converted || filters.createdFrom || filters.createdTo || filters.account || filters.nextAction)
     || filters.status.length > 0 || filters.managerId.length > 0 || filters.kycStatus.length > 0
     || filters.verificationStatus.length > 0 || filters.source.length > 0;
 
@@ -166,9 +303,13 @@ export function CrmPage() {
         onKeyDown={(e) => { if (e.key === "Enter") patch({ [filterKey]: drafts[key] } as Partial<LeadFilters>); }}
         placeholder={placeholder}
         className={classNames(colFilterCls, mono && "mono")}
+        onClick={(e) => e.stopPropagation()}
       />
     );
   }
+
+  const visible = columns.visible;
+  const hasColumnFilters = visible.some((c) => c.filter);
 
   return (
     <Page>
@@ -193,170 +334,260 @@ export function CrmPage() {
 
       {importing && <ImportForm onClose={() => setImporting(false)} />}
 
-      <div className="anim-rise-2 mb-3 flex flex-wrap items-end gap-2 rounded-lg border border-line bg-bg-1 p-3">
-        <label className="min-w-[200px] flex-1">
-          <span className="mb-1 block text-2xs font-medium text-txt-2">Быстрый поиск по телефону, email или ФИО</span>
-          <form onSubmit={(e) => { e.preventDefault(); patch({ search: drafts.search }); }}>
+      <SummaryBar filters={filters} onApply={patch} />
+
+      {/* One line of controls by default. The five filters a desk touches
+          hourly stay out; the rest (verification, KYC, source, date range)
+          are one click away instead of permanently taking three rows of
+          height above every lead. */}
+      <div className="anim-rise-2 mb-3 rounded-lg border border-line bg-bg-1 p-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <form
+            className="min-w-[180px] flex-1"
+            onSubmit={(e) => { e.preventDefault(); patch({ search: drafts.search }); }}
+          >
             <input
               value={drafts.search}
               onChange={(e) => setDrafts((d) => ({ ...d, search: e.target.value }))}
               onBlur={() => patch({ search: drafts.search })}
               className={inputCls}
-              placeholder="+7900…, name@mail, Иванов"
+              placeholder="Поиск: телефон, email или ФИО"
             />
           </form>
-        </label>
 
-        <div className="min-w-[150px]">
-          <span className="mb-1 block text-2xs font-medium text-txt-2">Статус</span>
           <MultiSelect
-            label="Статус"
+            label="Этап"
+            className="w-[150px]"
+            allLabel="Этап: все"
             selected={filters.status}
             onChange={(v) => patch({ status: v as LeadStatus[] })}
             options={(meta.data?.statuses ?? []).map((s) => ({ value: s, label: LEAD_STATUS_LABEL[s] ?? s }))}
           />
-        </div>
 
-        <div className="min-w-[150px]">
-          <span className="mb-1 block text-2xs font-medium text-txt-2">Верификация</span>
-          <MultiSelect
-            label="Верификация"
-            selected={filters.verificationStatus}
-            onChange={(v) => patch({ verificationStatus: v as LeadFilters["verificationStatus"] })}
-            options={(meta.data?.verificationStatuses ?? []).map((s) => ({ value: s, label: VERIFICATION_LABEL[s] ?? s }))}
-          />
-        </div>
-
-        <div className="min-w-[150px]">
-          <span className="mb-1 block text-2xs font-medium text-txt-2">KYC</span>
-          <MultiSelect
-            label="KYC"
-            selected={filters.kycStatus}
-            onChange={(v) => patch({ kycStatus: v as LeadFilters["kycStatus"] })}
-            options={(["NONE", "PENDING", "APPROVED", "REJECTED"] as KycStatus[]).map((s) => ({ value: s, label: KYC_LABEL[s] }))}
-          />
-        </div>
-
-        <label className="min-w-[150px]">
-          <span className="mb-1 block text-2xs font-medium text-txt-2">Клиент</span>
           <select
-            value={filters.converted}
-            onChange={(e) => patch({ converted: e.target.value as LeadFilters["converted"] })}
-            className={inputCls}
+            value={filters.account}
+            onChange={(e) => patch({ account: e.target.value as LeadFilters["account"] })}
+            className={fieldCls("md", "w-[150px]")}
           >
-            <option value="">Все</option>
-            <option value="true">Уже клиент</option>
-            <option value="false">Ещё лид</option>
+            <option value="">Аккаунт: все</option>
+            {(Object.keys(ACCOUNT_FILTER_LABEL) as (keyof typeof ACCOUNT_FILTER_LABEL)[]).map((k) => (
+              <option key={k} value={k}>{ACCOUNT_FILTER_LABEL[k]}</option>
+            ))}
           </select>
-        </label>
 
-        <div className="min-w-[150px]">
-          <span className="mb-1 block text-2xs font-medium text-txt-2">Источник</span>
-          <MultiSelect
-            label="Источник"
-            selected={filters.source}
-            onChange={(v) => patch({ source: v })}
-            options={(meta.data?.sources ?? []).map((s) => ({ value: s, label: s }))}
-          />
-        </div>
+          <select
+            value={filters.nextAction}
+            onChange={(e) => patch({ nextAction: e.target.value as LeadFilters["nextAction"] })}
+            className={fieldCls("md", "w-[150px]")}
+          >
+            <option value="">Шаг: все</option>
+            {(Object.keys(NEXT_ACTION_FILTER_LABEL) as (keyof typeof NEXT_ACTION_FILTER_LABEL)[]).map((k) => (
+              <option key={k} value={k}>{NEXT_ACTION_FILTER_LABEL[k]}</option>
+            ))}
+          </select>
 
-        <div className="min-w-[170px]">
-          <span className="mb-1 block text-2xs font-medium text-txt-2">Отв.</span>
           <MultiSelect
             label="Ответственный"
+            className="w-[160px]"
+            allLabel="Ответственный: все"
             selected={filters.managerId}
             onChange={(v) => patch({ managerId: v })}
-            options={(meta.data?.managers ?? []).map((m) => ({ value: m.id, label: m.name }))}
+            options={[
+              { value: "none", label: "Без ответственного" },
+              ...(meta.data?.managers ?? []).map((m) => ({ value: m.id, label: m.name })),
+            ]}
           />
+
+          <button
+            onClick={() => setMoreFilters((v) => !v)}
+            aria-expanded={moreFilters}
+            className={buttonCls(moreFilters ? "primary" : "secondary", "md", "gap-1.5")}
+          >
+            <IconSliders size={12} /> Фильтры
+          </button>
+
+          {/* Columns are a table concept — the phone renders cards, where
+              hiding a "column" would mean nothing. */}
+          {!isMobile && <ColumnManager columns={columns} />}
+
+          {hasAnyFilter && (
+            <button onClick={resetAll} className={buttonCls("ghost", "md")}>Сбросить</button>
+          )}
         </div>
 
-        <label className="min-w-[130px]">
-          <span className="mb-1 block text-2xs font-medium text-txt-2">Создан с</span>
-          <input type="date" value={filters.createdFrom} onChange={(e) => patch({ createdFrom: e.target.value })} className={inputCls} />
-        </label>
+        {moreFilters && (
+          <div className="anim-rise mt-2 flex flex-wrap items-end gap-2 border-t border-line-soft pt-2">
+            <div className="min-w-[150px]">
+              <span className="mb-1 block text-2xs font-medium text-txt-2">Верификация</span>
+              <MultiSelect
+                label="Верификация"
+                selected={filters.verificationStatus}
+                onChange={(v) => patch({ verificationStatus: v as LeadFilters["verificationStatus"] })}
+                options={(meta.data?.verificationStatuses ?? []).map((s) => ({ value: s, label: VERIFICATION_LABEL[s] ?? s }))}
+              />
+            </div>
 
-        <label className="min-w-[130px]">
-          <span className="mb-1 block text-2xs font-medium text-txt-2">по</span>
-          <input type="date" value={filters.createdTo} onChange={(e) => patch({ createdTo: e.target.value })} className={inputCls} />
-        </label>
+            <div className="min-w-[150px]">
+              <span className="mb-1 block text-2xs font-medium text-txt-2">KYC</span>
+              <MultiSelect
+                label="KYC"
+                selected={filters.kycStatus}
+                onChange={(v) => patch({ kycStatus: v as LeadFilters["kycStatus"] })}
+                options={(["NONE", "PENDING", "APPROVED", "REJECTED"] as KycStatus[]).map((s) => ({ value: s, label: KYC_LABEL[s] }))}
+              />
+            </div>
 
-        {hasAnyFilter && (
-          <button onClick={resetAll} className={buttonCls("secondary", "sm")}>
-            Сбросить всё
-          </button>
+            <div className="min-w-[150px]">
+              <span className="mb-1 block text-2xs font-medium text-txt-2">Источник</span>
+              <MultiSelect
+                label="Источник"
+                selected={filters.source}
+                onChange={(v) => patch({ source: v })}
+                options={(meta.data?.sources ?? []).map((s) => ({ value: s, label: s }))}
+              />
+            </div>
+
+            <label className="min-w-[130px]">
+              <span className="mb-1 block text-2xs font-medium text-txt-2">Клиент</span>
+              <select
+                value={filters.converted}
+                onChange={(e) => patch({ converted: e.target.value as LeadFilters["converted"] })}
+                className={inputCls}
+              >
+                <option value="">Все</option>
+                <option value="true">Уже клиент</option>
+                <option value="false">Ещё лид</option>
+              </select>
+            </label>
+
+            <label className="min-w-[130px]">
+              <span className="mb-1 block text-2xs font-medium text-txt-2">Создан с</span>
+              <input type="date" value={filters.createdFrom} onChange={(e) => patch({ createdFrom: e.target.value })} className={inputCls} />
+            </label>
+
+            <label className="min-w-[130px]">
+              <span className="mb-1 block text-2xs font-medium text-txt-2">по</span>
+              <input type="date" value={filters.createdTo} onChange={(e) => patch({ createdTo: e.target.value })} className={inputCls} />
+            </label>
+
+          </div>
         )}
       </div>
 
-      <FilterChips filters={filters} meta={meta.data} onChange={patch} />
+      {selected.length > 0
+        ? <BulkBar ids={selected} onClear={() => setSelected([])} />
+        : <FilterChips filters={filters} meta={meta.data} onChange={patch} />}
 
-      <div className="anim-rise-3 min-h-0 flex-1 overflow-x-auto rounded-lg border border-line bg-bg-1">
-        {!isLoading && (data?.leads.length ?? 0) === 0 && (
-          <EmptyRow label={hasAnyFilter ? "Под фильтры ничего не подошло" : "Лидов пока нет — добавьте первого кнопкой выше"} />
-        )}
+      {isMobile ? (
+        <MobileLeadList
+          leads={leads}
+          isLoading={isLoading}
+          hasAnyFilter={hasAnyFilter}
+          selected={selected}
+          onToggle={(id) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))}
+          onOpen={setOpenId}
+        />
+      ) : (
+        <div className="anim-rise-3 min-h-0 flex-1 overflow-x-auto rounded-lg border border-line bg-bg-1">
+          {!isLoading && leads.length === 0 && (
+            <EmptyRow label={hasAnyFilter ? "Под фильтры ничего не подошло" : "Лидов пока нет — добавьте первого кнопкой выше"} />
+          )}
 
-        {(isLoading || (data?.leads.length ?? 0) > 0) && (
-          <table className="w-full min-w-[1080px] text-2xs">
-            <thead className="border-b border-line-soft text-left text-txt-3">
-              <tr>
-                <th className="px-3 pt-2"><SortHeader label="ID" column="accountNumber" filters={filters} onSort={sortBy} /></th>
-                <th className="px-3 pt-2"><SortHeader label="ФИО" column="fullName" filters={filters} onSort={sortBy} /></th>
-                <th className="px-3 pt-2"><SortHeader label="Телефон" column="phone" filters={filters} onSort={sortBy} /></th>
-                <th className="px-3 pt-2"><SortHeader label="Email" column="email" filters={filters} onSort={sortBy} /></th>
-                <th className="px-3 pt-2"><SortHeader label="Статус" column="status" filters={filters} onSort={sortBy} /></th>
-                <th className="px-3 pt-2"><SortHeader label="Верификация" column="verificationStatus" filters={filters} onSort={sortBy} /></th>
-                <th className="px-3 pt-2"><SortHeader label="Страна" column="country" filters={filters} onSort={sortBy} /></th>
-                <th className="px-3 pt-2"><SortHeader label="Ответственный" column="manager" filters={filters} onSort={sortBy} /></th>
-                <th className="px-3 pt-2"><SortHeader label="Создан" column="createdAt" filters={filters} onSort={sortBy} /></th>
-              </tr>
-              {/* Per-column search — narrower and quieter than the row above,
-                  so it reads as a refinement of the quick search, not a
-                  second, competing search bar. */}
-              <tr>
-                <th className="px-3 pb-2">{colFilter("accountNumber", "accountNumber", "напр. 42081930", true)}</th>
-                <th className="px-3 pb-2">{colFilter("fullName", "fullName", "Иванов")}</th>
-                <th className="px-3 pb-2">{colFilter("phone", "phone", "+7900…", true)}</th>
-                <th className="px-3 pb-2">{colFilter("email", "email", "name@mail")}</th>
-                <th className="px-3 pb-2" />
-                <th className="px-3 pb-2" />
-                <th className="px-3 pb-2">{colFilter("country", "country", "RU, KZ…")}</th>
-                <th className="px-3 pb-2" />
-                <th className="px-3 pb-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading && <SkeletonTableRows columns={9} />}
-              {!isLoading && data!.leads.map((l) => (
-                <tr
-                  key={l.id}
-                  onClick={() => setOpenId(l.id)}
-                  className="cursor-pointer border-b border-line-soft/60 hover:bg-bg-2/60"
-                >
-                  <td className="mono px-3 py-2 text-txt-2">{l.accountNumber ?? "—"}</td>
-                  <td className={classNames("px-3 py-2 font-medium", TONE_TEXT_CLASS[LEAD_STATUS_TONE[l.status]])}>
-                    {l.fullName}
-                    {l.platformUserId && (
-                      <span className="ml-1.5 rounded bg-accent-soft px-1 py-0.5 font-normal text-accent">клиент</span>
-                    )}
-                  </td>
-                  <td className="mono px-3 py-2 text-txt-1">{l.phone ?? "—"}</td>
-                  <td className="px-3 py-2 text-txt-1">{l.email ?? "—"}</td>
-                  <td className="px-3 py-2">
-                    <StatusChip tone={LEAD_STATUS_TONE[l.status]}>{LEAD_STATUS_LABEL[l.status]}</StatusChip>
-                  </td>
-                  <td className="px-3 py-2">
-                    <StatusChip tone={VERIFICATION_TONE[l.verificationStatus]}>
-                      {VERIFICATION_LABEL[l.verificationStatus]}
-                    </StatusChip>
-                  </td>
-                  <td className="px-3 py-2 text-txt-2">{l.country ?? "—"}</td>
-                  <td className="px-3 py-2 text-txt-2">{l.assignedManager?.name ?? "—"}</td>
-                  <td className="tabular px-3 py-2 text-txt-3">{fmtDateTime(l.createdAt)}</td>
+          {(isLoading || leads.length > 0) && (
+            <table className="w-full text-2xs" style={{ minWidth: 34 + visible.reduce((s, c) => s + columns.widthOf(c), 0) }}>
+              <colgroup>
+                <col style={{ width: 34 }} />
+                {visible.map((c) => <col key={c.id} style={{ width: columns.widthOf(c) }} />)}
+              </colgroup>
+              <thead className="border-b border-line-soft text-left text-txt-3">
+                <tr>
+                  <th className="sticky left-0 z-10 bg-bg-1 px-2 pt-2">
+                    <Checkbox
+                      checked={allOnPageSelected}
+                      onChange={() =>
+                        setSelected((s) =>
+                          allOnPageSelected
+                            ? s.filter((id) => !pageIds.includes(id))
+                            : [...s, ...pageIds.filter((id) => !s.includes(id))]
+                        )}
+                    />
+                  </th>
+                  {visible.map((c, i) => (
+                    <th
+                      key={c.id}
+                      className={classNames(
+                        "relative px-3 pt-2",
+                        // The first data column travels with the checkbox when
+                        // the table scrolls sideways: a row of contact details
+                        // with no name attached to it is unusable.
+                        i === 0 && "sticky left-[34px] z-10 bg-bg-1"
+                      )}
+                    >
+                      {c.sort
+                        ? <SortHeader label={c.label} column={c.sort} filters={filters} onSort={sortBy} />
+                        : <span className="font-medium">{c.label}</span>}
+                      <ColumnResizer
+                        onDrag={(dx) => columns.setWidth(c.id, columns.widthOf(c) + dx)}
+                        onCommit={columns.commitWidths}
+                      />
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+                {/* Per-column search — narrower and quieter than the row above,
+                    so it reads as a refinement of the quick search, not a
+                    second, competing search bar. */}
+                {hasColumnFilters && (
+                  <tr>
+                    <th className="sticky left-0 z-10 bg-bg-1 pb-2" />
+                    {visible.map((c, i) => (
+                      <th key={c.id} className={classNames("px-3 pb-2", i === 0 && "sticky left-[34px] z-10 bg-bg-1")}>
+                        {c.filter && colFilter(c.filter, c.filter, COLUMN_FILTER_PLACEHOLDER[c.filter], c.filter === "phone" || c.filter === "accountNumber")}
+                      </th>
+                    ))}
+                  </tr>
+                )}
+              </thead>
+              <tbody>
+                {isLoading && <SkeletonTableRows columns={visible.length + 1} />}
+                {!isLoading && leads.map((l) => {
+                  const checked = selected.includes(l.id);
+                  return (
+                    <tr
+                      key={l.id}
+                      onClick={() => setOpenId(l.id)}
+                      className={classNames(
+                        "group cursor-pointer border-b border-line-soft/60",
+                        checked ? "bg-accent-soft/40" : "hover:bg-bg-2/60"
+                      )}
+                    >
+                      <td
+                        onClick={(e) => e.stopPropagation()}
+                        className={classNames("sticky left-0 z-10 px-2 py-2", checked ? "bg-bg-2" : "bg-bg-1 group-hover:bg-bg-2")}
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onChange={() => setSelected((s) => (checked ? s.filter((x) => x !== l.id) : [...s, l.id]))}
+                        />
+                      </td>
+                      {visible.map((c, i) => (
+                        <td
+                          key={c.id}
+                          className={classNames(
+                            "truncate px-3 py-2",
+                            i === 0 && classNames("sticky left-[34px] z-10", checked ? "bg-bg-2" : "bg-bg-1 group-hover:bg-bg-2")
+                          )}
+                        >
+                          {c.cell(l)}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
 
       {totalPages > 1 && (
         <div className="mt-2 flex items-center justify-end gap-2 text-2xs text-txt-2">
@@ -382,6 +613,86 @@ export function CrmPage() {
   );
 }
 
+const COLUMN_FILTER_PLACEHOLDER: Record<NonNullable<LeadColumn["filter"]>, string> = {
+  accountNumber: "напр. 42081930",
+  fullName: "Иванов",
+  phone: "+7900…",
+  email: "name@mail",
+  country: "RU, KZ…",
+};
+
+/**
+ * The same board on a phone.
+ *
+ * A fourteen-column table inside a horizontal scroller is unusable at 390px —
+ * the manager ends up dragging sideways to read a phone number and loses the
+ * name doing it. Each lead becomes a card carrying exactly what a call needs:
+ * who, what stage, when to call back, and the two contact actions. Everything
+ * else stays one tap away in the card itself.
+ */
+function MobileLeadList({
+  leads, isLoading, hasAnyFilter, selected, onToggle, onOpen,
+}: {
+  leads: Lead[];
+  isLoading: boolean;
+  hasAnyFilter: boolean;
+  selected: string[];
+  onToggle: (id: string) => void;
+  onOpen: (id: string) => void;
+}) {
+  if (isLoading) {
+    return (
+      <div className="grid gap-2">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="skeleton h-24 rounded-lg" />
+        ))}
+      </div>
+    );
+  }
+  if (leads.length === 0) {
+    return (
+      <div className="rounded-lg border border-line bg-bg-1">
+        <EmptyRow label={hasAnyFilter ? "Под фильтры ничего не подошло" : "Лидов пока нет — добавьте первого кнопкой выше"} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="anim-rise-3 grid gap-2">
+      {leads.map((l) => {
+        const checked = selected.includes(l.id);
+        return (
+          <div
+            key={l.id}
+            onClick={() => onOpen(l.id)}
+            className={classNames(
+              "rounded-lg border p-2.5",
+              checked ? "border-accent bg-accent-soft/40" : "border-line bg-bg-1"
+            )}
+          >
+            <div className="flex items-start gap-2">
+              <span onClick={(e) => e.stopPropagation()} className="pt-0.5">
+                <Checkbox checked={checked} onChange={() => onToggle(l.id)} />
+              </span>
+              <span className="min-w-0 flex-1 truncate text-xs font-medium text-txt-0">{l.fullName}</span>
+              <StatusChip tone={ACCOUNT_STATUS_TONE[l.accountStatus]}>
+                {ACCOUNT_STATUS_LABEL[l.accountStatus]}
+              </StatusChip>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-2xs">
+              <StatusSelect leadId={l.id} status={l.status} />
+              <NextActionCell leadId={l.id} at={l.nextActionAt} type={l.nextActionType} compact />
+            </div>
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-2xs">
+              <ContactAction value={l.phone} kind="phone" />
+              <ContactAction value={l.email} kind="email" />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 /**
  * What is actually filtering the list right now, one removable chip per value.
@@ -399,7 +710,8 @@ function FilterChips({
   meta: CrmMeta | undefined;
   onChange: (next: Partial<LeadFilters>) => void;
 }) {
-  const managerName = (id: string) => meta?.managers.find((m) => m.id === id)?.name ?? id;
+  const managerName = (id: string) =>
+    id === "none" ? "без ответственного" : meta?.managers.find((m) => m.id === id)?.name ?? id;
 
   const chips: { key: string; label: string; onRemove: () => void }[] = [];
   const addList = <T extends string>(
@@ -417,7 +729,7 @@ function FilterChips({
     }
   };
 
-  addList("Статус", filters.status, (s) => LEAD_STATUS_LABEL[s] ?? s, (next) => ({ status: next }));
+  addList("Этап", filters.status, (s) => LEAD_STATUS_LABEL[s] ?? s, (next) => ({ status: next }));
   addList("Верификация", filters.verificationStatus, (s) => VERIFICATION_LABEL[s] ?? s, (next) => ({ verificationStatus: next }));
   addList("KYC", filters.kycStatus, (s) => KYC_LABEL[s as KycStatus] ?? s, (next) => ({ kycStatus: next }));
   addList("Источник", filters.source, (s) => s, (next) => ({ source: next }));
@@ -433,6 +745,8 @@ function FilterChips({
   addOne("Email", filters.email, filters.email, { email: "" });
   addOne("Страна", filters.country, filters.country, { country: "" });
   addOne("Счёт", filters.accountNumber, filters.accountNumber, { accountNumber: "" });
+  addOne("Аккаунт", filters.account, filters.account ? ACCOUNT_FILTER_LABEL[filters.account] : "", { account: "" });
+  addOne("Шаг", filters.nextAction, filters.nextAction ? NEXT_ACTION_FILTER_LABEL[filters.nextAction] : "", { nextAction: "" });
   addOne("Клиент", filters.converted, filters.converted === "true" ? "уже клиент" : "ещё лид", { converted: "" });
   addOne("Создан с", filters.createdFrom, filters.createdFrom, { createdFrom: "" });
   addOne("Создан по", filters.createdTo, filters.createdTo, { createdTo: "" });

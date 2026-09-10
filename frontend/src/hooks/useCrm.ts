@@ -3,12 +3,14 @@ import { apiDelete, apiGet, apiPatch, apiPost } from "../lib/api";
 import type {
   ConvertLeadResponse, CrmAccountSnapshot, CrmMeta, CrmPermission, CrmViewSnapshot,
   CrmViewTokenResponse, EditLeadInput, ImportLeadInput, LeadComment, LeadCommentsResponse,
-  LeadDetail, LeadHistoryEntry, LeadStatus, LeadVerificationStatus, LeadsResponse, Order, OrderSide, Trade,
+  CallResult, LeadDetail, LeadHistoryEntry, LeadStatus, LeadVerificationStatus, LeadsResponse,
+  LeadsSummary, NextActionType, Order, OrderSide, Trade,
 } from "../lib/types";
 
 export type LeadSortColumn =
   | "accountNumber" | "fullName" | "phone" | "email" | "status"
-  | "verificationStatus" | "country" | "manager" | "createdAt";
+  | "verificationStatus" | "country" | "manager" | "createdAt"
+  | "updatedAt" | "nextActionAt" | "lastContactAt" | "accountStatus";
 
 export type KycFilterValue = "NONE" | "PENDING" | "APPROVED" | "REJECTED";
 
@@ -36,6 +38,13 @@ export interface LeadFilters {
   email: string;
   country: string;
   accountNumber: string;
+  /** The platform account behind the lead, filtered on its own axis rather
+   * than through the funnel stage — "все, кто уже завёл аккаунт" is a
+   * different question from "все, кто дошёл до REGISTERED". */
+  account: "" | "NO_ACCOUNT" | "HAS_ACCOUNT" | "ACTIVE" | "BLOCKED";
+  /** The follow-up queue: what is due today, what is already late, and what
+   * has nothing scheduled at all. */
+  nextAction: "" | "TODAY" | "OVERDUE" | "NONE";
   sortBy: LeadSortColumn;
   sortDir: "asc" | "desc";
   page: number;
@@ -74,6 +83,8 @@ export function useLeads(filters: LeadFilters, enabled = true) {
   if (filters.email.trim()) qs.set("email", filters.email.trim());
   if (filters.country.trim()) qs.set("country", filters.country.trim());
   if (filters.accountNumber.trim()) qs.set("accountNumber", filters.accountNumber.trim());
+  if (filters.account) qs.set("account", filters.account);
+  if (filters.nextAction) qs.set("nextAction", filters.nextAction);
 
   return useQuery({
     queryKey: ["crm", "leads", filters],
@@ -119,12 +130,88 @@ function invalidateCrm(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: ["crm"] });
 }
 
+/**
+ * Moves the lead to a stage and, in the same call, schedules what follows from
+ * it. A CALLBACK with no date was the hole this closes — the stage and the
+ * moment it refers to are set together, so the follow-up queue can never
+ * disagree with the status that created it.
+ */
 export function useSetLeadStatus() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: LeadStatus }) =>
-      apiPatch<{ lead: LeadDetail }>(`/api/crm/leads/${id}/status`, { status }),
+    mutationFn: ({ id, status, nextActionAt, nextActionType, note }: {
+      id: string;
+      status: LeadStatus;
+      /** ISO instant, or null to clear whatever was scheduled. */
+      nextActionAt?: string | null;
+      nextActionType?: NextActionType;
+      note?: string;
+    }) =>
+      apiPatch<{ lead: LeadDetail; changed: boolean }>(`/api/crm/leads/${id}/status`,
+        { status, nextActionAt, nextActionType, note }),
     onSuccess: () => invalidateCrm(qc),
+  });
+}
+
+/** Moving the follow-up without touching the stage — pushing a call to
+ * tomorrow is not a stage change. */
+export function useSetNextAction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, at, type }: { id: string; at: string | null; type?: NextActionType }) =>
+      apiPatch<{ lead: LeadDetail }>(`/api/crm/leads/${id}/next-action`, { at, type }),
+    onSuccess: () => invalidateCrm(qc),
+  });
+}
+
+/** Logs how a call went: stamps last contact, optionally reschedules the
+ * follow-up, and writes the result into the comment thread the desk already
+ * reads — one action instead of three. */
+export function useLogCall() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, result, note, nextActionAt, nextActionType }: {
+      id: string;
+      result: CallResult;
+      note?: string;
+      nextActionAt?: string | null;
+      nextActionType?: NextActionType;
+    }) =>
+      apiPost<{ lead: LeadDetail }>(`/api/crm/leads/${id}/calls`,
+        { result, note, nextActionAt, nextActionType }),
+    onSuccess: () => invalidateCrm(qc),
+  });
+}
+
+/** Reassigns a whole selection. The server runs the same per-lead path as the
+ * single-lead route, so a batch leaves the same audit trail. */
+export function useBulkAssign() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ids, managerId }: { ids: string[]; managerId: string | null }) =>
+      apiPost<{ changed: number }>("/api/crm/leads/bulk/assign", { ids, managerId }),
+    onSuccess: () => invalidateCrm(qc),
+  });
+}
+
+export function useBulkStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ids, status }: { ids: string[]; status: LeadStatus }) =>
+      apiPost<{ changed: number; skipped: number }>("/api/crm/leads/bulk/status", { ids, status }),
+    onSuccess: () => invalidateCrm(qc),
+  });
+}
+
+/** The desk's own numbers, counted server-side over the whole base rather
+ * than the page currently loaded — a count of "просрочено" that only covered
+ * the visible 25 rows would be worse than no count at all. */
+export function useLeadsSummary(enabled = true) {
+  return useQuery({
+    queryKey: ["crm", "summary"],
+    queryFn: () => apiGet<LeadsSummary>("/api/crm/leads/summary"),
+    enabled,
+    refetchInterval: 60_000,
   });
 }
 

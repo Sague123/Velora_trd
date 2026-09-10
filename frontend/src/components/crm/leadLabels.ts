@@ -1,53 +1,132 @@
-import type { CrmPermission, LeadStatus, LeadVerificationStatus } from "../../lib/types";
+import type {
+  CallResult, CrmPermission, LeadAccountStatus, LeadStatus, LeadVerificationStatus, NextActionType,
+} from "../../lib/types";
 
 /**
- * Human labels and the colour each status carries.
+ * The four semantic tones plus the `cat-*` categorical palette (see
+ * globals.css) — nine visually distinct hues, none of them buy-green or
+ * sell-red, each pre-verified for contrast. They exist for exactly this
+ * screen: a set of unrelated categories that have to be told apart at a
+ * glance and carry no direction of their own.
  *
  * Colour here is meaning, not decoration, and it follows the design system's
- * one hard rule about buy/sell: those two are reserved for market direction, so
- * a funnel stage never uses them. A dead lead is `sell`-shaped in the abstract,
- * but on a trading platform a red chip means "short", and it must not appear on
- * a CRM row where it could be misread at a glance.
- *
- * Ten funnel stages is more than the four semantic tones (accent/warn/muted/
- * neutral) can tell apart at a glance, which used to leave four unrelated dead
- * ends (WRONG_INFO, LOW_POTENTIAL, NOT_INTERESTED, DENY_REG) sharing one grey
- * "muted" chip — indistinguishable in the list. The `cat-*` tones below (see
- * globals.css) exist for exactly this: nine visually distinct hues, none of
- * them buy-green or sell-red, each pre-verified for contrast. Two statuses
- * that are genuinely the same *kind* of dead end still share a tone on purpose
- * — DENY_REG and UNDER_18 are both a hard compliance stop, not a judgement
- * call the desk made, and colour should say so.
+ * one hard rule about buy/sell: those two are reserved for market direction,
+ * so no funnel stage uses them. A dead lead is `sell`-shaped in the abstract,
+ * but on a trading platform a red chip means "short", and it must not appear
+ * on a CRM row where it could be misread.
  */
 export type Tone = "accent" | "warn" | "muted" | "neutral"
   | "cat-gold" | "cat-teal" | "cat-indigo" | "cat-violet" | "cat-magenta" | "cat-rose";
 
+/**
+ * The funnel, split in two.
+ *
+ * `PIPELINE_STAGES` is the path a lead walks when things go well, in order —
+ * each entry is progress on the previous one. `TERMINAL_STATUSES` is where a
+ * lead stops. They used to be one flat list, which is what made "не отвечает"
+ * sit between "перезвонить" and "приветственный звонок" with nothing saying
+ * which way was forward.
+ */
+export const PIPELINE_STAGES: LeadStatus[] = [
+  "NEW", "CONTACTED", "QUALIFIED", "CALLBACK", "WELCOME_CALL", "REGISTERED", "DEPOSITED", "ACTIVE",
+];
+
+export const TERMINAL_STATUSES: LeadStatus[] = [
+  "OLDDB", "NO_ANSWER", "WRONG_INFO", "LOW_POTENTIAL", "NOT_INTERESTED", "DENY_REG", "UNDER_18", "LOST",
+];
+
+/** 1-based position in the pipeline, or 0 for a terminal outcome. A chip that
+ * reads "Квалифицирован 3/8" says how far along without needing a hue nobody
+ * could tell from the other seven. */
+export function pipelineStep(status: LeadStatus): number {
+  return PIPELINE_STAGES.indexOf(status) + 1;
+}
+
 export const LEAD_STATUS_LABEL: Record<LeadStatus, string> = {
   NEW: "Новый",
-  OLDDB: "Старая база",
+  CONTACTED: "Дозвонились",
+  QUALIFIED: "Квалифицирован",
   CALLBACK: "Перезвонить",
   WELCOME_CALL: "Приветственный звонок",
+  REGISTERED: "Зарегистрирован",
+  DEPOSITED: "Внёс депозит",
+  ACTIVE: "Активно торгует",
+  OLDDB: "Старая база",
   NO_ANSWER: "Не отвечает",
   WRONG_INFO: "Неверные данные",
   LOW_POTENTIAL: "Низкий потенциал",
   NOT_INTERESTED: "Не заинтересован",
   DENY_REG: "Отказ в регистрации",
   UNDER_18: "Младше 18",
+  LOST: "Потерян",
 };
 
-/** One distinct tone per stage (see the module doc above for the two that
- * intentionally share one). */
+/**
+ * Sixteen stages is far past what any palette can keep apart at a glance, so
+ * hue stops trying to name the stage and names the *phase* instead — the
+ * pipeline's three (первый контакт → договорённость → клиент), and one hue
+ * per terminal outcome, which is where telling them apart actually pays off.
+ * Inside the pipeline the step number carries the rest.
+ *
+ * No stage uses buy/sell: on a trading platform a red chip means "short", and
+ * it must not appear on a CRM row where it could be misread at a glance.
+ */
 export const LEAD_STATUS_TONE: Record<LeadStatus, Tone> = {
   NEW: "accent",
-  WELCOME_CALL: "cat-teal",
+  CONTACTED: "accent",
+  QUALIFIED: "accent",
   CALLBACK: "warn",
-  NO_ANSWER: "cat-gold",
+  WELCOME_CALL: "warn",
+  REGISTERED: "cat-teal",
+  DEPOSITED: "cat-teal",
+  ACTIVE: "cat-teal",
   OLDDB: "neutral",
-  LOW_POTENTIAL: "cat-indigo",
+  NO_ANSWER: "cat-gold",
   WRONG_INFO: "cat-violet",
+  LOW_POTENTIAL: "cat-indigo",
   NOT_INTERESTED: "cat-magenta",
   DENY_REG: "cat-rose",
   UNDER_18: "cat-rose",
+  LOST: "muted",
+};
+
+/**
+ * The platform account behind the lead — deliberately its own column, because
+ * a lead who said "не интересно" can still have a funded, active account, and
+ * the desk needs to see both at once. Derived server-side from the account
+ * relation; nothing here is a second copy of it.
+ */
+export const ACCOUNT_STATUS_LABEL: Record<LeadAccountStatus, string> = {
+  NO_ACCOUNT: "Нет аккаунта",
+  REGISTERED: "Зарегистрирован",
+  KYC_PENDING: "KYC на проверке",
+  KYC_VERIFIED: "KYC пройден",
+  ACTIVE: "Активен",
+  BLOCKED: "Заблокирован",
+};
+
+export const ACCOUNT_STATUS_TONE: Record<LeadAccountStatus, Tone> = {
+  NO_ACCOUNT: "muted",
+  REGISTERED: "neutral",
+  KYC_PENDING: "warn",
+  KYC_VERIFIED: "cat-teal",
+  ACTIVE: "accent",
+  BLOCKED: "cat-rose",
+};
+
+export const NEXT_ACTION_LABEL: Record<NextActionType, string> = {
+  CALL: "Звонок",
+  FOLLOW_UP: "Follow-up",
+  KYC: "KYC",
+  OTHER: "Другое",
+};
+
+export const CALL_RESULT_LABEL: Record<CallResult, string> = {
+  NO_ANSWER: "Не ответил",
+  BUSY: "Занято",
+  CALL_BACK: "Просил перезвонить",
+  INTERESTED: "Заинтересован",
+  NOT_INTERESTED: "Не заинтересован",
 };
 
 export const VERIFICATION_LABEL: Record<LeadVerificationStatus, string> = {

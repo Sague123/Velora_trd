@@ -42,6 +42,10 @@ export function MultiSelect({
   return (
     <Popover
       panelClassName="max-h-72 overflow-y-auto"
+      // The CRM filter bar animates in, and an animated ancestor is its own
+      // stacking context — an absolutely positioned panel inside it renders
+      // *under* the bulk bar and table no matter how high its z-index.
+      portal
       trigger={(open, toggleOpen) => (
         <button
           type="button"

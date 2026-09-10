@@ -512,9 +512,32 @@ export type CreateBotInput =
 
 /* ----------------------------------- CRM ---------------------------------- */
 
+/**
+ * Where the lead is in the sales conversation. Split in two on purpose: the
+ * first line is the pipeline a lead moves *along* (each stage is progress),
+ * the second is where it stops. Mixing them in one flat list is what made
+ * "не отвечает" sit next to "внёс депозит" with nothing saying which way is
+ * forward — see PIPELINE_STAGES / TERMINAL_STATUSES in
+ * components/crm/leadLabels.ts.
+ */
 export type LeadStatus =
-  | "NEW" | "OLDDB" | "CALLBACK" | "WELCOME_CALL" | "NO_ANSWER"
-  | "WRONG_INFO" | "LOW_POTENTIAL" | "NOT_INTERESTED" | "DENY_REG" | "UNDER_18";
+  | "NEW" | "CONTACTED" | "QUALIFIED" | "CALLBACK" | "WELCOME_CALL" | "REGISTERED" | "DEPOSITED" | "ACTIVE"
+  | "OLDDB" | "NO_ANSWER" | "WRONG_INFO" | "LOW_POTENTIAL" | "NOT_INTERESTED" | "DENY_REG" | "UNDER_18" | "LOST";
+
+/**
+ * What the *platform account* behind the lead is doing — derived server-side
+ * from the account relation the lead already has, never stored twice. A lead
+ * can be NOT_INTERESTED and still have a funded, active account; one field
+ * could not say both, which is exactly why this is separate from LeadStatus.
+ */
+export type LeadAccountStatus =
+  | "NO_ACCOUNT" | "REGISTERED" | "KYC_PENDING" | "KYC_VERIFIED" | "ACTIVE" | "BLOCKED";
+
+/** What the desk has to do next on this lead. */
+export type NextActionType = "CALL" | "FOLLOW_UP" | "KYC" | "OTHER";
+
+/** How a call went, logged from the card in one tap. */
+export type CallResult = "NO_ANSWER" | "BUSY" | "CALL_BACK" | "INTERESTED" | "NOT_INTERESTED";
 
 /** Deliberately separate from LeadStatus: a lead can be VERIFIED and
  * NOT_INTERESTED at once, and one field could not say both. */
@@ -542,6 +565,15 @@ export interface Lead {
   /** The platform account's number — null until conversion. This is the "ID"
    * a manager reads on a call; the lead's own database id never is. */
   accountNumber: string | null;
+  /** Derived from the platform account, not a second copy of it. */
+  accountStatus: LeadAccountStatus;
+  /** When the desk next has to touch this lead, and what for — null means
+   * nothing is planned, which is a real state the follow-up queue filters on
+   * rather than an absence of data. */
+  nextActionAt: string | null;
+  nextActionType: NextActionType | null;
+  /** Last time someone on the desk actually spoke to this lead. */
+  lastContactAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -607,6 +639,18 @@ export interface LeadsResponse {
   page: number;
   pageSize: number;
   leads: Lead[];
+}
+
+/** Counted over the whole base, not the loaded page — a "просрочено: 2" that
+ * only covered the visible rows would be worse than no number at all. */
+export interface LeadsSummary {
+  newLeads: number;
+  unassigned: number;
+  dueToday: number;
+  overdue: number;
+  /** Assigned to the manager asking. */
+  mine: number;
+  activeAccounts: number;
 }
 
 /**

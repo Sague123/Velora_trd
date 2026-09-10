@@ -346,7 +346,20 @@ function buildLeadsQuery(p: LeadsQueryInput): { sql: { list: string; count: stri
   };
 
   anyOf("l.status", "status", p.status);
-  anyOf("l.assigned_manager_id", "managerId", p.managerId);
+  // "none" is the unassigned bucket, not a manager id: an id list alone could
+  // never express "у этого лида никого нет", which is the one queue a desk
+  // lead actually has to empty. It ORs with any real ids picked alongside it.
+  {
+    const ids = (p.managerId ?? []).filter((v) => v && v !== "none");
+    const wantsUnassigned = (p.managerId ?? []).includes("none");
+    const parts: string[] = [];
+    if (ids.length) {
+      const names = ids.map((v, i) => { args[`managerId${i}`] = v; return `@managerId${i}`; });
+      parts.push(`l.assigned_manager_id IN (${names.join(", ")})`);
+    }
+    if (wantsUnassigned) parts.push("l.assigned_manager_id IS NULL");
+    if (parts.length) clauses.push(`(${parts.join(" OR ")})`);
+  }
   anyOf("COALESCE(u.kyc_status, 'NONE')", "kycStatus", p.kycStatus);
   anyOf("l.verification_status", "verificationStatus", p.verificationStatus);
   // Source is picked from the server's own DISTINCT list, so it matches
