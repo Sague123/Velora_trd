@@ -12,7 +12,7 @@ import type { LeadSortColumn } from "../../hooks/useCrm";
 
 export type LeadColumnId =
   | "accountNumber" | "fullName" | "status" | "account" | "nextAction" | "lastContact"
-  | "phone" | "email" | "manager" | "country" | "source" | "verification" | "age" | "createdAt";
+  | "phone" | "email" | "manager" | "country" | "source" | "verification" | "age" | "createdAt" | "tags";
 
 /** Which per-column search box, if any, belongs under this header. */
 export type ColumnFilterKey = "accountNumber" | "fullName" | "phone" | "email" | "country";
@@ -108,6 +108,19 @@ export const LEAD_COLUMNS: LeadColumn[] = [
   {
     id: "source", label: "Источник", width: 130,
     cell: (l) => <span className="truncate text-txt-3">{l.source ?? "—"}</span>,
+  },
+  {
+    // Not sortable: sorting by an array has no meaning a manager would
+    // predict. The filter above the table is how tags are worked.
+    id: "tags", label: "Теги", width: 150,
+    cell: (l) =>
+      l.tags.length === 0 ? <span className="text-txt-3">—</span> : (
+        <span className="flex flex-wrap gap-1">
+          {l.tags.map((t) => (
+            <span key={t} className="rounded-full bg-bg-3 px-1.5 py-px text-3xs text-txt-2">{t}</span>
+          ))}
+        </span>
+      ),
   },
   {
     id: "createdAt", label: "Создан", sort: "createdAt", width: 150,

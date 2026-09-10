@@ -184,6 +184,12 @@ const q = {
   sources: db.prepare(`
     SELECT DISTINCT source FROM leads WHERE source IS NOT NULL AND source <> '' ORDER BY source LIMIT 200
   `),
+  // Same reasoning as sources: tags are freeform, so the only honest way to
+  // offer a filter list is the set actually in use.
+  tags: db.prepare(`
+    SELECT DISTINCT unnest(tags) AS tag FROM leads ORDER BY tag LIMIT 200
+  `),
+  setTags: db.prepare("UPDATE leads SET tags = @tags, updated_at = @ts WHERE id = @id"),
   // An affiliate re-sending the same person must not create a second card for
   // them; the desk would then work one and comment on the other.
   byContact: db.prepare(`
@@ -292,6 +298,7 @@ interface LeadsQueryInput {
   /** The follow-up queue: what is due today, what is late, what has nothing
    * scheduled at all. */
   nextAction?: "TODAY" | "OVERDUE" | "NONE";
+  tag?: string[];
   /** <input type="date"> values (YYYY-MM-DD) — widened to the whole day on
    * the "to" end, see the createdTo clause below. */
   createdFrom?: string; createdTo?: string;
@@ -382,6 +389,9 @@ function buildLeadsQuery(p: LeadsQueryInput): { sql: { list: string; count: stri
     args.todayFrom = `${d.toISOString().slice(0, 10)}T00:00:00.000Z`;
     args.todayTo = `${d.toISOString().slice(0, 10)}T23:59:59.999Z`;
   }
+  // Containment, not overlap: ticking two tags means "has both", the way a
+  // desk narrows down ("VIP" AND "испанский"), not "has either".
+  if (p.tag?.length) { clauses.push("l.tags @> @tagList"); args.tagList = p.tag; }
   if (p.createdFrom) { clauses.push("l.created_at >= @createdFrom"); args.createdFrom = `${p.createdFrom}T00:00:00.000Z`; }
   if (p.createdTo) { clauses.push("l.created_at <= @createdTo"); args.createdTo = `${p.createdTo}T23:59:59.999Z`; }
 
@@ -500,6 +510,7 @@ export default async function crmRoutes(app: FastifyInstance) {
       id: m.id, name: m.name, email: m.email, role: m.role,
     })),
     sources: ((await q.sources.all()) as { source: string }[]).map((r) => r.source),
+    tags: ((await q.tags.all()) as { tag: string }[]).map((r) => r.tag),
   }));
 
   app.get("/leads", async (req) => {
@@ -529,6 +540,7 @@ export default async function crmRoutes(app: FastifyInstance) {
       accountNumber: z.string().max(20).optional(),
       account: z.enum(["NO_ACCOUNT", "HAS_ACCOUNT", "ACTIVE", "BLOCKED"]).optional(),
       nextAction: z.enum(["TODAY", "OVERDUE", "NONE"]).optional(),
+      tag: csv(z.string().min(1).max(40)),
       sortBy: z.enum([
         "accountNumber", "fullName", "phone", "email", "status",
         "verificationStatus", "country", "manager", "createdAt",
@@ -717,6 +729,37 @@ export default async function crmRoutes(app: FastifyInstance) {
     });
 
     reply.code(201);
+    return { lead: sLeadDetail((await q.one.get(id)) as any) };
+  });
+
+  /**
+   * The labels the desk puts on a lead. Sent as the whole set rather than
+   * add/remove operations: the editor is a list the manager edits and saves,
+   * and two managers saving different sets is a last-write-wins the same way
+   * every other field on this card already is.
+   */
+  app.patch("/leads/:id/tags", async (req) => {
+    const { id } = z.object({ id: z.string() }).parse(req.params);
+    const { tags } = z.object({
+      tags: z.array(z.string().trim().min(1).max(40)).max(20),
+    }).parse(req.body);
+
+    const lead = (await q.bare.get(id)) as any;
+    if (!lead) throw notFound("Лид не найден");
+
+    // Deduplicated case-insensitively so "VIP" and "vip" don't become two
+    // tags that filter separately and read identically.
+    const seen = new Set<string>();
+    const clean = tags.filter((t) => {
+      const k = t.toLowerCase();
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+
+    await q.setTags.run({ id, tags: clean, ts: now() });
+    await audit({ actorId: req.user.sub, action: "CRM_LEAD_TAGS_CHANGED",
+      meta: { leadId: id, tags: clean }, ip: req.ip });
     return { lead: sLeadDetail((await q.one.get(id)) as any) };
   });
 

@@ -45,6 +45,9 @@ export interface LeadFilters {
   /** The follow-up queue: what is due today, what is already late, and what
    * has nothing scheduled at all. */
   nextAction: "" | "TODAY" | "OVERDUE" | "NONE";
+  /** ANDed, not ORed: ticking two tags means "has both", which is how a desk
+   * narrows a list down. */
+  tag: string[];
   sortBy: LeadSortColumn;
   sortDir: "asc" | "desc";
   page: number;
@@ -74,6 +77,7 @@ export function useLeads(filters: LeadFilters, enabled = true) {
   list("kycStatus", filters.kycStatus);
   list("verificationStatus", filters.verificationStatus);
   list("source", filters.source);
+  list("tag", filters.tag);
   if (filters.search.trim()) qs.set("search", filters.search.trim());
   if (filters.converted) qs.set("converted", filters.converted);
   if (filters.createdFrom) qs.set("createdFrom", filters.createdFrom);
@@ -149,6 +153,17 @@ export function useSetLeadStatus() {
     }) =>
       apiPatch<{ lead: LeadDetail; changed: boolean }>(`/api/crm/leads/${id}/status`,
         { status, nextActionAt, nextActionType, note }),
+    onSuccess: () => invalidateCrm(qc),
+  });
+}
+
+/** Replaces the whole tag set — the editor is a list the manager edits and
+ * saves, not a stream of add/remove operations. */
+export function useSetLeadTags() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, tags }: { id: string; tags: string[] }) =>
+      apiPatch<{ lead: LeadDetail }>(`/api/crm/leads/${id}/tags`, { tags }),
     onSuccess: () => invalidateCrm(qc),
   });
 }

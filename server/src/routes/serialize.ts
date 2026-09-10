@@ -106,6 +106,10 @@ export const sLead = (l: any) => ({
   /** When someone last actually reached this lead — not `updatedAt`, which
    * moves on any edit the client never saw. */
   lastContactAt: l.last_contact_at ?? null,
+  /** Free-form labels the desk put on this lead. Always an array — a row
+   * predating the column reads back as null through `pg` and callers should
+   * not each have to remember that. */
+  tags: (l.tags ?? []) as string[],
   createdAt: l.created_at,
   updatedAt: l.updated_at,
 });

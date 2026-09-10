@@ -354,6 +354,11 @@ CREATE TABLE IF NOT EXISTS leads (
   verification_status TEXT NOT NULL DEFAULT 'NOT_SUBMITTED',
   assigned_manager_id TEXT REFERENCES users(id) ON DELETE SET NULL,
   platform_user_id    TEXT REFERENCES users(id) ON DELETE SET NULL,
+  -- Free-form labels the desk puts on a lead ("VIP", "испанский", "не звонить
+  -- до 18"). A real array rather than a comma-joined string: the desk filters
+  -- by one tag constantly, and a LIKE over a joined string would match "VIP"
+  -- inside "VIP-отказ".
+  tags                TEXT[] NOT NULL DEFAULT '{}',
   created_at          TEXT NOT NULL,
   updated_at          TEXT NOT NULL,
   CONSTRAINT leads_status_check CHECK (status IN (
@@ -645,6 +650,7 @@ export async function migrate(): Promise<void> {
   // When someone last actually reached this lead — distinct from updated_at,
   // which moves on any edit including ones the client never saw.
   await addColumnIfMissing("leads", "last_contact_at", "last_contact_at TEXT");
+  await addColumnIfMissing("leads", "tags", "tags TEXT[] NOT NULL DEFAULT '{}'");
 
   // The funnel gained its positive half (see SCHEMA). An existing database
   // still carries the original ten-value constraint, and CREATE TABLE IF NOT
@@ -661,6 +667,8 @@ export async function migrate(): Promise<void> {
   `);
   // The follow-up queue is read as "everything due before now, oldest first".
   await pool.query("CREATE INDEX IF NOT EXISTS idx_leads_next_action ON leads(next_action_at) WHERE next_action_at IS NOT NULL");
+  // GIN, because every tag query is a containment test (`tags @> ARRAY[...]`).
+  await pool.query("CREATE INDEX IF NOT EXISTS idx_leads_tags ON leads USING GIN (tags)");
   await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_account_number ON users(account_number)");
   await backfillAccountNumbers();
   await backfillLeadsForUsers();

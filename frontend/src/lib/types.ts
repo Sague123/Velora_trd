@@ -574,6 +574,8 @@ export interface Lead {
   nextActionType: NextActionType | null;
   /** Last time someone on the desk actually spoke to this lead. */
   lastContactAt: string | null;
+  /** Free-form labels the desk put on this lead ("VIP", "испанский"). */
+  tags: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -672,6 +674,9 @@ export interface CrmMeta {
   /** Distinct source tags already in use, for the filter dropdown — source
    * is freeform text entered per import, not a fixed enum. */
   sources: string[];
+  /** Same, for lead tags: freeform, so the only honest filter list is the
+   * set actually in use. */
+  tags: string[];
 }
 
 export interface EditLeadInput {

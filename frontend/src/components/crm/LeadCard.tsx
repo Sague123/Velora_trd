@@ -16,6 +16,7 @@ import { PasswordResetForm } from "./PasswordResetForm";
 import { ConvertLeadButton, RevealedPasswordBanner } from "./ConvertLeadButton";
 import { ViewTokenButton } from "./ViewTokenButton";
 import { CallLogForm } from "./CallLogForm";
+import { TagEditor } from "./TagEditor";
 import { ContactAction } from "./ContactActions";
 import { NextActionCell } from "./NextActionCell";
 import {
@@ -467,6 +468,8 @@ export function LeadCard({ leadId, onClose }: { leadId: string; onClose: () => v
                       </select>
                     </label>
                   </div>
+
+                  <TagEditor leadId={leadId} tags={lead.tags} />
 
                   <ConsentRow lead={lead} />
 

@@ -52,7 +52,7 @@ const DEFAULT_FILTERS: LeadFilters = {
   status: [], managerId: [], kycStatus: [], verificationStatus: [], source: [],
   search: "", converted: "", createdFrom: "", createdTo: "",
   fullName: "", phone: "", email: "", country: "", accountNumber: "",
-  account: "", nextAction: "",
+  account: "", nextAction: "", tag: [],
   sortBy: "createdAt", sortDir: "desc", page: 1, pageSize: 25,
 };
 
@@ -285,7 +285,7 @@ export function CrmPage() {
     || filters.fullName || filters.phone || filters.email || filters.country || filters.accountNumber
     || filters.converted || filters.createdFrom || filters.createdTo || filters.account || filters.nextAction)
     || filters.status.length > 0 || filters.managerId.length > 0 || filters.kycStatus.length > 0
-    || filters.verificationStatus.length > 0 || filters.source.length > 0;
+    || filters.verificationStatus.length > 0 || filters.source.length > 0 || filters.tag.length > 0;
 
   function resetAll() {
     setDrafts({ search: "", fullName: "", phone: "", email: "", country: "", accountNumber: "" });
@@ -434,6 +434,16 @@ export function CrmPage() {
                 selected={filters.kycStatus}
                 onChange={(v) => patch({ kycStatus: v as LeadFilters["kycStatus"] })}
                 options={(["NONE", "PENDING", "APPROVED", "REJECTED"] as KycStatus[]).map((s) => ({ value: s, label: KYC_LABEL[s] }))}
+              />
+            </div>
+
+            <div className="min-w-[150px]">
+              <span className="mb-1 block text-2xs font-medium text-txt-2">Теги</span>
+              <MultiSelect
+                label="Теги"
+                selected={filters.tag}
+                onChange={(v) => patch({ tag: v })}
+                options={(meta.data?.tags ?? []).map((t) => ({ value: t, label: t }))}
               />
             </div>
 
@@ -733,6 +743,7 @@ function FilterChips({
   addList("Верификация", filters.verificationStatus, (s) => VERIFICATION_LABEL[s] ?? s, (next) => ({ verificationStatus: next }));
   addList("KYC", filters.kycStatus, (s) => KYC_LABEL[s as KycStatus] ?? s, (next) => ({ kycStatus: next }));
   addList("Источник", filters.source, (s) => s, (next) => ({ source: next }));
+  addList("Тег", filters.tag, (t) => t, (next) => ({ tag: next }));
   addList("Отв.", filters.managerId, managerName, (next) => ({ managerId: next }));
 
   const addOne = (group: string, value: string, label: string, clear: Partial<LeadFilters>) => {
