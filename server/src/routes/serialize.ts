@@ -54,6 +54,28 @@ export const sLedger = (e: any) => ({
 /* ----------------------------------- CRM ---------------------------------- */
 
 /** Row shape for the leads table: enough to work the list, nothing more. */
+/**
+ * The state of the Velora account behind a lead — derived from the account
+ * relation on every read, never stored as a second column that could drift
+ * from the truth.
+ *
+ * This is deliberately a different axis from the sales stage: a lead can be
+ * NOT_INTERESTED and still have a funded, active account, and a lead can be
+ * DEPOSITED in the funnel only because someone typed that. Account status is
+ * what the platform actually knows.
+ */
+export type LeadAccountStatus =
+  | "NO_ACCOUNT" | "REGISTERED" | "KYC_PENDING" | "KYC_VERIFIED" | "ACTIVE" | "BLOCKED";
+
+export function leadAccountStatus(l: any): LeadAccountStatus {
+  if (!l.platform_user_id) return "NO_ACCOUNT";
+  if (l.platform_status === "SUSPENDED") return "BLOCKED";
+  const kyc = l.platform_kyc_status ?? "NONE";
+  if (kyc === "APPROVED") return l.platform_status === "ACTIVE" ? "ACTIVE" : "KYC_VERIFIED";
+  if (kyc === "PENDING") return "KYC_PENDING";
+  return "REGISTERED";
+}
+
 export const sLead = (l: any) => ({
   id: l.id,
   fullName: l.full_name,
@@ -74,6 +96,16 @@ export const sLead = (l: any) => ({
    * call. Null until conversion; a prospect who hasn't registered yet has no
    * account to number. */
   accountNumber: l.platform_account_number ?? null,
+  /** Derived, see leadAccountStatus — the lead's sales stage and its account
+   * state are two different questions and the desk needs both at a glance. */
+  accountStatus: leadAccountStatus(l),
+  /** When the desk next has to do something, and what. Null = nothing planned,
+   * which is itself a state the follow-up filters ask about. */
+  nextActionAt: l.next_action_at ?? null,
+  nextActionType: l.next_action_type ?? null,
+  /** When someone last actually reached this lead — not `updatedAt`, which
+   * moves on any edit the client never saw. */
+  lastContactAt: l.last_contact_at ?? null,
   createdAt: l.created_at,
   updatedAt: l.updated_at,
 });

@@ -28,11 +28,39 @@ import { sLead, sLeadDetail, sLeadComment, sLeadHistory, sOrder, sTrade } from "
  * `users` instead of duplicating it.
  */
 
-/** Funnel stages, in the order the desk works them. */
-export const LEAD_STATUSES = [
-  "NEW", "OLDDB", "CALLBACK", "WELCOME_CALL", "NO_ANSWER",
-  "WRONG_INFO", "LOW_POTENTIAL", "NOT_INTERESTED", "DENY_REG", "UNDER_18",
+/**
+ * Funnel stages, in the order the desk works them.
+ *
+ * The original set was almost entirely dead ends — seven of ten were a reason
+ * the lead failed — so there was no way to record that a lead was making
+ * progress, and no funnel could be measured from it. WORKING carries the
+ * positive half; TERMINAL is where a lead stops. Order matters: it is the
+ * pipeline order the list sorts by, which is why status sorting is not
+ * alphabetical.
+ */
+export const LEAD_STATUSES_WORKING = [
+  "NEW", "CONTACTED", "QUALIFIED", "CALLBACK", "WELCOME_CALL",
+  "REGISTERED", "DEPOSITED", "ACTIVE",
 ] as const;
+
+export const LEAD_STATUSES_TERMINAL = [
+  "OLDDB", "NO_ANSWER", "WRONG_INFO", "LOW_POTENTIAL",
+  "NOT_INTERESTED", "DENY_REG", "UNDER_18", "LOST",
+] as const;
+
+export const LEAD_STATUSES = [...LEAD_STATUSES_WORKING, ...LEAD_STATUSES_TERMINAL] as const;
+
+/** What the desk has to do next about a lead, and when. */
+export const NEXT_ACTION_TYPES = ["CALL", "FOLLOW_UP", "KYC", "OTHER"] as const;
+
+/** How a logged call reads in the comment thread the desk already follows. */
+const CALL_RESULT_LABEL: Record<string, string> = {
+  NO_ANSWER: "Не ответил",
+  BUSY: "Занято",
+  CALL_BACK: "Просил перезвонить",
+  INTERESTED: "Заинтересован",
+  NOT_INTERESTED: "Не заинтересован",
+};
 
 /** Kept apart from the funnel stage on purpose: a lead can be VERIFIED and
  * NOT_INTERESTED at the same time, and collapsing the two would lose that. */
@@ -40,6 +68,7 @@ export const VERIFICATION_STATUSES = ["NOT_SUBMITTED", "PENDING", "VERIFIED", "R
 
 const leadStatus = z.enum(LEAD_STATUSES);
 const verificationStatus = z.enum(VERIFICATION_STATUSES);
+const nextActionType_ = z.enum(NEXT_ACTION_TYPES);
 
 const q = {
   // The card: the lead itself, plus whatever the platform knows if this lead
@@ -128,6 +157,14 @@ const q = {
     LEFT JOIN users u ON u.id = h.manager_id
     WHERE h.lead_id = ? ORDER BY h.created_at DESC LIMIT 100
   `),
+  // Set or clear the follow-up. `last_contact_at` is deliberately not touched
+  // here — scheduling a call is not the same as having made one.
+  setNextAction: db.prepare(`
+    UPDATE leads SET next_action_at = @at, next_action_type = @type, updated_at = @ts
+    WHERE id = @id
+  `),
+  /** The desk touched this lead for real (a logged call, not an edit). */
+  markContacted: db.prepare("UPDATE leads SET last_contact_at = @ts, updated_at = @ts WHERE id = @id"),
   insComment: db.prepare(`
     INSERT INTO lead_comments (id, lead_id, manager_id, text, created_at)
     VALUES (@id, @leadId, @managerId, @text, @ts)
@@ -221,6 +258,19 @@ const SORT_COLUMNS: Record<string, string> = {
   country: "l.country",
   manager: "m.name",
   createdAt: "l.created_at",
+  updatedAt: "l.updated_at",
+  // Ascending = the most overdue first, which is the order a desk works its
+  // follow-up queue in; rows with nothing scheduled sort last via NULLS LAST.
+  nextActionAt: "l.next_action_at",
+  lastContactAt: "l.last_contact_at",
+  // No account first when ascending, then registered, then active/blocked —
+  // the same order the account column reads in.
+  accountStatus: `CASE
+      WHEN l.platform_user_id IS NULL THEN 0
+      WHEN u.status = 'SUSPENDED' THEN 4
+      WHEN COALESCE(u.kyc_status, 'NONE') = 'APPROVED' THEN 3
+      WHEN COALESCE(u.kyc_status, 'NONE') = 'PENDING' THEN 2
+      ELSE 1 END`,
 };
 
 interface LeadsQueryInput {
@@ -235,6 +285,13 @@ interface LeadsQueryInput {
   fullName?: string; phone?: string; email?: string; country?: string; accountNumber?: string;
   /** "true" = already a platform client, "false" = still just a lead. */
   converted?: "true" | "false";
+  /** The Velora account behind the lead, which is a different axis from the
+   * sales stage: a lead can be NOT_INTERESTED and still have a funded,
+   * active account. Derived from the account relation, never a second column. */
+  account?: "NO_ACCOUNT" | "HAS_ACCOUNT" | "ACTIVE" | "BLOCKED";
+  /** The follow-up queue: what is due today, what is late, what has nothing
+   * scheduled at all. */
+  nextAction?: "TODAY" | "OVERDUE" | "NONE";
   /** <input type="date"> values (YYYY-MM-DD) — widened to the whole day on
    * the "to" end, see the createdTo clause below. */
   createdFrom?: string; createdTo?: string;
@@ -298,6 +355,20 @@ function buildLeadsQuery(p: LeadsQueryInput): { sql: { list: string; count: stri
   // box in a list of known sources means.
   anyOf("l.source", "source", p.source);
   if (p.converted) { clauses.push(p.converted === "true" ? "l.platform_user_id IS NOT NULL" : "l.platform_user_id IS NULL"); }
+  // Account state comes from the joined user row — the lead table holds no
+  // copy of it, so these can never disagree with what the account really is.
+  if (p.account === "NO_ACCOUNT") clauses.push("l.platform_user_id IS NULL");
+  if (p.account === "HAS_ACCOUNT") clauses.push("l.platform_user_id IS NOT NULL");
+  if (p.account === "ACTIVE") clauses.push("u.status = 'ACTIVE'");
+  if (p.account === "BLOCKED") clauses.push("u.status = 'SUSPENDED'");
+  if (p.nextAction === "NONE") clauses.push("l.next_action_at IS NULL");
+  if (p.nextAction === "OVERDUE") { clauses.push("l.next_action_at IS NOT NULL AND l.next_action_at < @nowIso"); args.nowIso = new Date().toISOString(); }
+  if (p.nextAction === "TODAY") {
+    clauses.push("l.next_action_at IS NOT NULL AND l.next_action_at >= @todayFrom AND l.next_action_at <= @todayTo");
+    const d = new Date();
+    args.todayFrom = `${d.toISOString().slice(0, 10)}T00:00:00.000Z`;
+    args.todayTo = `${d.toISOString().slice(0, 10)}T23:59:59.999Z`;
+  }
   if (p.createdFrom) { clauses.push("l.created_at >= @createdFrom"); args.createdFrom = `${p.createdFrom}T00:00:00.000Z`; }
   if (p.createdTo) { clauses.push("l.created_at <= @createdTo"); args.createdTo = `${p.createdTo}T23:59:59.999Z`; }
 
@@ -342,6 +413,7 @@ function buildLeadsQuery(p: LeadsQueryInput): { sql: { list: string; count: stri
     sql: {
       list: `SELECT l.*, m.name AS manager_name, m.email AS manager_email,
                     u.email AS platform_email, u.kyc_status AS platform_kyc_status,
+                    u.status AS platform_status,
                     u.account_number AS platform_account_number
              ${fromJoin} ${where} ${orderBy} LIMIT @limit OFFSET @offset`,
       count: `SELECT COUNT(*) AS n ${fromJoin} ${where}`,
@@ -442,9 +514,12 @@ export default async function crmRoutes(app: FastifyInstance) {
       email: z.string().max(254).optional(),
       country: z.string().max(64).optional(),
       accountNumber: z.string().max(20).optional(),
+      account: z.enum(["NO_ACCOUNT", "HAS_ACCOUNT", "ACTIVE", "BLOCKED"]).optional(),
+      nextAction: z.enum(["TODAY", "OVERDUE", "NONE"]).optional(),
       sortBy: z.enum([
         "accountNumber", "fullName", "phone", "email", "status",
         "verificationStatus", "country", "manager", "createdAt",
+        "updatedAt", "nextActionAt", "lastContactAt", "accountStatus",
       ]).default("createdAt"),
       sortDir: z.enum(["asc", "desc"]).default("desc"),
       page: z.coerce.number().int().min(1).default(1),
@@ -516,7 +591,17 @@ export default async function crmRoutes(app: FastifyInstance) {
 
   app.patch("/leads/:id/status", async (req) => {
     const { id } = z.object({ id: z.string() }).parse(req.params);
-    const { status } = z.object({ status: leadStatus }).parse(req.body);
+    const { status, nextActionAt, nextActionType, note } = z.object({
+      status: leadStatus,
+      // A CALLBACK with no date was the hole this fills: the stage and the
+      // moment it refers to are set in one call, so the follow-up queue can
+      // never disagree with the status that created it.
+      nextActionAt: z.string().datetime().nullish(),
+      nextActionType: nextActionType_.nullish(),
+      /** Why — a lost reason, or what was agreed. Kept as a comment so it
+       * lands in the same thread the desk already reads. */
+      note: z.string().trim().max(2000).optional(),
+    }).parse(req.body);
 
     const lead = (await q.bare.get(id)) as any;
     if (!lead) throw notFound("Лид не найден");
@@ -528,11 +613,194 @@ export default async function crmRoutes(app: FastifyInstance) {
       // must not leave a history row for a transition that did not happen.
       if (!updated) throw badRequest("STATUS_CHANGED", "Статус уже изменён другим менеджером — обновите карточку");
       await logTransition({ leadId: id, managerId: req.user.sub, kind: "STATUS", old: lead.status, next: status });
+      if (nextActionAt !== undefined || nextActionType !== undefined) {
+        await q.setNextAction.run({
+          id,
+          at: nextActionAt ?? null,
+          type: nextActionAt ? (nextActionType ?? "CALL") : null,
+          ts: now(),
+        });
+      }
+      if (note) {
+        await q.insComment.run({ id: newId(), leadId: id, managerId: req.user.sub, text: note, ts: now() });
+      }
       await audit({ actorId: req.user.sub, action: "CRM_LEAD_STATUS_CHANGED",
-        meta: { leadId: id, from: lead.status, to: status }, ip: req.ip });
+        meta: { leadId: id, from: lead.status, to: status, nextActionAt: nextActionAt ?? null }, ip: req.ip });
     });
 
     return { lead: sLeadDetail((await q.one.get(id)) as any), changed: true };
+  });
+
+  /**
+   * The follow-up on a lead: when the desk next has to do something, and what.
+   * Separate from the status route because a follow-up moves independently —
+   * pushing a call to tomorrow is not a stage change.
+   */
+  app.patch("/leads/:id/next-action", async (req) => {
+    const { id } = z.object({ id: z.string() }).parse(req.params);
+    const body = z.object({
+      /** null clears the follow-up — "nothing planned" is a real state the
+       * queue filters on, not an absence of data. */
+      at: z.string().datetime().nullable(),
+      type: nextActionType_.nullish(),
+    }).parse(req.body);
+
+    const lead = (await q.bare.get(id)) as any;
+    if (!lead) throw notFound("Лид не найден");
+
+    await q.setNextAction.run({
+      id,
+      at: body.at,
+      type: body.at ? (body.type ?? "CALL") : null,
+      ts: now(),
+    });
+    await audit({ actorId: req.user.sub, action: "CRM_LEAD_NEXT_ACTION_SET",
+      meta: { leadId: id, at: body.at, type: body.at ? (body.type ?? "CALL") : null }, ip: req.ip });
+
+    return { lead: sLeadDetail((await q.one.get(id)) as any) };
+  });
+
+  /**
+   * A call that actually happened. Records the outcome, stamps last contact,
+   * and — when the outcome is "call back" — schedules the next one in the
+   * same request, so the two can never disagree.
+   */
+  app.post("/leads/:id/calls", async (req, reply) => {
+    const { id } = z.object({ id: z.string() }).parse(req.params);
+    const body = z.object({
+      result: z.enum(["NO_ANSWER", "BUSY", "CALL_BACK", "INTERESTED", "NOT_INTERESTED"]),
+      note: z.string().trim().max(2000).optional(),
+      nextActionAt: z.string().datetime().nullish(),
+    }).parse(req.body);
+
+    const lead = (await q.bare.get(id)) as any;
+    if (!lead) throw notFound("Лид не найден");
+
+    // The outcome implies a stage for the obvious cases only; anything
+    // ambiguous leaves the stage where the manager put it.
+    const implied: Record<string, string | null> = {
+      NO_ANSWER: "NO_ANSWER", BUSY: null, CALL_BACK: "CALLBACK",
+      INTERESTED: "QUALIFIED", NOT_INTERESTED: "NOT_INTERESTED",
+    };
+    const nextStatus = implied[body.result];
+
+    await tx(async () => {
+      await q.markContacted.run({ id, ts: now() });
+      if (nextStatus && nextStatus !== lead.status) {
+        const updated = await q.setStatus.get({ id, next: nextStatus, current: lead.status, ts: now() });
+        if (updated) {
+          await logTransition({ leadId: id, managerId: req.user.sub, kind: "STATUS", old: lead.status, next: nextStatus });
+        }
+      }
+      if (body.result === "CALL_BACK" || body.nextActionAt) {
+        await q.setNextAction.run({ id, at: body.nextActionAt ?? null, type: body.nextActionAt ? "CALL" : null, ts: now() });
+      }
+      const text = body.note?.trim()
+        ? `☎ ${CALL_RESULT_LABEL[body.result]} — ${body.note.trim()}`
+        : `☎ ${CALL_RESULT_LABEL[body.result]}`;
+      await q.insComment.run({ id: newId(), leadId: id, managerId: req.user.sub, text, ts: now() });
+      await audit({ actorId: req.user.sub, action: "CRM_LEAD_CALL_LOGGED",
+        meta: { leadId: id, result: body.result }, ip: req.ip });
+    });
+
+    reply.code(201);
+    return { lead: sLeadDetail((await q.one.get(id)) as any) };
+  });
+
+  /**
+   * Bulk assign and bulk status, for a desk working an imported batch. Both
+   * run the same per-lead path as the single-lead routes (same history rows,
+   * same audit entries) rather than a bare UPDATE ... WHERE id IN (...) —
+   * a batch of fifty must leave the same trail as fifty single edits.
+   */
+  app.post("/leads/bulk/assign", async (req) => {
+    const body = z.object({
+      ids: z.array(z.string()).min(1).max(200),
+      managerId: z.string().nullable(),
+    }).parse(req.body);
+
+    // Same guard as the single-lead route: an active manager, checked against
+    // the same list the assignee select is built from.
+    if (body.managerId) {
+      const managers = (await q.managers.all()) as { id: string }[];
+      if (!managers.some((m) => m.id === body.managerId)) {
+        throw badRequest("NOT_A_MANAGER", "Назначить можно только активного менеджера");
+      }
+    }
+
+    let changed = 0;
+    for (const id of body.ids) {
+      const lead = (await q.bare.get(id)) as any;
+      if (!lead || lead.assigned_manager_id === body.managerId) continue;
+      await q.assign.run(body.managerId, now(), id);
+      // Reassignment is recorded in the audit log, not lead_status_history —
+      // that table holds status/verification transitions only, and the single
+      // -lead route writes exactly this entry. One per lead, so a bulk move
+      // reads back the same way fifty single moves would.
+      await audit({ actorId: req.user.sub, targetUserId: body.managerId ?? undefined,
+        action: "CRM_LEAD_ASSIGNED", meta: { leadId: id, managerId: body.managerId, bulk: true }, ip: req.ip });
+      changed++;
+    }
+    return { changed };
+  });
+
+  app.post("/leads/bulk/status", async (req) => {
+    const body = z.object({
+      ids: z.array(z.string()).min(1).max(200),
+      status: leadStatus,
+    }).parse(req.body);
+
+    let changed = 0;
+    for (const id of body.ids) {
+      const lead = (await q.bare.get(id)) as any;
+      if (!lead || lead.status === body.status) continue;
+      // Per-lead transaction, so one lead losing the race to another manager
+      // leaves the rest of the batch applied instead of rolling all of it back.
+      const moved = await tx(async () => {
+        const updated = await q.setStatus.get({ id, next: body.status, current: lead.status, ts: now() });
+        if (!updated) return false;
+        await logTransition({ leadId: id, managerId: req.user.sub, kind: "STATUS", old: lead.status, next: body.status });
+        await audit({ actorId: req.user.sub, action: "CRM_LEAD_STATUS_CHANGED",
+          meta: { leadId: id, from: lead.status, to: body.status, bulk: true }, ip: req.ip });
+        return true;
+      });
+      if (moved) changed++;
+    }
+    return { changed, skipped: body.ids.length - changed };
+  });
+
+  /**
+   * The one-line summary above the table: what a manager needs to know before
+   * they touch anything. Counted server-side so it reflects the whole base,
+   * not the page currently loaded.
+   */
+  app.get("/leads/summary", async (req) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const row = (await db.prepare(`
+      SELECT
+        COUNT(*) FILTER (WHERE l.status = 'NEW')                                    AS new_leads,
+        COUNT(*) FILTER (WHERE l.assigned_manager_id IS NULL)                       AS unassigned,
+        COUNT(*) FILTER (WHERE l.next_action_at >= @todayFrom
+                           AND l.next_action_at <= @todayTo)                        AS due_today,
+        COUNT(*) FILTER (WHERE l.next_action_at < @nowIso)                          AS overdue,
+        COUNT(*) FILTER (WHERE l.assigned_manager_id = @me)                         AS mine,
+        COUNT(*) FILTER (WHERE u.status = 'ACTIVE')                                 AS active_accounts
+      FROM leads l LEFT JOIN users u ON u.id = l.platform_user_id
+    `).get({
+      todayFrom: `${today}T00:00:00.000Z`,
+      todayTo: `${today}T23:59:59.999Z`,
+      nowIso: new Date().toISOString(),
+      me: req.user.sub,
+    })) as any;
+
+    return {
+      newLeads: asNum(row.new_leads),
+      unassigned: asNum(row.unassigned),
+      dueToday: asNum(row.due_today),
+      overdue: asNum(row.overdue),
+      mine: asNum(row.mine),
+      activeAccounts: asNum(row.active_accounts),
+    };
   });
 
   app.patch("/leads/:id/verification", async (req) => {

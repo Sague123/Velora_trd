@@ -357,8 +357,15 @@ CREATE TABLE IF NOT EXISTS leads (
   created_at          TEXT NOT NULL,
   updated_at          TEXT NOT NULL,
   CONSTRAINT leads_status_check CHECK (status IN (
-    'NEW', 'OLDDB', 'CALLBACK', 'WELCOME_CALL', 'NO_ANSWER',
-    'WRONG_INFO', 'LOW_POTENTIAL', 'NOT_INTERESTED', 'DENY_REG', 'UNDER_18'
+    -- Working stages, in pipeline order. The original ten were almost all
+    -- dead ends (seven of them were a reason the lead failed), so a desk had
+    -- no way to say "this one is progressing" — these six carry the positive
+    -- half of the funnel.
+    'NEW', 'CONTACTED', 'QUALIFIED', 'CALLBACK', 'WELCOME_CALL',
+    'REGISTERED', 'DEPOSITED', 'ACTIVE',
+    -- Terminal states. OLDDB is a source marker kept from the original set.
+    'OLDDB', 'NO_ANSWER', 'WRONG_INFO', 'LOW_POTENTIAL',
+    'NOT_INTERESTED', 'DENY_REG', 'UNDER_18', 'LOST'
   )),
   CONSTRAINT leads_verification_check CHECK (verification_status IN (
     'NOT_SUBMITTED', 'PENDING', 'VERIFIED', 'REJECTED'
@@ -626,6 +633,34 @@ export async function migrate(): Promise<void> {
   await addColumnIfMissing("leads", "manager_consent_at", "manager_consent_at TEXT");
   await addColumnIfMissing("leads", "manager_consent_by", "manager_consent_by TEXT REFERENCES users(id) ON DELETE SET NULL");
   await addColumnIfMissing("leads", "manager_consent_for", "manager_consent_for TEXT REFERENCES users(id) ON DELETE SET NULL");
+
+  // --- sales-desk workflow -------------------------------------------------
+  // When the desk next has to do something about this lead, and what. A
+  // CALLBACK status with no date was the single biggest hole in the funnel:
+  // the desk was typing "call back Tuesday" into a free-text comment because
+  // there was nowhere else to put it, which meant no "who do I call today"
+  // list could exist.
+  await addColumnIfMissing("leads", "next_action_at", "next_action_at TEXT");
+  await addColumnIfMissing("leads", "next_action_type", "next_action_type TEXT");
+  // When someone last actually reached this lead — distinct from updated_at,
+  // which moves on any edit including ones the client never saw.
+  await addColumnIfMissing("leads", "last_contact_at", "last_contact_at TEXT");
+
+  // The funnel gained its positive half (see SCHEMA). An existing database
+  // still carries the original ten-value constraint, and CREATE TABLE IF NOT
+  // EXISTS will not touch it, so it is replaced here. Existing rows all hold
+  // values that are still legal, so nothing needs rewriting.
+  await pool.query("ALTER TABLE leads DROP CONSTRAINT IF EXISTS leads_status_check");
+  await pool.query(`
+    ALTER TABLE leads ADD CONSTRAINT leads_status_check CHECK (status IN (
+      'NEW', 'CONTACTED', 'QUALIFIED', 'CALLBACK', 'WELCOME_CALL',
+      'REGISTERED', 'DEPOSITED', 'ACTIVE',
+      'OLDDB', 'NO_ANSWER', 'WRONG_INFO', 'LOW_POTENTIAL',
+      'NOT_INTERESTED', 'DENY_REG', 'UNDER_18', 'LOST'
+    ))
+  `);
+  // The follow-up queue is read as "everything due before now, oldest first".
+  await pool.query("CREATE INDEX IF NOT EXISTS idx_leads_next_action ON leads(next_action_at) WHERE next_action_at IS NOT NULL");
   await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_account_number ON users(account_number)");
   await backfillAccountNumbers();
   await backfillLeadsForUsers();
