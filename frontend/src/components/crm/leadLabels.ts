@@ -156,25 +156,6 @@ export const TONE_CLASS: Record<Tone, string> = {
   "cat-rose": "bg-cat-rose-soft text-cat-rose",
 };
 
-/** Text-only counterpart of TONE_CLASS, no background — for highlighting a
- * lead's name by its own status colour in the table and the card header,
- * where a full pill would be too heavy for running text. `muted`/`neutral`
- * intentionally fall back to the normal body colour: a status that reads as
- * "nothing special" should not tint the one piece of text every row leads
- * with. */
-export const TONE_TEXT_CLASS: Record<Tone, string> = {
-  accent: "text-accent",
-  warn: "text-warn",
-  muted: "text-txt-0",
-  neutral: "text-txt-0",
-  "cat-gold": "text-cat-gold",
-  "cat-teal": "text-cat-teal",
-  "cat-indigo": "text-cat-indigo",
-  "cat-violet": "text-cat-violet",
-  "cat-magenta": "text-cat-magenta",
-  "cat-rose": "text-cat-rose",
-};
-
 /** Each power an admin can grant a manager beyond the base CRM pipeline —
  * see server/src/lib/crmPermissions.ts for why these four specifically. */
 export const CRM_PERMISSION_LABEL: Record<CrmPermission, string> = {

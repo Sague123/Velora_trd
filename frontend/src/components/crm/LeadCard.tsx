@@ -15,11 +15,14 @@ import { AuditPanel } from "./AuditPanel";
 import { PasswordResetForm } from "./PasswordResetForm";
 import { ConvertLeadButton, RevealedPasswordBanner } from "./ConvertLeadButton";
 import { ViewTokenButton } from "./ViewTokenButton";
+import { CallLogForm } from "./CallLogForm";
+import { ContactAction } from "./ContactActions";
+import { NextActionCell } from "./NextActionCell";
 import {
-  LEAD_STATUS_LABEL, LEAD_STATUS_TONE, TONE_TEXT_CLASS, VERIFICATION_LABEL, VERIFICATION_TONE,
+  LEAD_STATUS_LABEL, LEAD_STATUS_TONE, VERIFICATION_LABEL, VERIFICATION_TONE,
 } from "./leadLabels";
 import type { LeadDetail, LeadStatus, LeadVerificationStatus } from "../../lib/types";
-import { IconClose, IconPencil } from "../icons/Icon";
+import { IconClose, IconMail, IconPencil, IconPhone } from "../icons/Icon";
 import { buttonCls, fieldCls } from "../../lib/ui";
 
 const selectCls = fieldCls("md", "w-full");
@@ -129,7 +132,7 @@ function Field({ label, value, mono }: { label: string; value: React.ReactNode; 
       {/* Missing data shows an em dash. Never a plausible-looking placeholder —
           a CRM that invents a phone number is worse than one that admits it
           has none. */}
-      <div className={classNames("text-xs text-txt-0", mono && "mono")}>{value || "—"}</div>
+      <div className={classNames("break-words text-xs text-txt-0", mono && "mono")}>{value || "—"}</div>
     </div>
   );
 }
@@ -170,6 +173,7 @@ export function LeadCard({ leadId, onClose }: { leadId: string; onClose: () => v
   // anyone had a chance to read it. Rendered above the tabs so it survives a
   // tab switch too.
   const [revealedPassword, setRevealedPassword] = useState<string | null>(null);
+  const [loggingCall, setLoggingCall] = useState(false);
 
   const lead = detail.data?.lead;
   const history = detail.data?.history ?? [];
@@ -239,18 +243,19 @@ export function LeadCard({ leadId, onClose }: { leadId: string; onClose: () => v
     setEditing(false);
   }
 
-  const nameTone = lead ? TONE_TEXT_CLASS[LEAD_STATUS_TONE[lead.status]] : "";
-
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div
         className="anim-rise flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-line bg-bg-1 shadow-lift"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-line bg-bg-2/40 px-4 py-3">
-          <div className="min-w-0">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-line bg-bg-2/40 px-4 py-3">
+          {/* Full width on a phone: sharing the row with three action
+              buttons left `flex-1` nothing to work with and truncated the
+              lead's name away to zero. */}
+          <div className="min-w-0 w-full sm:w-auto sm:flex-1">
             <div className="flex items-baseline gap-2">
-              <span className={classNames("truncate text-sm font-semibold", nameTone)}>{lead?.fullName ?? "…"}</span>
+              <span className="truncate text-sm font-semibold text-txt-0">{lead?.fullName ?? "…"}</span>
               {lead?.accountNumber && <span className="mono shrink-0 text-2xs text-txt-3">ID {lead.accountNumber}</span>}
             </div>
             {lead && (
@@ -263,9 +268,37 @@ export function LeadCard({ leadId, onClose }: { leadId: string; onClose: () => v
               </div>
             )}
           </div>
-          <button onClick={onClose} className="btn-fx flex shrink-0 items-center gap-1 rounded-lg border border-line px-2 py-1 text-xs text-txt-2 hover:text-txt-0">
-            <IconClose size={12} /> Закрыть
-          </button>
+          {/* The three things a manager does from this card, where they can
+              be reached without scrolling: dial, write, and record what came
+              of it. They used to be nowhere — the number was plain text and
+              the outcome went into a free-text comment at the bottom. */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {lead?.phone && (
+              <a
+                href={`tel:${lead.phone.replace(/[^\d+]/g, "")}`}
+                className={buttonCls("secondary", "sm", "gap-1")}
+                title={`Позвонить ${lead.phone}`}
+              >
+                <IconPhone size={12} /> Позвонить
+              </a>
+            )}
+            {lead?.email && (
+              <a href={`mailto:${lead.email}`} className={buttonCls("secondary", "sm", "gap-1")} title={`Написать ${lead.email}`}>
+                <IconMail size={12} /> Написать
+              </a>
+            )}
+            {lead && (
+              <button
+                onClick={() => { setTab("main"); setLoggingCall(true); }}
+                className={buttonCls("primary", "sm")}
+              >
+                Записать звонок
+              </button>
+            )}
+            <button onClick={onClose} aria-label="Закрыть" className={buttonCls("ghost", "sm", "gap-1")}>
+              <IconClose size={12} /> Закрыть
+            </button>
+          </div>
         </div>
 
         {revealedPassword && (
@@ -302,6 +335,8 @@ export function LeadCard({ leadId, onClose }: { leadId: string; onClose: () => v
 
               {lead && form && tab === "main" && (
                 <>
+                  {loggingCall && <CallLogForm leadId={leadId} onDone={() => setLoggingCall(false)} />}
+
                   <div className="mb-1.5 flex items-center justify-between">
                     <span className="text-2xs font-semibold uppercase tracking-wide text-txt-2">Персональные данные</span>
                     {!editing && (
@@ -362,9 +397,35 @@ export function LeadCard({ leadId, onClose }: { leadId: string; onClose: () => v
                     </div>
                   )}
 
+                  <div className="mb-1.5 text-2xs font-semibold uppercase tracking-wide text-txt-2">Продажа</div>
+
+                  {/* Where the lead is, who owns it, and when it is touched
+                      next — the three things that actually move a deal, in one
+                      block instead of scattered between a select and a column
+                      in the table behind this card. */}
+                  <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-line-soft bg-bg-2/30 p-3">
+                    <div>
+                      <div className="mb-0.5 text-2xs text-txt-2">Следующий шаг</div>
+                      <NextActionCell leadId={leadId} at={lead.nextActionAt} type={lead.nextActionType} />
+                    </div>
+                    <div>
+                      <div className="text-2xs text-txt-2">Последний контакт</div>
+                      <div className="tabular text-xs text-txt-0">
+                        {lead.lastContactAt ? fmtDateTime(lead.lastContactAt) : "не было"}
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-2xs text-txt-2">Связаться</div>
+                      <div className="flex flex-wrap items-center gap-x-3 text-xs">
+                        <ContactAction value={lead.phone} kind="phone" />
+                        <ContactAction value={lead.email} kind="email" />
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <label className="block">
-                      <span className="mb-1 block text-2xs font-medium text-txt-2">Статус лида</span>
+                      <span className="mb-1 block text-2xs font-medium text-txt-2">Этап воронки</span>
                       <select
                         value={lead.status}
                         disabled={setStatus.isPending}
@@ -416,32 +477,55 @@ export function LeadCard({ leadId, onClose }: { leadId: string; onClose: () => v
                     </div>
                   )}
 
-                  <div className="mb-1.5 text-2xs font-semibold uppercase tracking-wide text-txt-2">Логи</div>
+                  <div className="mb-1.5 text-2xs font-semibold uppercase tracking-wide text-txt-2">История</div>
                   {history.length > 0 && (
-                    <div className="mb-3 space-y-0.5 rounded-lg border border-line-soft bg-bg-2/30 p-2">
-                      {history.map((h) => (
-                        <div key={h.id} className="flex flex-wrap items-center gap-1.5 text-2xs text-txt-2">
-                          <span className="tabular text-txt-3">{fmtDateTime(h.createdAt)}</span>
-                          <span className="text-txt-3">{HISTORY_KIND_LABEL[h.kind] ?? h.kind}:</span>
-                          {/* Consent and trade edits don't move between two
-                              enum values, so they carry the whole sentence in
-                              newStatus — rendering them as "X → Y" would print
-                              a dash and half a message. */}
-                          {h.kind === "STATUS" || h.kind === "VERIFICATION" ? (
-                            <span>
-                              {historyLabel(h.kind, h.oldStatus)} → <span className="text-txt-0">{historyLabel(h.kind, h.newStatus)}</span>
-                            </span>
-                          ) : (
-                            <span className={classNames("text-txt-0", h.kind === "TRADE_EDIT" && "text-warn")}>
-                              {h.kind === "CONSENT"
-                                ? (h.newStatus === "GRANTED" ? "получено" : "отозвано")
-                                : h.newStatus}
-                            </span>
+                    /* A rail with a dot per event rather than a flat list of
+                       lines: the whole question a manager asks here is "in
+                       what order did this happen", and a column of identical
+                       rows makes that the hardest thing to read. The audit log
+                       below stays exactly as it was — this is the sales story,
+                       that is the compliance record, and they answer different
+                       questions. */
+                    <ol className="mb-3 rounded-lg border border-line-soft bg-bg-2/30 p-3">
+                      {history.map((h, i) => (
+                        <li key={h.id} className="relative flex gap-2.5 pb-2.5 last:pb-0">
+                          {i < history.length - 1 && (
+                            <span aria-hidden className="absolute left-[3px] top-2.5 h-full w-px bg-line" />
                           )}
-                          {h.manager && <span className="text-txt-3">· {h.manager.name}</span>}
-                        </div>
+                          <span
+                            aria-hidden
+                            className={classNames(
+                              "relative mt-1.5 h-[7px] w-[7px] shrink-0 rounded-full",
+                              h.kind === "TRADE_EDIT" ? "bg-warn" : h.kind === "CONSENT" ? "bg-cat-teal" : "bg-accent"
+                            )}
+                          />
+                          <div className="min-w-0 flex-1 text-2xs text-txt-2">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="text-txt-3">{HISTORY_KIND_LABEL[h.kind] ?? h.kind}:</span>
+                              {/* Consent and trade edits don't move between two
+                                  enum values, so they carry the whole sentence in
+                                  newStatus — rendering them as "X → Y" would print
+                                  a dash and half a message. */}
+                              {h.kind === "STATUS" || h.kind === "VERIFICATION" ? (
+                                <span>
+                                  {historyLabel(h.kind, h.oldStatus)} → <span className="text-txt-0">{historyLabel(h.kind, h.newStatus)}</span>
+                                </span>
+                              ) : (
+                                <span className={classNames("text-txt-0", h.kind === "TRADE_EDIT" && "text-warn")}>
+                                  {h.kind === "CONSENT"
+                                    ? (h.newStatus === "GRANTED" ? "получено" : "отозвано")
+                                    : h.newStatus}
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-0.5 text-3xs text-txt-3">
+                              <span className="tabular">{fmtDateTime(h.createdAt)}</span>
+                              {h.manager && <> · {h.manager.name}</>}
+                            </div>
+                          </div>
+                        </li>
                       ))}
-                    </div>
+                    </ol>
                   )}
                   {isAdmin && lead.platform && <AuditPanel userId={lead.platform.userId} />}
                   {history.length === 0 && !(isAdmin && lead.platform) && (
