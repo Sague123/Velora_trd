@@ -582,6 +582,16 @@ button:disabled { cursor: not-allowed; }
 .page-slide-right { animation: page-in-from-right 260ms cubic-bezier(0.16, 1, 0.3, 1) both; }
 .page-slide-left { animation: page-in-from-left 260ms cubic-bezier(0.16, 1, 0.3, 1) both; }
 
+/* ---------------------------- landing terminal ---------------------------- */
+/* The landing's terminal preview "draws itself" once on mount — each candle
+ * grows up from its own baseline rather than fading in, same transform-only
+ * rule as rise-in above. Runs once per bar (staggered delay in the
+ * component), not a loop. */
+@keyframes candle-grow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
 /* ------------------------- section glow / neon strip ---------------------- */
 /* The authenticated shell is deliberately flat and bordered (see the top of
  * this file), but three screens are dashboards/consoles rather than the

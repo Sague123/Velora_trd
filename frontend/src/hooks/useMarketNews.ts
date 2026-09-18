@@ -12,10 +12,13 @@ export interface NewsArticle {
 /**
  * Real crypto headlines from CryptoCompare's public news endpoint (no key
  * required for this feed). If it's unreachable — network/CORS/upstream
- * down — this resolves to `null`, and MarketNewsSection renders an honest
- * "feed not connected" state instead of fabricating articles or throwing.
- * Swapping in a different provider later is just a new fetch in here; the
- * component only ever consumes the NewsArticle[] shape.
+ * down — this resolves to `null`; a caller should render an honest "feed not
+ * connected" state instead of fabricating articles or throwing.
+ *
+ * Not currently used anywhere (its one caller, the landing's old market-news
+ * section, was replaced — see HomePage.tsx) — left in place as a working,
+ * ready-to-use primitive rather than deleted, since a news feed is a
+ * plausible fit for a future Markets or Overview panel.
  */
 async function fetchNews(): Promise<NewsArticle[] | null> {
   try {

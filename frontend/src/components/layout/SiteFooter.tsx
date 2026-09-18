@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Logo } from "./Logo";
 
 /**
@@ -14,6 +15,8 @@ import { Logo } from "./Logo";
  * marker the practical job above actually needs.
  */
 export function SiteFooter({ compact = false }: { compact?: boolean } = {}) {
+  const { t } = useTranslation();
+
   if (compact) {
     return (
       <footer className="mt-3 border-t border-line-soft px-1 py-2.5 text-2xs text-txt-3">
@@ -31,14 +34,14 @@ export function SiteFooter({ compact = false }: { compact?: boolean } = {}) {
         <div className="flex items-center gap-2">
           <Logo size={18} />
           <span className="text-sm font-semibold tracking-tight text-txt-0">Velora</span>
-          <span className="text-2xs text-txt-3">— лучшая криптоплатформа</span>
+          <span className="text-2xs text-txt-3">— {t("home.footerTagline")}</span>
         </div>
 
         <nav className="flex flex-wrap items-center gap-x-4 gap-y-1 text-2xs text-txt-2">
-          <Link to="/markets" className="hover:text-accent">Markets</Link>
-          <Link to="/terminal" className="hover:text-accent">Trade</Link>
-          <Link to="/strategies" className="hover:text-accent">Strategies</Link>
-          <Link to="/legal/privacy" className="hover:text-accent">Политика данных</Link>
+          <Link to="/markets" className="hover:text-accent">{t("nav.markets")}</Link>
+          <Link to="/terminal" className="hover:text-accent">{t("nav.trade")}</Link>
+          <Link to="/strategies" className="hover:text-accent">{t("nav.strategies")}</Link>
+          <Link to="/legal/privacy" className="hover:text-accent">{t("home.privacyPolicy")}</Link>
         </nav>
       </div>
     </footer>
