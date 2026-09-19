@@ -4,17 +4,17 @@ import { useAuthStore } from "../../store/auth";
 import { IconArrowRight } from "../icons/Icon";
 import { buttonCls } from "../../lib/ui";
 import { MarketTicker } from "./landing/MarketTicker";
-import terminalShot from "../../assets/landing/ui-terminal.png";
+import { GrowthVisual } from "./landing/GrowthVisual";
 
 /**
  * Full-bleed — no card, no border, no radius around the section itself; the
  * page's own background *is* the hero background. Two things carry the
- * weight: the headline/CTA, and a real screenshot of the actual terminal
- * (order book, chart, live position, order ticket — not a redrawn mockup).
- * No illustrated backdrop: this session tried an abstract network/price-line
- * SVG texture here first and it got cut for exactly the reason any hero
- * graphic would — it didn't do anything, it just filled space. The
- * screenshot does the same job and is also true.
+ * weight: the headline/CTA, and GrowthVisual, a purpose-built illustration
+ * of "growing capital" (not a screenshot of the real terminal — a captured
+ * screen inevitably shows whatever state it happened to be in: a stale-quote
+ * banner, a loading order book, a mixed-locale UI from whichever session
+ * took the shot, none of which belongs on a page selling the idea of the
+ * product rather than its current debug state).
  *
  * The market ticker is fused directly to the bottom edge, full width, so the
  * hero and the first proof of "this is a real market" read as one
@@ -57,14 +57,8 @@ export function HeroSection() {
           </div>
         </div>
 
-        <div className="anim-rise-1 mt-8 lg:mt-10">
-          <img
-            src={terminalShot}
-            alt={t("home.landing.terminalScreenshotAlt")}
-            className="w-full rounded-xl border border-line shadow-lift"
-            width={1600}
-            height={945}
-          />
+        <div className="mt-8 lg:mt-10">
+          <GrowthVisual />
         </div>
       </div>
 
