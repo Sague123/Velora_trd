@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../../store/auth";
 import { IconArrowRight } from "../icons/Icon";
 import { TerminalShowcase } from "./landing/TerminalShowcase";
+import { HeroBackdrop } from "./landing/HeroBackdrop";
 
 /**
  * Two zones: pitch + CTA on the left, a self-contained rendition of the
@@ -11,6 +12,12 @@ import { TerminalShowcase } from "./landing/TerminalShowcase";
  * placeholder text (bracketed, unmistakably not final) pending real hero
  * copy — see this session's Этап 0 answers. Nothing here claims a specific
  * result or dresses up a placeholder as a real number.
+ *
+ * `HeroBackdrop` is painted behind the whole card, not scoped to the text
+ * column — that column shrink-wraps its own content (a couple of lines and
+ * a button row), too short for the motif to read as anything. TerminalShowcase
+ * has its own opaque panel background, so in practice the backdrop only ever
+ * shows through the empty space around the text, exactly where it's needed.
  */
 export function HeroSection() {
   const { t } = useTranslation();
@@ -18,8 +25,9 @@ export function HeroSection() {
   const navigate = useNavigate();
 
   return (
-    <div className="anim-rise flex flex-col-reverse items-center gap-6 rounded-xl border border-line bg-bg-1 px-5 py-6 sm:px-8 sm:py-8 lg:flex-row lg:items-center lg:justify-between lg:gap-8">
-      <div className="max-w-xl text-center lg:text-left">
+    <div className="anim-rise relative flex flex-col-reverse items-center gap-6 overflow-hidden rounded-xl border border-line bg-bg-1 px-5 py-6 sm:px-8 sm:py-8 lg:flex-row lg:items-center lg:justify-between lg:gap-8">
+      <HeroBackdrop />
+      <div className="relative max-w-xl text-center lg:text-left">
         <h1 className="text-2xl font-bold leading-tight tracking-tight text-txt-0 sm:text-3xl">
           {t("home.landing.heroTitle")}
         </h1>

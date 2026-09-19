@@ -536,6 +536,13 @@ button:disabled { cursor: not-allowed; }
     radial-gradient(ellipse at bottom right, rgba(124, 58, 237, 0.06), transparent 55%);
 }
 
+/* Landing hero backdrop (see HeroBackdrop.tsx) — a static SVG texture, not a
+ * glow (no animation): same order of magnitude as .hero-glow's own opacity,
+ * since this is meant to actually read as a design element behind the text,
+ * not a bare watermark like .chart-watermark's near-invisible 3.5%. */
+.hero-backdrop { opacity: 0.16; }
+[data-theme="light"] .hero-backdrop { opacity: 0.11; }
+
 /* The middle stop was #7c3aed, which sits at only 3.41:1 on the dark panel —
  * scraping the 3:1 large-text floor at exactly the point of the headline the
  * eye lands on. Lightened to a violet that clears it with real margin while
