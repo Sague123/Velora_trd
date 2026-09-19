@@ -120,6 +120,14 @@ export default function App() {
             biggest reason the product read as "glued together". Signed in,
             `/` goes to the dashboard; signed out, it's still the storefront. */}
         <Route path="/" element={user ? <Navigate to="/overview" replace /> : <HomePage />} />
+        {/* The same marketing page, always reachable regardless of auth state
+            — unlike `/` above, this never redirects a signed-in visitor away.
+            Nothing in the authenticated app's own chrome (Header's logo,
+            the nav) points here on purpose: for someone already signed in,
+            "home" is still the dashboard. This exists for the places that
+            had no link to the storefront at all — the site footer's logo —
+            so the marketing page stays reachable without signing out. */}
+        <Route path="/home" element={<HomePage />} />
         <Route path="/legal/privacy" element={<LegalPage />} />
         {/* Reached from a link in an inbox, which may be on a different device
             from the one that's signed in — so these must work in either state,
