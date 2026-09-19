@@ -205,7 +205,15 @@
       "profileBalanced": "平衡型",
       "profileAggressive": "激进型",
       "specGridStep": "网格步长",
-      "specPositions": "持仓数"
+      "specPositions": "持仓数",
+      "terminalScreenshotAlt": "Velora 真实终端截图：图表、订单簿和下单面板",
+      "strategiesScreenshotAlt": "Velora 真实策略构建器截图：机器人类型、风险档案与回测",
+      "securityScreenshotAlt": "Velora 安全设置截图：双因素认证",
+      "step1Alt": "Velora 注册表单",
+      "step2Alt": "身份验证（KYC）界面",
+      "step3Alt": "充值窗口",
+      "step4Alt": "Velora 交易终端",
+      "finalCtaTitle": "[FINAL CTA TITLE — TBD]"
     },
     "footerTagline": "最佳加密货币平台",
     "privacyPolicy": "隐私政策"

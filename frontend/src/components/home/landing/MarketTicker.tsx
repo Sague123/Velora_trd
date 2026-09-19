@@ -32,20 +32,22 @@ function TickerItem({ symbol }: { symbol: string }) {
   );
 }
 
-/** A thin strip of real, live prices right under the hero — the same feed
- * the terminal itself runs on (`useLiveInstrument`), just six pairs instead
- * of the full catalog. Horizontal scroll rather than wrapping on mobile: a
- * ticker that wraps into a grid stops reading as a ticker. */
+/**
+ * A thin strip of real, live prices, fused to the bottom of the hero — the
+ * same feed the terminal itself runs on (`useLiveInstrument`), just six
+ * pairs instead of the full catalog. Edge-to-edge, not a card: this is the
+ * one section deliberately *not* bounded by the page's own measure, because
+ * a ticker tape that stops short of the viewport edge stops reading as one.
+ * Horizontal scroll rather than wrapping on mobile, for the same reason.
+ */
 export function MarketTicker() {
   const { t } = useTranslation();
 
   return (
-    <div
-      role="group"
-      aria-label={t("home.landing.tickerAriaLabel")}
-      className="anim-rise-1 no-scrollbar flex gap-2 overflow-x-auto rounded-xl border border-line bg-bg-1 px-3 py-2.5"
-    >
-      {SYMBOLS.map((s) => <TickerItem key={s} symbol={s} />)}
+    <div role="group" aria-label={t("home.landing.tickerAriaLabel")} className="w-full border-y border-line bg-bg-1">
+      <div className="no-scrollbar mx-auto flex max-w-[1600px] gap-2 overflow-x-auto px-4 py-2.5">
+        {SYMBOLS.map((s) => <TickerItem key={s} symbol={s} />)}
+      </div>
     </div>
   );
 }

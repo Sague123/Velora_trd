@@ -205,7 +205,15 @@
       "profileBalanced": "Balanced",
       "profileAggressive": "Aggressive",
       "specGridStep": "Grid step",
-      "specPositions": "Positions"
+      "specPositions": "Positions",
+      "terminalScreenshotAlt": "Screenshot of the real Velora terminal: chart, order book and order ticket",
+      "strategiesScreenshotAlt": "Screenshot of the real Velora strategy builder: bot type, risk profile and backtest",
+      "securityScreenshotAlt": "Screenshot of Velora's security settings: two-factor authentication",
+      "step1Alt": "Velora's sign-up form",
+      "step2Alt": "Identity verification (KYC) screen",
+      "step3Alt": "Deposit window",
+      "step4Alt": "Velora trading terminal",
+      "finalCtaTitle": "[FINAL CTA TITLE — TBD]"
     },
     "footerTagline": "the best crypto platform",
     "privacyPolicy": "Privacy Policy"

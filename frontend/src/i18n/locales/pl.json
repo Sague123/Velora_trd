@@ -205,7 +205,15 @@
       "profileBalanced": "Zrównoważony",
       "profileAggressive": "Agresywny",
       "specGridStep": "Krok siatki",
-      "specPositions": "Pozycji"
+      "specPositions": "Pozycji",
+      "terminalScreenshotAlt": "Zrzut ekranu prawdziwego terminala Velora: wykres, księga zleceń i formularz zlecenia",
+      "strategiesScreenshotAlt": "Zrzut ekranu prawdziwego kreatora strategii Velora: typ bota, profil ryzyka i backtest",
+      "securityScreenshotAlt": "Zrzut ekranu ustawień bezpieczeństwa Velora: uwierzytelnianie dwuskładnikowe",
+      "step1Alt": "Formularz rejestracji Velora",
+      "step2Alt": "Ekran weryfikacji tożsamości (KYC)",
+      "step3Alt": "Okno wpłaty",
+      "step4Alt": "Terminal handlowy Velora",
+      "finalCtaTitle": "[FINAL CTA TITLE — TBD]"
     },
     "footerTagline": "najlepsza platforma kryptowalutowa",
     "privacyPolicy": "Polityka prywatności"

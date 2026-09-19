@@ -2,22 +2,23 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../../store/auth";
 import { IconArrowRight } from "../icons/Icon";
-import { TerminalShowcase } from "./landing/TerminalShowcase";
-import { HeroBackdrop } from "./landing/HeroBackdrop";
+import { buttonCls } from "../../lib/ui";
+import { MarketTicker } from "./landing/MarketTicker";
+import terminalShot from "../../assets/landing/ui-terminal.png";
 
 /**
- * Two zones: pitch + CTA on the left, a self-contained rendition of the
- * terminal on the right (`TerminalShowcase`) — stacked on mobile, the
- * terminal preview first since it's the thing being sold. Copy is
- * placeholder text (bracketed, unmistakably not final) pending real hero
- * copy — see this session's Этап 0 answers. Nothing here claims a specific
- * result or dresses up a placeholder as a real number.
+ * Full-bleed — no card, no border, no radius around the section itself; the
+ * page's own background *is* the hero background. Two things carry the
+ * weight: the headline/CTA, and a real screenshot of the actual terminal
+ * (order book, chart, live position, order ticket — not a redrawn mockup).
+ * No illustrated backdrop: this session tried an abstract network/price-line
+ * SVG texture here first and it got cut for exactly the reason any hero
+ * graphic would — it didn't do anything, it just filled space. The
+ * screenshot does the same job and is also true.
  *
- * `HeroBackdrop` is painted behind the whole card, not scoped to the text
- * column — that column shrink-wraps its own content (a couple of lines and
- * a button row), too short for the motif to read as anything. TerminalShowcase
- * has its own opaque panel background, so in practice the backdrop only ever
- * shows through the empty space around the text, exactly where it's needed.
+ * The market ticker is fused directly to the bottom edge, full width, so the
+ * hero and the first proof of "this is a real market" read as one
+ * continuous band rather than a card followed by another card.
  */
 export function HeroSection() {
   const { t } = useTranslation();
@@ -25,38 +26,49 @@ export function HeroSection() {
   const navigate = useNavigate();
 
   return (
-    <div className="anim-rise relative flex flex-col-reverse items-center gap-6 overflow-hidden rounded-xl border border-line bg-bg-1 px-5 py-6 sm:px-8 sm:py-8 lg:flex-row lg:items-center lg:justify-between lg:gap-8">
-      <HeroBackdrop />
-      <div className="relative max-w-xl text-center lg:text-left">
-        <h1 className="text-2xl font-bold leading-tight tracking-tight text-txt-0 sm:text-3xl">
-          {t("home.landing.heroTitle")}
-        </h1>
-        <p className="mt-2.5 text-xs text-txt-2 sm:text-sm">{t("home.landing.heroSubtitle")}</p>
+    <div className="w-full border-b border-line">
+      <div className="mx-auto max-w-[1600px] px-4 pb-10 pt-8 sm:pt-12 lg:pb-14 lg:pt-16">
+        <div className="max-w-2xl text-center lg:text-left">
+          <h1 className="text-2xl font-bold leading-tight tracking-tight text-txt-0 sm:text-3xl">
+            {t("home.landing.heroTitle")}
+          </h1>
+          <p className="mt-3 text-xs text-txt-2 sm:text-sm">{t("home.landing.heroSubtitle")}</p>
 
-        <div className="mt-5 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
-          {user ? (
-            <>
-              <button onClick={() => navigate("/terminal")} className="cta-pill cta-trade flex items-center gap-2 px-6 py-3 text-sm">
-                {t("home.landing.heroCta")} <IconArrowRight size={16} />
-              </button>
-              <button onClick={() => navigate("/profile")} className="btn-fx rounded-full border border-line px-5 py-3 text-sm font-medium text-txt-1 hover:border-accent hover:text-accent">
-                {t("overview.myProfile")}
-              </button>
-            </>
-          ) : (
-            <>
-              <button onClick={() => navigate("/register")} className="cta-pill cta-trade flex items-center gap-2 px-6 py-3 text-sm">
-                {t("home.landing.heroCta")} <IconArrowRight size={16} />
-              </button>
-              <button onClick={() => navigate("/login")} className="btn-fx rounded-full border border-line px-5 py-3 text-sm font-medium text-txt-1 hover:border-accent hover:text-accent">
-                {t("home.logIn")}
-              </button>
-            </>
-          )}
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
+            {user ? (
+              <>
+                <button onClick={() => navigate("/terminal")} className={buttonCls("primary", "lg", "rounded-full px-7 py-3 text-sm gap-2")}>
+                  {t("home.landing.heroCta")} <IconArrowRight size={16} />
+                </button>
+                <button onClick={() => navigate("/profile")} className={buttonCls("secondary", "lg", "rounded-full px-6 py-3 text-sm")}>
+                  {t("overview.myProfile")}
+                </button>
+              </>
+            ) : (
+              <>
+                <button onClick={() => navigate("/register")} className={buttonCls("primary", "lg", "rounded-full px-7 py-3 text-sm gap-2")}>
+                  {t("home.landing.heroCta")} <IconArrowRight size={16} />
+                </button>
+                <button onClick={() => navigate("/login")} className={buttonCls("secondary", "lg", "rounded-full px-6 py-3 text-sm")}>
+                  {t("home.logIn")}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="anim-rise-1 mt-8 lg:mt-10">
+          <img
+            src={terminalShot}
+            alt={t("home.landing.terminalScreenshotAlt")}
+            className="w-full rounded-xl border border-line shadow-lift"
+            width={1600}
+            height={945}
+          />
         </div>
       </div>
 
-      <TerminalShowcase />
+      <MarketTicker />
     </div>
   );
 }

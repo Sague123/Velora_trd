@@ -205,7 +205,15 @@
       "profileBalanced": "Vyvážený",
       "profileAggressive": "Agresivní",
       "specGridStep": "Krok gridu",
-      "specPositions": "Pozic"
+      "specPositions": "Pozic",
+      "terminalScreenshotAlt": "Snímek obrazovky skutečného terminálu Velora: graf, knihu objednávek a formulář objednávky",
+      "strategiesScreenshotAlt": "Snímek obrazovky skutečného tvůrce strategií Velora: typ bota, rizikový profil a backtest",
+      "securityScreenshotAlt": "Snímek obrazovky nastavení zabezpečení Velora: dvoufaktorové ověření",
+      "step1Alt": "Registrační formulář Velora",
+      "step2Alt": "Obrazovka ověření totožnosti (KYC)",
+      "step3Alt": "Okno vkladu",
+      "step4Alt": "Obchodní terminál Velora",
+      "finalCtaTitle": "[FINAL CTA TITLE — TBD]"
     },
     "footerTagline": "nejlepší kryptoplatforma",
     "privacyPolicy": "Zásady ochrany osobních údajů"

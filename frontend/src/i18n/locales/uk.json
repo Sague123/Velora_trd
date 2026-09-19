@@ -205,7 +205,15 @@
       "profileBalanced": "Збалансований",
       "profileAggressive": "Агресивний",
       "specGridStep": "Крок сітки",
-      "specPositions": "Позицій"
+      "specPositions": "Позицій",
+      "terminalScreenshotAlt": "Знімок екрана реального терміналу Velora: графік, книга заявок і форма ордера",
+      "strategiesScreenshotAlt": "Знімок екрана реального конструктора стратегій Velora: тип бота, профіль ризику та бектест",
+      "securityScreenshotAlt": "Знімок екрана налаштувань безпеки Velora: двофакторна автентифікація",
+      "step1Alt": "Форма реєстрації Velora",
+      "step2Alt": "Екран верифікації особи (KYC)",
+      "step3Alt": "Вікно поповнення балансу",
+      "step4Alt": "Торговий термінал Velora",
+      "finalCtaTitle": "[FINAL CTA TITLE — TBD]"
     },
     "footerTagline": "найкраща криптоплатформа",
     "privacyPolicy": "Політика конфіденційності"

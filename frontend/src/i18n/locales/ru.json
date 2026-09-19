@@ -205,7 +205,15 @@
       "profileBalanced": "Сбалансированный",
       "profileAggressive": "Агрессивный",
       "specGridStep": "Шаг сетки",
-      "specPositions": "Позиций"
+      "specPositions": "Позиций",
+      "terminalScreenshotAlt": "Скриншот реального терминала Velora: график, стакан заявок и форма ордера",
+      "strategiesScreenshotAlt": "Скриншот реального конструктора стратегий Velora: тип бота, профиль риска и бэктест",
+      "securityScreenshotAlt": "Скриншот настроек безопасности Velora: двухфакторная аутентификация",
+      "step1Alt": "Форма регистрации Velora",
+      "step2Alt": "Экран верификации личности (KYC)",
+      "step3Alt": "Окно пополнения баланса",
+      "step4Alt": "Торговый терминал Velora",
+      "finalCtaTitle": "[FINAL CTA TITLE — TBD]"
     },
     "footerTagline": "лучшая криптоплатформа",
     "privacyPolicy": "Политика данных"
