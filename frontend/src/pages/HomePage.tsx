@@ -1,38 +1,33 @@
 import { HomeNavbar } from "../components/home/HomeNavbar";
-import { HeroSection } from "../components/home/HeroSection";
-import { AutomatedTradingSection } from "../components/home/landing/AutomatedTradingSection";
-import { SecuritySection } from "../components/home/landing/SecuritySection";
-import { HowItWorksSection } from "../components/home/landing/HowItWorksSection";
+import { HeroSection } from "../components/home/landing/HeroSection";
+import { ArsenalSection } from "../components/home/landing/ArsenalSection";
+import { JourneySection } from "../components/home/landing/JourneySection";
+import { MarketsSection } from "../components/home/landing/MarketsSection";
+import { SupportSection } from "../components/home/landing/SupportSection";
 import { FinalCtaSection } from "../components/home/landing/FinalCtaSection";
 import { SiteFooter } from "../components/layout/SiteFooter";
 
 /**
- * The public exchange Home — "terminal-as-landing": the real product is the
- * pitch, not a stock-photo hero or an illustrated mockup of one. Deliberately
- * outside AppLayout/TopBar: this is the same page whether or not you're
- * signed in (like a real exchange's homepage), not the authenticated
- * dashboard (that's still Overview, reached after login).
+ * The public landing. Deliberately outside AppLayout/TopBar: the same page
+ * whether or not you're signed in, not the authenticated dashboard.
  *
- * `HeroSection` is full-bleed on purpose (it renders its own market ticker
- * fused to its bottom edge) — everything below it lives inside the page's
- * normal measure, but each section composes itself differently. The one
- * rule that isn't optional: no two sections share the same container shape.
- * Reaching for "just wrap it in another rounded-xl border card" is exactly
- * the pattern that made this page read as a dashboard before this pass.
+ * Every section is drawn from one vocabulary (`landing/primitives.tsx`) —
+ * the signature line, grid levels, nodes, technical labels — and none of it
+ * is a screenshot. Sections alternate bg-0 / bg-1 and are numbered 01–05, so
+ * the page reads as one system rather than a stack of cards.
  */
 export function HomePage() {
   return (
-    <div className="min-h-screen bg-bg-0 text-txt-0">
+    <div className="min-h-screen overflow-x-clip bg-bg-0 text-txt-0">
       <HomeNavbar />
-      <HeroSection />
-
-      <main className="mx-auto flex w-full max-w-[1600px] flex-col gap-10 px-4 py-10 sm:gap-14 sm:py-14">
-        <AutomatedTradingSection />
-        <SecuritySection />
-        <HowItWorksSection />
+      <main>
+        <HeroSection />
+        <ArsenalSection />
+        <JourneySection />
+        <MarketsSection />
+        <SupportSection />
+        <FinalCtaSection />
       </main>
-
-      <FinalCtaSection />
       <SiteFooter />
     </div>
   );

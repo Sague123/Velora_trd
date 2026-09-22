@@ -656,3 +656,43 @@ button:disabled { cursor: not-allowed; }
   color: rgb(var(--c-txt-0) / 0.035);
   user-select: none;
 }
+
+/* ----------------------------- landing motion ----------------------------- */
+/* Public landing only. Two motions, both there to say "this is a market
+ * system operating", not to decorate:
+ *
+ * .landing-reveal — a trajectory drawing itself left to right. A clip-path
+ *   wipe rather than opacity: an opacity entrance that fails to resolve leaves
+ *   content invisible (see rise-in above), and a wipe that fails leaves the
+ *   line fully drawn, because the resolved state is the default one. Inside
+ *   the same 420ms ceiling as every other entrance here.
+ *
+ * .landing-scan — one slow read-head crossing the hero chart. Transform only,
+ *   and the only ambient loop on the page.
+ */
+.landing-reveal {
+  transition: clip-path 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.landing-reveal[data-shown="false"] {
+  clip-path: inset(0 100% 0 0);
+}
+
+@keyframes landing-scan {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+.landing-scan {
+  animation: landing-scan 14s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-reveal,
+  .landing-reveal[data-shown="false"] {
+    clip-path: none;
+    transition: none;
+  }
+  .landing-scan {
+    animation: none;
+    display: none;
+  }
+}
