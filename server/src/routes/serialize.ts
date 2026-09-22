@@ -55,25 +55,24 @@ export const sLedger = (e: any) => ({
 
 /** Row shape for the leads table: enough to work the list, nothing more. */
 /**
- * The state of the Velora account behind a lead — derived from the account
- * relation on every read, never stored as a second column that could drift
- * from the truth.
+ * A client's identity check, read live from the platform's own
+ * `users.kyc_status` on every request — never copied into the CRM.
  *
- * This is deliberately a different axis from the sales stage: a lead can be
- * NOT_INTERESTED and still have a funded, active account, and a lead can be
- * DEPOSITED in the funnel only because someone typed that. Account status is
- * what the platform actually knows.
+ * The CRM used to keep its own `verification_status` column beside this one,
+ * so the same fact had two sources that could disagree and two different
+ * colours. This is the single one, and the compliance desk's decision is
+ * what it reports.
  */
-export type LeadAccountStatus =
-  | "NO_ACCOUNT" | "REGISTERED" | "KYC_PENDING" | "KYC_VERIFIED" | "ACTIVE" | "BLOCKED";
+export type LeadKycStatus = "NO_KYC" | "WAITING" | "VERIFIED" | "REJECTED";
 
-export function leadAccountStatus(l: any): LeadAccountStatus {
-  if (!l.platform_user_id) return "NO_ACCOUNT";
-  if (l.platform_status === "SUSPENDED") return "BLOCKED";
-  const kyc = l.platform_kyc_status ?? "NONE";
-  if (kyc === "APPROVED") return l.platform_status === "ACTIVE" ? "ACTIVE" : "KYC_VERIFIED";
-  if (kyc === "PENDING") return "KYC_PENDING";
-  return "REGISTERED";
+export function leadKycStatus(l: any): LeadKycStatus | null {
+  if (!l.platform_user_id) return null;
+  switch (l.platform_kyc_status) {
+    case "APPROVED": return "VERIFIED";
+    case "PENDING": return "WAITING";
+    case "REJECTED": return "REJECTED";
+    default: return "NO_KYC";
+  }
 }
 
 export const sLead = (l: any) => ({
@@ -84,7 +83,10 @@ export const sLead = (l: any) => ({
   country: l.country ?? null,
   source: l.source ?? null,
   status: l.status,
-  verificationStatus: l.verification_status,
+  /** A client's engagement, set by the desk. Null for a lead who never
+   * deposited — the field has no meaning before that. */
+  activityStatus: l.activity_status ?? null,
+  isVip: l.is_vip ?? false,
   assignedManager: l.assigned_manager_id
     ? { id: l.assigned_manager_id, name: l.manager_name, email: l.manager_email }
     : null,
@@ -96,9 +98,12 @@ export const sLead = (l: any) => ({
    * call. Null until conversion; a prospect who hasn't registered yet has no
    * account to number. */
   accountNumber: l.platform_account_number ?? null,
-  /** Derived, see leadAccountStatus — the lead's sales stage and its account
-   * state are two different questions and the desk needs both at a glance. */
-  accountStatus: leadAccountStatus(l),
+  /** Read live from the platform, see leadKycStatus. Null before the lead
+   * has an account to check. */
+  kycStatus: leadKycStatus(l),
+  /** The account exists but is suspended — a real, actionable fact that none
+   * of the three status fields covers, so it rides as its own flag. */
+  isBlocked: l.platform_status === "SUSPENDED",
   /** When the desk next has to do something, and what. Null = nothing planned,
    * which is itself a state the follow-up filters ask about. */
   nextActionAt: l.next_action_at ?? null,

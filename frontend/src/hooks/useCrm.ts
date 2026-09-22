@@ -3,14 +3,14 @@ import { apiDelete, apiGet, apiPatch, apiPost } from "../lib/api";
 import type {
   ConvertLeadResponse, CrmAccountSnapshot, CrmMeta, CrmPermission, CrmViewSnapshot,
   CrmViewTokenResponse, EditLeadInput, ImportLeadInput, LeadComment, LeadCommentsResponse,
-  CallResult, LeadDetail, LeadHistoryEntry, LeadStatus, LeadVerificationStatus, LeadsResponse,
+  CallResult, LeadActivityStatus, LeadDetail, LeadHistoryEntry, LeadStatus, LeadsResponse,
   LeadsSummary, NextActionType, Order, OrderSide, Trade,
 } from "../lib/types";
 
 export type LeadSortColumn =
   | "accountNumber" | "fullName" | "phone" | "email" | "status"
-  | "verificationStatus" | "country" | "manager" | "createdAt"
-  | "updatedAt" | "nextActionAt" | "lastContactAt" | "accountStatus";
+  | "activityStatus" | "kycStatus" | "vip" | "country" | "manager" | "createdAt"
+  | "updatedAt" | "nextActionAt" | "lastContactAt";
 
 export type KycFilterValue = "NONE" | "PENDING" | "APPROVED" | "REJECTED";
 
@@ -21,7 +21,7 @@ export interface LeadFilters {
   status: LeadStatus[];
   managerId: string[];
   kycStatus: KycFilterValue[];
-  verificationStatus: LeadVerificationStatus[];
+  activityStatus: LeadActivityStatus[];
   source: string[];
   search: string;
   /** "" = any, "true" = already a platform client, "false" = still just a lead. */
@@ -41,7 +41,9 @@ export interface LeadFilters {
   /** The platform account behind the lead, filtered on its own axis rather
    * than through the funnel stage — "все, кто уже завёл аккаунт" is a
    * different question from "все, кто дошёл до REGISTERED". */
-  account: "" | "NO_ACCOUNT" | "HAS_ACCOUNT" | "ACTIVE" | "BLOCKED";
+  account: "" | "NO_ACCOUNT" | "HAS_ACCOUNT" | "BLOCKED";
+  /** Orthogonal to the activity scale, so it filters on its own axis. */
+  vip: "" | "true" | "false";
   /** The follow-up queue: what is due today, what is already late, and what
    * has nothing scheduled at all. */
   nextAction: "" | "TODAY" | "OVERDUE" | "NONE";
@@ -75,7 +77,7 @@ export function useLeads(filters: LeadFilters, enabled = true) {
   list("status", filters.status);
   list("managerId", filters.managerId);
   list("kycStatus", filters.kycStatus);
-  list("verificationStatus", filters.verificationStatus);
+  list("activityStatus", filters.activityStatus);
   list("source", filters.source);
   list("tag", filters.tag);
   if (filters.search.trim()) qs.set("search", filters.search.trim());
@@ -88,6 +90,7 @@ export function useLeads(filters: LeadFilters, enabled = true) {
   if (filters.country.trim()) qs.set("country", filters.country.trim());
   if (filters.accountNumber.trim()) qs.set("accountNumber", filters.accountNumber.trim());
   if (filters.account) qs.set("account", filters.account);
+  if (filters.vip) qs.set("vip", filters.vip);
   if (filters.nextAction) qs.set("nextAction", filters.nextAction);
 
   return useQuery({
@@ -230,11 +233,20 @@ export function useLeadsSummary(enabled = true) {
   });
 }
 
-export function useSetLeadVerification() {
+export function useSetLeadActivity() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, verificationStatus }: { id: string; verificationStatus: LeadVerificationStatus }) =>
-      apiPatch<{ lead: LeadDetail }>(`/api/crm/leads/${id}/verification`, { verificationStatus }),
+    mutationFn: ({ id, activityStatus }: { id: string; activityStatus: LeadActivityStatus | null }) =>
+      apiPatch<{ lead: LeadDetail }>(`/api/crm/leads/${id}/activity`, { activityStatus }),
+    onSuccess: () => invalidateCrm(qc),
+  });
+}
+
+export function useSetLeadVip() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, vip }: { id: string; vip: boolean }) =>
+      apiPatch<{ lead: LeadDetail }>(`/api/crm/leads/${id}/vip`, { vip }),
     onSuccess: () => invalidateCrm(qc),
   });
 }

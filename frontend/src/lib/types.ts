@@ -521,27 +521,29 @@ export type CreateBotInput =
  * components/crm/leadLabels.ts.
  */
 export type LeadStatus =
-  | "NEW" | "CONTACTED" | "QUALIFIED" | "CALLBACK" | "WELCOME_CALL" | "REGISTERED" | "DEPOSITED" | "ACTIVE"
-  | "OLDDB" | "NO_ANSWER" | "WRONG_INFO" | "LOW_POTENTIAL" | "NOT_INTERESTED" | "DENY_REG" | "UNDER_18" | "LOST";
+  | "NEW" | "WELCOME_CALL" | "CALLBACK" | "DEPOSITED"
+  | "LOW_POTENTIAL" | "NOT_INTERESTED" | "WRONG_INFO" | "UNDER_18"
+  | "HANG_UP" | "NO_ANSWER" | "DENY_REG" | "TRASH" | "LOST";
 
 /**
- * What the *platform account* behind the lead is doing — derived server-side
- * from the account relation the lead already has, never stored twice. A lead
- * can be NOT_INTERESTED and still have a funded, active account; one field
- * could not say both, which is exactly why this is separate from LeadStatus.
+ * A client's identity check, read live from the platform's own KYC on every
+ * request rather than copied into the CRM — the copy is what used to let two
+ * sources disagree about one fact. Null until the lead has an account.
  */
-export type LeadAccountStatus =
-  | "NO_ACCOUNT" | "REGISTERED" | "KYC_PENDING" | "KYC_VERIFIED" | "ACTIVE" | "BLOCKED";
+export type LeadKycStatus = "NO_KYC" | "WAITING" | "VERIFIED" | "REJECTED";
+
+/**
+ * How engaged a client is, set by the desk. Its own axis on purpose: someone
+ * can be KYC-verified and Churned at the same time, and no single scale could
+ * say both. Null for a lead who never deposited.
+ */
+export type LeadActivityStatus = "ACTIVE_TRADER" | "LOW_TRADER" | "INACTIVE" | "CHURNED";
 
 /** What the desk has to do next on this lead. */
 export type NextActionType = "CALL" | "FOLLOW_UP" | "KYC" | "OTHER";
 
 /** How a call went, logged from the card in one tap. */
 export type CallResult = "NO_ANSWER" | "BUSY" | "CALL_BACK" | "INTERESTED" | "NOT_INTERESTED";
-
-/** Deliberately separate from LeadStatus: a lead can be VERIFIED and
- * NOT_INTERESTED at once, and one field could not say both. */
-export type LeadVerificationStatus = "NOT_SUBMITTED" | "PENDING" | "VERIFIED" | "REJECTED";
 
 export interface CrmManager {
   id: string;
@@ -558,15 +560,22 @@ export interface Lead {
   country: string | null;
   source: string | null;
   status: LeadStatus;
-  verificationStatus: LeadVerificationStatus;
+  /** Set by the desk once the lead deposited; null before that. */
+  activityStatus: LeadActivityStatus | null;
+  /** Orthogonal flag — a VIP can carry any activity status. */
+  isVip: boolean;
   assignedManager: CrmManager | null;
   /** Non-null once this lead registered on the platform. */
   platformUserId: string | null;
   /** The platform account's number — null until conversion. This is the "ID"
    * a manager reads on a call; the lead's own database id never is. */
   accountNumber: string | null;
-  /** Derived from the platform account, not a second copy of it. */
-  accountStatus: LeadAccountStatus;
+  /** Read live from the platform's KYC, not a second copy of it. Null until
+   * the lead has an account to check. */
+  kycStatus: LeadKycStatus | null;
+  /** The account exists but is suspended — a real fact none of the three
+   * status fields covers, so it rides as its own flag. */
+  isBlocked: boolean;
   /** When the desk next has to touch this lead, and what for — null means
    * nothing is planned, which is a real state the follow-up queue filters on
    * rather than an absence of data. */
@@ -629,7 +638,7 @@ export interface LeadHistoryEntry {
   id: string;
   /** CONSENT and TRADE_EDIT carry a rendered sentence in `newStatus` rather
    * than an enum value — see the card's history renderer. */
-  kind: "STATUS" | "VERIFICATION" | "CONSENT" | "TRADE_EDIT";
+  kind: "STATUS" | "ACTIVITY" | "VIP" | "CONSENT" | "TRADE_EDIT";
   oldStatus: string | null;
   newStatus: string;
   manager: { id: string; name: string } | null;
@@ -665,7 +674,7 @@ export type CrmPermission = "IMPERSONATE" | "MANAGE_ACCOUNT" | "MANAGE_BALANCE" 
 
 export interface CrmMeta {
   statuses: LeadStatus[];
-  verificationStatuses: LeadVerificationStatus[];
+  activityStatuses: LeadActivityStatus[];
   allPermissions: CrmPermission[];
   /** The calling manager's own grants — server re-checks every mutation
    * regardless, this is only for the UI to know which buttons to show. */

@@ -18,10 +18,10 @@ import { db, newId, now } from "../db.js";
  */
 const insLead = db.prepare(`
   INSERT INTO leads (id, full_name, phone, email, country, source, status,
-                     verification_status, assigned_manager_id, platform_user_id,
+                     assigned_manager_id, platform_user_id,
                      created_at, updated_at)
   VALUES (@id, @fullName, NULL, @email, NULL, @source, 'NEW',
-          'NOT_SUBMITTED', NULL, @platformUserId, @ts, @ts)
+          NULL, @platformUserId, @ts, @ts)
 `);
 
 export async function createLeadForUser(input: {

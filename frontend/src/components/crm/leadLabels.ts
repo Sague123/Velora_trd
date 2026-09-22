@@ -1,118 +1,182 @@
 import type {
-  CallResult, CrmPermission, LeadAccountStatus, LeadStatus, LeadVerificationStatus, NextActionType,
+  CallResult, CrmPermission, LeadActivityStatus, LeadKycStatus, LeadStatus, NextActionType,
 } from "../../lib/types";
 
 /**
- * The four semantic tones plus the `cat-*` categorical palette (see
- * globals.css) — nine visually distinct hues, none of them buy-green or
- * sell-red, each pre-verified for contrast. They exist for exactly this
- * screen: a set of unrelated categories that have to be told apart at a
- * glance and carry no direction of their own.
+ * One tone per meaning, and — the part that matters — one *scale* per
+ * question.
  *
- * Colour here is meaning, not decoration, and it follows the design system's
- * one hard rule about buy/sell: those two are reserved for market direction,
- * so no funnel stage uses them. A dead lead is `sell`-shaped in the abstract,
- * but on a trading platform a red chip means "short", and it must not appear
- * on a CRM row where it could be misread.
+ * The CRM used to carry four overlapping status scales (funnel stage, the
+ * lead's own verification copy, a derived account state, and the platform's
+ * KYC), which between them spent the same six hues on unrelated facts: amber
+ * meant five different things depending on which column it landed in. They
+ * are now one lead funnel plus three independent client fields, and each
+ * scale owns its own hues.
+ *
+ * `crm-*` are CRM-scoped tokens that merely look green/red — the design
+ * system's buy/sell stay reserved for market direction, because a green chip
+ * on a trading platform reads as "long" and a sales stage must never say that.
  */
-export type Tone = "accent" | "warn" | "muted" | "neutral"
-  | "cat-gold" | "cat-teal" | "cat-indigo" | "cat-violet" | "cat-magenta" | "cat-rose";
+export type Tone =
+  | "accent" | "warn" | "muted" | "neutral" | "grey-deep"
+  | "cat-gold" | "cat-teal" | "cat-indigo" | "cat-violet" | "cat-magenta" | "cat-rose"
+  | "crm-green" | "crm-red" | "crm-coral" | "crm-crimson" | "crm-deposit";
+
+export const TONE_CLASS: Record<Tone, string> = {
+  accent: "bg-accent-soft text-accent",
+  warn: "bg-warn/10 text-warn",
+  muted: "bg-bg-3 text-txt-2",
+  neutral: "bg-bg-3 text-txt-1",
+  // The most recessive chip in the set: no fill at all, just an outline. A
+  // "dead" status should sit back without dropping its text below the 4.5:1
+  // floor, which is what a darker grey fill would have forced.
+  "grey-deep": "border border-line text-txt-3",
+  "cat-gold": "bg-cat-gold-soft text-cat-gold",
+  "cat-teal": "bg-cat-teal-soft text-cat-teal",
+  "cat-indigo": "bg-cat-indigo-soft text-cat-indigo",
+  "cat-violet": "bg-cat-violet-soft text-cat-violet",
+  "cat-magenta": "bg-cat-magenta-soft text-cat-magenta",
+  "cat-rose": "bg-cat-rose-soft text-cat-rose",
+  "crm-green": "bg-crm-green-soft text-crm-green",
+  "crm-red": "bg-crm-red-soft text-crm-red",
+  "crm-coral": "bg-crm-coral-soft text-crm-coral",
+  "crm-crimson": "bg-crm-crimson-soft text-crm-crimson",
+  // The only solid chip in the CRM — Deposited is the stage the desk is paid
+  // to reach, so it outranks the other greens by weight rather than by hue.
+  "crm-deposit": "bg-crm-deposit-fill font-semibold text-white",
+};
+
+/* ------------------------------ lead funnel ------------------------------- */
 
 /**
- * The funnel, split in two.
+ * The lead's single status, from arrival to first deposit.
  *
- * `PIPELINE_STAGES` is the path a lead walks when things go well, in order —
- * each entry is progress on the previous one. `TERMINAL_STATUSES` is where a
- * lead stops. They used to be one flat list, which is what made "не отвечает"
- * sit between "перезвонить" and "приветственный звонок" with nothing saying
- * which way was forward.
+ * `PIPELINE_STAGES` is the path forward — each one is progress on the last,
+ * and a chip reading "Call back 3/4" says how far along without needing a hue
+ * nobody could rank. `TERMINAL_STATUSES` is where a lead stops, and there the
+ * hue does the work, because telling one stop reason from another is exactly
+ * what the desk reads that column for.
  */
-export const PIPELINE_STAGES: LeadStatus[] = [
-  "NEW", "CONTACTED", "QUALIFIED", "CALLBACK", "WELCOME_CALL", "REGISTERED", "DEPOSITED", "ACTIVE",
-];
+export const PIPELINE_STAGES: LeadStatus[] = ["NEW", "WELCOME_CALL", "CALLBACK", "DEPOSITED"];
 
 export const TERMINAL_STATUSES: LeadStatus[] = [
-  "OLDDB", "NO_ANSWER", "WRONG_INFO", "LOW_POTENTIAL", "NOT_INTERESTED", "DENY_REG", "UNDER_18", "LOST",
+  "LOW_POTENTIAL", "NOT_INTERESTED", "WRONG_INFO", "UNDER_18",
+  "HANG_UP", "NO_ANSWER", "DENY_REG", "TRASH", "LOST",
 ];
 
-/** 1-based position in the pipeline, or 0 for a terminal outcome. A chip that
- * reads "Квалифицирован 3/8" says how far along without needing a hue nobody
- * could tell from the other seven. */
+/** 1-based position in the funnel, or 0 for a stop reason. */
 export function pipelineStep(status: LeadStatus): number {
   return PIPELINE_STAGES.indexOf(status) + 1;
 }
 
 export const LEAD_STATUS_LABEL: Record<LeadStatus, string> = {
-  NEW: "Новый",
-  CONTACTED: "Дозвонились",
-  QUALIFIED: "Квалифицирован",
-  CALLBACK: "Перезвонить",
-  WELCOME_CALL: "Приветственный звонок",
-  REGISTERED: "Зарегистрирован",
-  DEPOSITED: "Внёс депозит",
-  ACTIVE: "Активно торгует",
-  OLDDB: "Старая база",
-  NO_ANSWER: "Не отвечает",
-  WRONG_INFO: "Неверные данные",
-  LOW_POTENTIAL: "Низкий потенциал",
-  NOT_INTERESTED: "Не заинтересован",
-  DENY_REG: "Отказ в регистрации",
-  UNDER_18: "Младше 18",
-  LOST: "Потерян",
+  NEW: "New",
+  WELCOME_CALL: "Welcome call",
+  CALLBACK: "Call back",
+  DEPOSITED: "Deposited",
+  LOW_POTENTIAL: "Low potential",
+  NOT_INTERESTED: "Not interested",
+  WRONG_INFO: "Wrong info",
+  UNDER_18: "Under 18",
+  HANG_UP: "Hang up",
+  NO_ANSWER: "No answer",
+  DENY_REG: "Deny reg",
+  TRASH: "Trash",
+  LOST: "Lost",
 };
 
-/**
- * Sixteen stages is far past what any palette can keep apart at a glance, so
- * hue stops trying to name the stage and names the *phase* instead — the
- * pipeline's three (первый контакт → договорённость → клиент), and one hue
- * per terminal outcome, which is where telling them apart actually pays off.
- * Inside the pipeline the step number carries the rest.
- *
- * No stage uses buy/sell: on a trading platform a red chip means "short", and
- * it must not appear on a CRM row where it could be misread at a glance.
- */
 export const LEAD_STATUS_TONE: Record<LeadStatus, Tone> = {
-  NEW: "accent",
-  CONTACTED: "accent",
-  QUALIFIED: "accent",
-  CALLBACK: "warn",
-  WELCOME_CALL: "warn",
-  REGISTERED: "cat-teal",
-  DEPOSITED: "cat-teal",
-  ACTIVE: "cat-teal",
-  OLDDB: "neutral",
-  NO_ANSWER: "cat-gold",
-  WRONG_INFO: "cat-violet",
-  LOW_POTENTIAL: "cat-indigo",
-  NOT_INTERESTED: "cat-magenta",
-  DENY_REG: "cat-rose",
-  UNDER_18: "cat-rose",
-  LOST: "muted",
+  NEW: "cat-rose",
+  WELCOME_CALL: "cat-teal",
+  CALLBACK: "crm-green",
+  DEPOSITED: "crm-deposit",
+  LOW_POTENTIAL: "cat-gold",
+  // Three refusals, three distinguishable reds: they are separate reasons and
+  // the desk works them differently, so collapsing them to one hue would lose
+  // the only thing this column is read for.
+  NOT_INTERESTED: "crm-red",
+  WRONG_INFO: "crm-coral",
+  UNDER_18: "crm-crimson",
+  // Unreachable or not a real lead: one grey, because the distinction between
+  // them matters far less than the distinction from everything above.
+  HANG_UP: "muted",
+  NO_ANSWER: "muted",
+  DENY_REG: "muted",
+  TRASH: "muted",
+  LOST: "grey-deep",
 };
 
-/**
- * The platform account behind the lead — deliberately its own column, because
- * a lead who said "не интересно" can still have a funded, active account, and
- * the desk needs to see both at once. Derived server-side from the account
- * relation; nothing here is a second copy of it.
- */
-export const ACCOUNT_STATUS_LABEL: Record<LeadAccountStatus, string> = {
-  NO_ACCOUNT: "Нет аккаунта",
-  REGISTERED: "Зарегистрирован",
-  KYC_PENDING: "KYC на проверке",
-  KYC_VERIFIED: "KYC пройден",
-  ACTIVE: "Активен",
-  BLOCKED: "Заблокирован",
+/** What each status actually means, shown on hover. Thirteen stages is more
+ * than anyone keeps in their head, and a desk guessing at "Trash vs Deny reg"
+ * files leads inconsistently. */
+export const LEAD_STATUS_HINT: Record<LeadStatus, string> = {
+  NEW: "Только попал в CRM, с ним ещё никто не работал.",
+  WELCOME_CALL: "Взят в работу, сделан первый звонок.",
+  CALLBACK: "Договорились созвониться — время согласовано.",
+  DEPOSITED: "Внёс первый депозит. С этого момента это клиент, и дальше его описывают KYC, активность и флаг VIP.",
+  LOW_POTENTIAL: "Тянет, переносит, пропускает звонки — интерес есть, но слабый.",
+  NOT_INTERESTED: "Прямо сказал, что ему не интересно.",
+  WRONG_INFO: "Неверные данные: имя, телефон или email не совпадают.",
+  UNDER_18: "Несовершеннолетний — работать с ним нельзя. Отдельная причина, не путать с неверными данными.",
+  HANG_UP: "Сбрасывает звонок.",
+  NO_ANSWER: "Долго не берёт трубку.",
+  DENY_REG: "Попросил удалить регистрацию.",
+  TRASH: "Шутники и заведомо неправильные регистрации.",
+  LOST: "Закрыт после нескольких неудачных попыток связаться.",
 };
 
-export const ACCOUNT_STATUS_TONE: Record<LeadAccountStatus, Tone> = {
-  NO_ACCOUNT: "muted",
-  REGISTERED: "neutral",
-  KYC_PENDING: "warn",
-  KYC_VERIFIED: "cat-teal",
-  ACTIVE: "accent",
-  BLOCKED: "cat-rose",
+/* ----------------------------- client fields ------------------------------ */
+/* Three independent axes, deliberately not one scale: a client can be
+ * KYC-verified and Churned at the same time, and a VIP can be any of them. */
+
+export const KYC_STATUS_LABEL: Record<LeadKycStatus, string> = {
+  NO_KYC: "No KYC",
+  WAITING: "Waiting KYC",
+  VERIFIED: "Verified",
+  REJECTED: "Rejected",
 };
+
+export const KYC_STATUS_TONE: Record<LeadKycStatus, Tone> = {
+  // Yellow, not red: nothing has been refused, it simply hasn't been done.
+  NO_KYC: "cat-gold",
+  WAITING: "warn",
+  VERIFIED: "crm-green",
+  REJECTED: "crm-red",
+};
+
+export const KYC_STATUS_HINT: Record<LeadKycStatus, string> = {
+  NO_KYC: "Документы ещё не подавались. Это не отказ — просто шаг не сделан.",
+  WAITING: "Документы поданы и ждут решения комплаенса.",
+  VERIFIED: "Личность подтверждена, вывод средств доступен.",
+  REJECTED: "Комплаенс отклонил документы — нужны новые.",
+};
+
+export const ACTIVITY_STATUS_LABEL: Record<LeadActivityStatus, string> = {
+  ACTIVE_TRADER: "Active trader",
+  LOW_TRADER: "Low trader",
+  INACTIVE: "Inactive",
+  CHURNED: "Churned",
+};
+
+export const ACTIVITY_STATUS_TONE: Record<LeadActivityStatus, Tone> = {
+  ACTIVE_TRADER: "crm-green",
+  LOW_TRADER: "muted",
+  INACTIVE: "neutral",
+  CHURNED: "grey-deep",
+};
+
+export const ACTIVITY_STATUS_HINT: Record<LeadActivityStatus, string> = {
+  ACTIVE_TRADER: "Торгует регулярно.",
+  LOW_TRADER: "Торгует редко и на небольшие суммы.",
+  INACTIVE: "Давно не заходил в терминал.",
+  CHURNED: "Вывел все средства и ушёл.",
+};
+
+export const VIP_LABEL = "VIP";
+export const VIP_TONE: Tone = "cat-violet";
+export const VIP_HINT = "Крупный клиент. Флаг независим от активности — VIP может быть и Active trader, и Churned.";
+
+/* ------------------------------- the rest --------------------------------- */
 
 export const NEXT_ACTION_LABEL: Record<NextActionType, string> = {
   CALL: "Звонок",
@@ -127,33 +191,6 @@ export const CALL_RESULT_LABEL: Record<CallResult, string> = {
   CALL_BACK: "Просил перезвонить",
   INTERESTED: "Заинтересован",
   NOT_INTERESTED: "Не заинтересован",
-};
-
-export const VERIFICATION_LABEL: Record<LeadVerificationStatus, string> = {
-  NOT_SUBMITTED: "Не подана",
-  PENDING: "На проверке",
-  VERIFIED: "Подтверждена",
-  REJECTED: "Отклонена",
-};
-
-export const VERIFICATION_TONE: Record<LeadVerificationStatus, Tone> = {
-  NOT_SUBMITTED: "neutral",
-  PENDING: "warn",
-  VERIFIED: "accent",
-  REJECTED: "cat-rose",
-};
-
-export const TONE_CLASS: Record<Tone, string> = {
-  accent: "bg-accent-soft text-accent",
-  warn: "bg-warn/10 text-warn",
-  muted: "bg-bg-3 text-txt-2",
-  neutral: "bg-bg-3 text-txt-1",
-  "cat-gold": "bg-cat-gold-soft text-cat-gold",
-  "cat-teal": "bg-cat-teal-soft text-cat-teal",
-  "cat-indigo": "bg-cat-indigo-soft text-cat-indigo",
-  "cat-violet": "bg-cat-violet-soft text-cat-violet",
-  "cat-magenta": "bg-cat-magenta-soft text-cat-magenta",
-  "cat-rose": "bg-cat-rose-soft text-cat-rose",
 };
 
 /** Each power an admin can grant a manager beyond the base CRM pipeline —

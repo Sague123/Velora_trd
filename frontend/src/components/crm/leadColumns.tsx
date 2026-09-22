@@ -4,15 +4,18 @@ import { StatusSelect } from "./StatusSelect";
 import { NextActionCell } from "./NextActionCell";
 import { ContactAction } from "./ContactActions";
 import {
-  ACCOUNT_STATUS_LABEL, ACCOUNT_STATUS_TONE, VERIFICATION_LABEL, VERIFICATION_TONE,
+  ACTIVITY_STATUS_HINT, ACTIVITY_STATUS_LABEL, ACTIVITY_STATUS_TONE,
+  KYC_STATUS_HINT, KYC_STATUS_LABEL, KYC_STATUS_TONE,
+  VIP_HINT, VIP_LABEL, VIP_TONE,
 } from "./leadLabels";
 import { classNames, fmtDateTime } from "../../lib/format";
 import type { Lead } from "../../lib/types";
 import type { LeadSortColumn } from "../../hooks/useCrm";
 
 export type LeadColumnId =
-  | "accountNumber" | "fullName" | "status" | "account" | "nextAction" | "lastContact"
-  | "phone" | "email" | "manager" | "country" | "source" | "verification" | "age" | "createdAt" | "tags";
+  | "accountNumber" | "fullName" | "status" | "kyc" | "activity" | "vip" | "blocked"
+  | "nextAction" | "lastContact"
+  | "phone" | "email" | "manager" | "country" | "source" | "age" | "createdAt" | "tags";
 
 /** Which per-column search box, if any, belongs under this header. */
 export type ColumnFilterKey = "accountNumber" | "fullName" | "phone" | "email" | "country";
@@ -65,12 +68,29 @@ export const LEAD_COLUMNS: LeadColumn[] = [
     cell: (l) => <ContactAction value={l.email} kind="email" />,
   },
   {
-    id: "account", label: "Аккаунт", sort: "accountStatus", width: 140,
-    cell: (l) => (
-      <StatusChip tone={ACCOUNT_STATUS_TONE[l.accountStatus]}>
-        {ACCOUNT_STATUS_LABEL[l.accountStatus]}
+    // The three client fields are three columns, never one merged chip: a
+    // client can be Verified and Churned at once, and the old single
+    // "Аккаунт" scale could only ever show one of those.
+    id: "kyc", label: "KYC", sort: "kycStatus", width: 120,
+    cell: (l) => (l.kycStatus === null ? <span className="text-txt-3">—</span> : (
+      <StatusChip tone={KYC_STATUS_TONE[l.kycStatus]} hint={KYC_STATUS_HINT[l.kycStatus]}>
+        {KYC_STATUS_LABEL[l.kycStatus]}
       </StatusChip>
-    ),
+    )),
+  },
+  {
+    id: "activity", label: "Активность", sort: "activityStatus", width: 130,
+    cell: (l) => (l.activityStatus === null ? <span className="text-txt-3">—</span> : (
+      <StatusChip tone={ACTIVITY_STATUS_TONE[l.activityStatus]} hint={ACTIVITY_STATUS_HINT[l.activityStatus]}>
+        {ACTIVITY_STATUS_LABEL[l.activityStatus]}
+      </StatusChip>
+    )),
+  },
+  {
+    id: "vip", label: "VIP", sort: "vip", width: 70,
+    cell: (l) => (l.isVip
+      ? <StatusChip tone={VIP_TONE} hint={VIP_HINT}>{VIP_LABEL}</StatusChip>
+      : <span className="text-txt-3">—</span>),
   },
   {
     id: "manager", label: "Ответственный", sort: "manager", width: 140,
@@ -94,12 +114,12 @@ export const LEAD_COLUMNS: LeadColumn[] = [
     cell: (l) => <span className="mono text-txt-2">{l.accountNumber ?? "—"}</span>,
   },
   {
-    id: "verification", label: "Верификация", sort: "verificationStatus", width: 130,
-    cell: (l) => (
-      <StatusChip tone={VERIFICATION_TONE[l.verificationStatus]}>
-        {VERIFICATION_LABEL[l.verificationStatus]}
-      </StatusChip>
-    ),
+    // Not one of the three status scales — a suspended account is an
+    // operational fact that cuts across all of them, so it reads as a flag.
+    id: "blocked", label: "Блокировка", width: 110,
+    cell: (l) => (l.isBlocked
+      ? <StatusChip tone="crm-red" hint="Аккаунт заблокирован — клиент не может войти и торговать.">Заблокирован</StatusChip>
+      : <span className="text-txt-3">—</span>),
   },
   {
     id: "country", label: "Страна", sort: "country", filter: "country", width: 90,
@@ -138,5 +158,5 @@ export const COLUMN_BY_ID = new Map(LEAD_COLUMNS.map((c) => [c.id, c]));
  * the visible width entirely.
  */
 export const DEFAULT_COLUMNS: LeadColumnId[] = [
-  "fullName", "status", "nextAction", "phone", "email", "account", "manager", "age",
+  "fullName", "status", "nextAction", "phone", "email", "kyc", "activity", "vip", "manager", "age",
 ];

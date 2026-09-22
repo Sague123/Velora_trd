@@ -39,16 +39,25 @@ import { sLead, sLeadDetail, sLeadComment, sLeadHistory, sOrder, sTrade } from "
  * alphabetical.
  */
 export const LEAD_STATUSES_WORKING = [
-  "NEW", "CONTACTED", "QUALIFIED", "CALLBACK", "WELCOME_CALL",
-  "REGISTERED", "DEPOSITED", "ACTIVE",
+  "NEW", "WELCOME_CALL", "CALLBACK", "DEPOSITED",
 ] as const;
 
 export const LEAD_STATUSES_TERMINAL = [
-  "OLDDB", "NO_ANSWER", "WRONG_INFO", "LOW_POTENTIAL",
-  "NOT_INTERESTED", "DENY_REG", "UNDER_18", "LOST",
+  "LOW_POTENTIAL", "NOT_INTERESTED", "WRONG_INFO", "UNDER_18",
+  "HANG_UP", "NO_ANSWER", "DENY_REG", "TRASH", "LOST",
 ] as const;
 
 export const LEAD_STATUSES = [...LEAD_STATUSES_WORKING, ...LEAD_STATUSES_TERMINAL] as const;
+
+/**
+ * A client's three fields, each on its own axis, because they answer three
+ * unrelated questions and a single scale kept forcing them into one answer.
+ *
+ * KYC is not here: it is read live from the platform's own `users.kyc_status`
+ * rather than copied into the CRM, which is what made two sources disagree
+ * about one fact before.
+ */
+export const LEAD_ACTIVITY_STATUSES = ["ACTIVE_TRADER", "LOW_TRADER", "INACTIVE", "CHURNED"] as const;
 
 /** What the desk has to do next about a lead, and when. */
 export const NEXT_ACTION_TYPES = ["CALL", "FOLLOW_UP", "KYC", "OTHER"] as const;
@@ -62,12 +71,8 @@ const CALL_RESULT_LABEL: Record<string, string> = {
   NOT_INTERESTED: "Не заинтересован",
 };
 
-/** Kept apart from the funnel stage on purpose: a lead can be VERIFIED and
- * NOT_INTERESTED at the same time, and collapsing the two would lose that. */
-export const VERIFICATION_STATUSES = ["NOT_SUBMITTED", "PENDING", "VERIFIED", "REJECTED"] as const;
-
 const leadStatus = z.enum(LEAD_STATUSES);
-const verificationStatus = z.enum(VERIFICATION_STATUSES);
+const activityStatus = z.enum(LEAD_ACTIVITY_STATUSES);
 const nextActionType_ = z.enum(NEXT_ACTION_TYPES);
 
 const q = {
@@ -110,10 +115,10 @@ const q = {
   userRole: db.prepare("SELECT role FROM users WHERE id = ?"),
   insert: db.prepare(`
     INSERT INTO leads (id, full_name, phone, email, country, source, status,
-                       verification_status, assigned_manager_id, platform_user_id,
+                       assigned_manager_id, platform_user_id,
                        created_at, updated_at)
     VALUES (@id, @fullName, @phone, @email, @country, @source, @status,
-            @verificationStatus, @managerId, @platformUserId, @ts, @ts)
+            @managerId, @platformUserId, @ts, @ts)
   `),
   // Conditional on the current value, so two managers clicking different
   // statuses at the same moment cannot both write a history row claiming they
@@ -123,10 +128,14 @@ const q = {
     WHERE id = @id AND status = @current
     RETURNING id
   `),
-  setVerification: db.prepare(`
-    UPDATE leads SET verification_status = @next, updated_at = @ts
-    WHERE id = @id AND verification_status = @current
+  // Same conditional-write shape as setStatus, for the same reason.
+  setActivity: db.prepare(`
+    UPDATE leads SET activity_status = @next, updated_at = @ts
+    WHERE id = @id AND activity_status IS NOT DISTINCT FROM @current
     RETURNING id
+  `),
+  setVip: db.prepare(`
+    UPDATE leads SET is_vip = @next, updated_at = @ts WHERE id = @id RETURNING id
   `),
   // Reassigning clears the consent in the same statement rather than in a
   // follow-up: a consent given for manager A must never survive the lead
@@ -245,10 +254,15 @@ const q = {
 /** Pipeline order, not alphabetical — sorting the status column should walk
  * the funnel the way the desk works it, not the raw enum text. Interpolated
  * directly into the SQL text below (never from user input — LEAD_STATUSES and
- * VERIFICATION_STATUSES are the fixed module-level consts above), because a
+ * LEAD_ACTIVITY_STATUSES are the fixed module-level consts above), because a
  * CASE branch list can't be passed as a bind parameter. */
 const STATUS_ORDER_SQL = `CASE l.status ${LEAD_STATUSES.map((s, i) => `WHEN '${s}' THEN ${i}`).join(" ")} END`;
-const VERIFICATION_ORDER_SQL = `CASE l.verification_status ${VERIFICATION_STATUSES.map((s, i) => `WHEN '${s}' THEN ${i}`).join(" ")} END`;
+/** Best-engaged first, so ascending walks from Active trader down to Churned. */
+const ACTIVITY_ORDER_SQL = `CASE l.activity_status ${LEAD_ACTIVITY_STATUSES.map((s, i) => `WHEN '${s}' THEN ${i}`).join(" ")} END`;
+/** The platform's own KYC, in "least done first" order — the desk sorts this
+ * to find who still has to be chased for documents. */
+const KYC_ORDER_SQL = `CASE COALESCE(u.kyc_status, 'NONE')
+  WHEN 'NONE' THEN 0 WHEN 'PENDING' THEN 1 WHEN 'APPROVED' THEN 2 WHEN 'REJECTED' THEN 3 END`;
 
 /** Column a sort request may target, and the SQL it actually sorts by.
  * Whitelisted rather than taking the column name from the request directly —
@@ -260,7 +274,9 @@ const SORT_COLUMNS: Record<string, string> = {
   phone: "l.phone",
   email: "l.email",
   status: STATUS_ORDER_SQL,
-  verificationStatus: VERIFICATION_ORDER_SQL,
+  activityStatus: ACTIVITY_ORDER_SQL,
+  kycStatus: KYC_ORDER_SQL,
+  vip: "l.is_vip",
   country: "l.country",
   manager: "m.name",
   createdAt: "l.created_at",
@@ -269,14 +285,6 @@ const SORT_COLUMNS: Record<string, string> = {
   // follow-up queue in; rows with nothing scheduled sort last via NULLS LAST.
   nextActionAt: "l.next_action_at",
   lastContactAt: "l.last_contact_at",
-  // No account first when ascending, then registered, then active/blocked —
-  // the same order the account column reads in.
-  accountStatus: `CASE
-      WHEN l.platform_user_id IS NULL THEN 0
-      WHEN u.status = 'SUSPENDED' THEN 4
-      WHEN COALESCE(u.kyc_status, 'NONE') = 'APPROVED' THEN 3
-      WHEN COALESCE(u.kyc_status, 'NONE') = 'PENDING' THEN 2
-      ELSE 1 END`,
 };
 
 interface LeadsQueryInput {
@@ -286,15 +294,20 @@ interface LeadsQueryInput {
    * kycStatus: [APPROVED]} means "(new or old base) and KYC approved". An
    * empty array is "no filter", the same as the key being absent. */
   status?: string[]; managerId?: string[]; kycStatus?: string[];
-  verificationStatus?: string[]; source?: string[];
+  /** A client's engagement, its own axis: someone can be KYC-verified and
+   * Churned at once, which one combined scale could never say. */
+  activityStatus?: string[]; source?: string[];
   search?: string;
   fullName?: string; phone?: string; email?: string; country?: string; accountNumber?: string;
   /** "true" = already a platform client, "false" = still just a lead. */
   converted?: "true" | "false";
+  /** Orthogonal flag, so it filters on its own rather than as a value inside
+   * the activity scale. */
+  vip?: "true" | "false";
   /** The Velora account behind the lead, which is a different axis from the
    * sales stage: a lead can be NOT_INTERESTED and still have a funded,
    * active account. Derived from the account relation, never a second column. */
-  account?: "NO_ACCOUNT" | "HAS_ACCOUNT" | "ACTIVE" | "BLOCKED";
+  account?: "NO_ACCOUNT" | "HAS_ACCOUNT" | "BLOCKED";
   /** The follow-up queue: what is due today, what is late, what has nothing
    * scheduled at all. */
   nextAction?: "TODAY" | "OVERDUE" | "NONE";
@@ -368,7 +381,7 @@ function buildLeadsQuery(p: LeadsQueryInput): { sql: { list: string; count: stri
     if (parts.length) clauses.push(`(${parts.join(" OR ")})`);
   }
   anyOf("COALESCE(u.kyc_status, 'NONE')", "kycStatus", p.kycStatus);
-  anyOf("l.verification_status", "verificationStatus", p.verificationStatus);
+  anyOf("l.activity_status", "activityStatus", p.activityStatus);
   // Source is picked from the server's own DISTINCT list, so it matches
   // exactly here rather than by LIKE — a substring match would make
   // "Facebook" also select "Facebook Ads", which is not what ticking one
@@ -379,8 +392,8 @@ function buildLeadsQuery(p: LeadsQueryInput): { sql: { list: string; count: stri
   // copy of it, so these can never disagree with what the account really is.
   if (p.account === "NO_ACCOUNT") clauses.push("l.platform_user_id IS NULL");
   if (p.account === "HAS_ACCOUNT") clauses.push("l.platform_user_id IS NOT NULL");
-  if (p.account === "ACTIVE") clauses.push("u.status = 'ACTIVE'");
   if (p.account === "BLOCKED") clauses.push("u.status = 'SUSPENDED'");
+  if (p.vip) clauses.push(p.vip === "true" ? "l.is_vip" : "NOT l.is_vip");
   if (p.nextAction === "NONE") clauses.push("l.next_action_at IS NULL");
   if (p.nextAction === "OVERDUE") { clauses.push("l.next_action_at IS NOT NULL AND l.next_action_at < @nowIso"); args.nowIso = new Date().toISOString(); }
   if (p.nextAction === "TODAY") {
@@ -484,7 +497,7 @@ async function requireTradeEditAccess(userId: string, lead: any): Promise<void> 
 /** Records a transition. Called inside the same transaction as the update, so
  * a status can never move without the history row that explains it. */
 async function logTransition(entry: {
-  leadId: string; managerId: string; kind: "STATUS" | "VERIFICATION";
+  leadId: string; managerId: string; kind: "STATUS" | "ACTIVITY" | "VIP";
   old: string | null; next: string;
 }): Promise<void> {
   await q.insHistory.run({
@@ -503,7 +516,7 @@ export default async function crmRoutes(app: FastifyInstance) {
    * buttons to show in the first place. */
   app.get("/meta", async (req) => ({
     statuses: LEAD_STATUSES,
-    verificationStatuses: VERIFICATION_STATUSES,
+    activityStatuses: LEAD_ACTIVITY_STATUSES,
     allPermissions: CRM_PERMISSIONS,
     myPermissions: await getCrmPermissions(req.user.sub),
     managers: ((await q.managers.all()) as any[]).map((m) => ({
@@ -521,7 +534,7 @@ export default async function crmRoutes(app: FastifyInstance) {
       status: csv(leadStatus),
       managerId: csv(z.string().min(1).max(64)),
       kycStatus: csv(z.enum(["NONE", "PENDING", "APPROVED", "REJECTED"])),
-      verificationStatus: csv(verificationStatus),
+      activityStatus: csv(activityStatus),
       source: csv(z.string().min(1).max(120)),
       search: z.string().max(120).optional(),
       // "true"/"false" rather than z.coerce.boolean(): a query string "false"
@@ -538,13 +551,14 @@ export default async function crmRoutes(app: FastifyInstance) {
       email: z.string().max(254).optional(),
       country: z.string().max(64).optional(),
       accountNumber: z.string().max(20).optional(),
-      account: z.enum(["NO_ACCOUNT", "HAS_ACCOUNT", "ACTIVE", "BLOCKED"]).optional(),
+      account: z.enum(["NO_ACCOUNT", "HAS_ACCOUNT", "BLOCKED"]).optional(),
+      vip: z.enum(["true", "false"]).optional(),
       nextAction: z.enum(["TODAY", "OVERDUE", "NONE"]).optional(),
       tag: csv(z.string().min(1).max(40)),
       sortBy: z.enum([
         "accountNumber", "fullName", "phone", "email", "status",
-        "verificationStatus", "country", "manager", "createdAt",
-        "updatedAt", "nextActionAt", "lastContactAt", "accountStatus",
+        "activityStatus", "kycStatus", "vip", "country", "manager", "createdAt",
+        "updatedAt", "nextActionAt", "lastContactAt",
       ]).default("createdAt"),
       sortDir: z.enum(["asc", "desc"]).default("desc"),
       page: z.coerce.number().int().min(1).default(1),
@@ -840,7 +854,10 @@ export default async function crmRoutes(app: FastifyInstance) {
                            AND l.next_action_at <= @todayTo)                        AS due_today,
         COUNT(*) FILTER (WHERE l.next_action_at < @nowIso)                          AS overdue,
         COUNT(*) FILTER (WHERE l.assigned_manager_id = @me)                         AS mine,
-        COUNT(*) FILTER (WHERE u.status = 'ACTIVE')                                 AS active_accounts
+        -- "has an account at all", matching what the chip beside this number
+        -- actually filters on; counting only ACTIVE ones made the count and
+        -- the filtered list disagree for any suspended client.
+        COUNT(*) FILTER (WHERE l.platform_user_id IS NOT NULL)                      AS active_accounts
       FROM leads l LEFT JOIN users u ON u.id = l.platform_user_id
     `).get({
       todayFrom: `${today}T00:00:00.000Z`,
@@ -859,27 +876,60 @@ export default async function crmRoutes(app: FastifyInstance) {
     };
   });
 
-  app.patch("/leads/:id/verification", async (req) => {
+  /**
+   * A client's engagement. Null clears it, which is what happens when a
+   * client is moved back out of the deposited part of the funnel — the field
+   * has no meaning for a lead who never paid, and leaving a stale
+   * "Active trader" on one would be worse than showing nothing.
+   */
+  app.patch("/leads/:id/activity", async (req) => {
     const { id } = z.object({ id: z.string() }).parse(req.params);
-    const { verificationStatus: next } = z.object({ verificationStatus }).parse(req.body);
+    const { activityStatus: next } = z.object({
+      activityStatus: activityStatus.nullable(),
+    }).parse(req.body);
 
     const lead = (await q.bare.get(id)) as any;
     if (!lead) throw notFound("Лид не найден");
-    if (lead.verification_status === next) {
+    if (lead.activity_status === next) {
       return { lead: sLeadDetail((await q.one.get(id)) as any), changed: false };
     }
 
     await tx(async () => {
-      const updated = await q.setVerification.get({
-        id, next, current: lead.verification_status, ts: now(),
+      const updated = await q.setActivity.get({
+        id, next, current: lead.activity_status, ts: now(),
       });
       if (!updated) throw badRequest("STATUS_CHANGED", "Статус уже изменён другим менеджером — обновите карточку");
       await logTransition({
-        leadId: id, managerId: req.user.sub, kind: "VERIFICATION",
-        old: lead.verification_status, next,
+        leadId: id, managerId: req.user.sub, kind: "ACTIVITY",
+        old: lead.activity_status, next: next ?? "—",
       });
-      await audit({ actorId: req.user.sub, action: "CRM_LEAD_VERIFICATION_CHANGED",
-        meta: { leadId: id, from: lead.verification_status, to: next }, ip: req.ip });
+      await audit({ actorId: req.user.sub, action: "CRM_LEAD_ACTIVITY_CHANGED",
+        meta: { leadId: id, from: lead.activity_status, to: next }, ip: req.ip });
+    });
+
+    return { lead: sLeadDetail((await q.one.get(id)) as any), changed: true };
+  });
+
+  /** The VIP flag. Its own endpoint rather than a value inside activity,
+   * because it is orthogonal: a VIP can be Churned. */
+  app.patch("/leads/:id/vip", async (req) => {
+    const { id } = z.object({ id: z.string() }).parse(req.params);
+    const { vip: next } = z.object({ vip: z.boolean() }).parse(req.body);
+
+    const lead = (await q.bare.get(id)) as any;
+    if (!lead) throw notFound("Лид не найден");
+    if (lead.is_vip === next) {
+      return { lead: sLeadDetail((await q.one.get(id)) as any), changed: false };
+    }
+
+    await tx(async () => {
+      await q.setVip.get({ id, next, ts: now() });
+      await logTransition({
+        leadId: id, managerId: req.user.sub, kind: "VIP",
+        old: lead.is_vip ? "VIP" : "—", next: next ? "VIP" : "—",
+      });
+      await audit({ actorId: req.user.sub, action: "CRM_LEAD_VIP_CHANGED",
+        meta: { leadId: id, to: next }, ip: req.ip });
     });
 
     return { lead: sLeadDetail((await q.one.get(id)) as any), changed: true };
@@ -1259,7 +1309,7 @@ export default async function crmRoutes(app: FastifyInstance) {
       await q.insert.run({
         id, fullName: body.fullName, phone: body.phone ?? null, email,
         country: body.country ?? null, source: body.source ?? null,
-        status: body.status, verificationStatus: "NOT_SUBMITTED",
+        status: body.status,
         managerId: body.assignedManagerId ?? null,
         platformUserId: existingUser?.id ?? null, ts,
       });

@@ -61,6 +61,16 @@ export default {
           magenta: { DEFAULT: rgbVar("--c-cat-magenta"), soft: rgbVar("--c-cat-magenta-soft") },
           rose: { DEFAULT: rgbVar("--c-cat-rose"), soft: rgbVar("--c-cat-rose-soft") },
         },
+        // CRM status hues — same CRM-only scope as cat-* above. These look
+        // green/red but are their own tokens: buy/sell stay reserved for
+        // market direction. See globals.css.
+        crm: {
+          green: { DEFAULT: rgbVar("--c-crm-green"), soft: rgbVar("--c-crm-green-soft") },
+          red: { DEFAULT: rgbVar("--c-crm-red"), soft: rgbVar("--c-crm-red-soft") },
+          coral: { DEFAULT: rgbVar("--c-crm-coral"), soft: rgbVar("--c-crm-coral-soft") },
+          crimson: { DEFAULT: rgbVar("--c-crm-crimson"), soft: rgbVar("--c-crm-crimson-soft") },
+          deposit: { fill: rgbVar("--c-crm-deposit-fill") },
+        },
         // Terminal-only chart indicator colors — never CRM. See globals.css;
         // kept in sync with lib/chartTheme.ts, which uses the same two hues
         // as hex for the canvas-drawn overlay line itself.

@@ -573,8 +573,8 @@ async function main() {
 
   const meta = await api("/api/crm/meta", { token: managerToken });
   check("CRM publishes its funnel stages", (meta.body?.statuses ?? []).includes("WELCOME_CALL"), meta.body?.statuses);
-  check("verification statuses are a separate list",
-    (meta.body?.verificationStatuses ?? []).length === 4, meta.body?.verificationStatuses);
+  check("client activity statuses are their own list",
+    (meta.body?.activityStatuses ?? []).length === 4, meta.body?.activityStatuses);
 
   const noContact = await api("/api/crm/leads/import", {
     token: managerToken, method: "POST", body: { fullName: "No Contact" },
@@ -588,8 +588,10 @@ async function main() {
     body: { fullName: "Ivan Petrov", phone, email: leadEmail, country: "RU", source: "smoke-affiliate" },
   });
   check("lead imported", imported.status === 201, imported.body);
-  check("a new lead starts at NEW / NOT_SUBMITTED",
-    imported.body?.lead?.status === "NEW" && imported.body?.lead?.verificationStatus === "NOT_SUBMITTED",
+  check("a new lead starts at NEW, with no client fields set",
+    imported.body?.lead?.status === "NEW"
+      && imported.body?.lead?.activityStatus === null
+      && imported.body?.lead?.isVip === false,
     imported.body?.lead);
   const leadId = imported.body.lead.id as string;
 
@@ -618,12 +620,26 @@ async function main() {
   });
   check("status changed", moved.body?.lead?.status === "CALLBACK", moved.body);
 
-  const verified = await api(`/api/crm/leads/${leadId}/verification`, {
-    token: managerToken, method: "PATCH", body: { verificationStatus: "PENDING" },
+  // The three client fields are independent of the funnel stage and of each
+  // other — that independence is the whole point of splitting them out.
+  const activity = await api(`/api/crm/leads/${leadId}/activity`, {
+    token: managerToken, method: "PATCH", body: { activityStatus: "LOW_TRADER" },
   });
-  check("verification is tracked separately from the funnel stage",
-    verified.body?.lead?.verificationStatus === "PENDING" && verified.body?.lead?.status === "CALLBACK",
-    verified.body?.lead);
+  check("activity is tracked separately from the funnel stage",
+    activity.body?.lead?.activityStatus === "LOW_TRADER" && activity.body?.lead?.status === "CALLBACK",
+    activity.body?.lead);
+
+  const vipOn = await api(`/api/crm/leads/${leadId}/vip`, {
+    token: managerToken, method: "PATCH", body: { vip: true },
+  });
+  check("VIP is a flag, not a value inside activity",
+    vipOn.body?.lead?.isVip === true && vipOn.body?.lead?.activityStatus === "LOW_TRADER",
+    vipOn.body?.lead);
+
+  const badActivity = await api(`/api/crm/leads/${leadId}/activity`, {
+    token: managerToken, method: "PATCH", body: { activityStatus: "NOPE" },
+  });
+  check("an unknown activity status is refused", badActivity.status === 400, badActivity.body?.error);
 
   const assigned = await api(`/api/crm/leads/${leadId}/assign`, {
     token: managerToken, method: "PATCH", body: { managerId },
@@ -651,8 +667,8 @@ async function main() {
   const card = await api(`/api/crm/leads/${leadId}`, { token: managerToken });
   const transitions = (card.body?.history ?? []).map((h: any) => `${h.kind}:${h.oldStatus}>${h.newStatus}`);
   check("status change is journalled", transitions.includes("STATUS:NEW>CALLBACK"), transitions);
-  check("verification change shares the same timeline",
-    transitions.includes("VERIFICATION:NOT_SUBMITTED>PENDING"), transitions);
+  check("activity and VIP changes share the same timeline",
+    transitions.includes("ACTIVITY:null>LOW_TRADER") && transitions.includes("VIP:—>VIP"), transitions);
   check("the lead's creation is the first transition", transitions.includes("STATUS:null>NEW"), transitions);
 
   const byStatus = await api("/api/crm/leads?status=CALLBACK", { token: managerToken });

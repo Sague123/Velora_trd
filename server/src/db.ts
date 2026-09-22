@@ -351,7 +351,13 @@ CREATE TABLE IF NOT EXISTS leads (
   country             TEXT,
   source              TEXT,
   status              TEXT NOT NULL DEFAULT 'NEW',
-  verification_status TEXT NOT NULL DEFAULT 'NOT_SUBMITTED',
+  -- Only meaningful once the lead deposited and became a client. Manual: the
+  -- desk decides who counts as active, and no threshold the platform could
+  -- compute would match what a manager means by "этот ещё торгует".
+  activity_status     TEXT,
+  -- Orthogonal to everything else on purpose: a VIP can sit on any activity
+  -- status, so it is a flag and not another value in that scale.
+  is_vip              BOOLEAN NOT NULL DEFAULT FALSE,
   assigned_manager_id TEXT REFERENCES users(id) ON DELETE SET NULL,
   platform_user_id    TEXT REFERENCES users(id) ON DELETE SET NULL,
   -- Free-form labels the desk puts on a lead ("VIP", "испанский", "не звонить
@@ -361,20 +367,23 @@ CREATE TABLE IF NOT EXISTS leads (
   tags                TEXT[] NOT NULL DEFAULT '{}',
   created_at          TEXT NOT NULL,
   updated_at          TEXT NOT NULL,
+  -- One scale for the whole pre-deposit life of a lead. It used to be four
+  -- overlapping ones (stage, verification, derived account state, platform
+  -- KYC), which meant the same fact was told three times in three colours.
   CONSTRAINT leads_status_check CHECK (status IN (
-    -- Working stages, in pipeline order. The original ten were almost all
-    -- dead ends (seven of them were a reason the lead failed), so a desk had
-    -- no way to say "this one is progressing" — these six carry the positive
-    -- half of the funnel.
-    'NEW', 'CONTACTED', 'QUALIFIED', 'CALLBACK', 'WELCOME_CALL',
-    'REGISTERED', 'DEPOSITED', 'ACTIVE',
-    -- Terminal states. OLDDB is a source marker kept from the original set.
-    'OLDDB', 'NO_ANSWER', 'WRONG_INFO', 'LOW_POTENTIAL',
-    'NOT_INTERESTED', 'DENY_REG', 'UNDER_18', 'LOST'
+    -- The progression, in order: in the CRM → picked up → agreed a call →
+    -- paid. Everything else below is a reason the lead stopped.
+    'NEW', 'WELCOME_CALL', 'CALLBACK', 'DEPOSITED',
+    -- Stalling, and refusing.
+    'LOW_POTENTIAL', 'NOT_INTERESTED', 'WRONG_INFO', 'UNDER_18',
+    -- Unreachable / not a real lead.
+    'HANG_UP', 'NO_ANSWER', 'DENY_REG', 'TRASH', 'LOST'
   )),
-  CONSTRAINT leads_verification_check CHECK (verification_status IN (
-    'NOT_SUBMITTED', 'PENDING', 'VERIFIED', 'REJECTED'
-  )),
+  -- Null until the lead deposits; a client always carries one.
+  CONSTRAINT leads_activity_check CHECK (
+    activity_status IS NULL
+    OR activity_status IN ('ACTIVE_TRADER', 'LOW_TRADER', 'INACTIVE', 'CHURNED')
+  ),
   -- A lead with neither a phone nor an email cannot be worked, so it is not a
   -- lead. Enforced here as well as at the API so a bad import cannot create one.
   CONSTRAINT leads_contact_check CHECK (phone IS NOT NULL OR email IS NOT NULL)
@@ -652,19 +661,62 @@ export async function migrate(): Promise<void> {
   await addColumnIfMissing("leads", "last_contact_at", "last_contact_at TEXT");
   await addColumnIfMissing("leads", "tags", "tags TEXT[] NOT NULL DEFAULT '{}'");
 
-  // The funnel gained its positive half (see SCHEMA). An existing database
-  // still carries the original ten-value constraint, and CREATE TABLE IF NOT
-  // EXISTS will not touch it, so it is replaced here. Existing rows all hold
-  // values that are still legal, so nothing needs rewriting.
+  await addColumnIfMissing("leads", "activity_status", "activity_status TEXT");
+  await addColumnIfMissing("leads", "is_vip", "is_vip BOOLEAN NOT NULL DEFAULT FALSE");
+
+  // The four overlapping status scales collapsed into one lead funnel plus
+  // three independent client fields (see SCHEMA). Five old stages have no
+  // counterpart in the new funnel and are remapped by meaning; the constraint
+  // has to come off first, because the rows are illegal under both the old
+  // and the new one while this runs.
   await pool.query("ALTER TABLE leads DROP CONSTRAINT IF EXISTS leads_status_check");
+  await pool.query("ALTER TABLE leads DROP CONSTRAINT IF EXISTS leads_verification_check");
+  // ACTIVE meant "already trading", which is now a client's activity field
+  // rather than a funnel stage — so it becomes DEPOSITED plus that field.
+  await pool.query(`
+    UPDATE leads SET activity_status = 'ACTIVE_TRADER'
+    WHERE status = 'ACTIVE' AND activity_status IS NULL
+  `);
+  await pool.query(`
+    UPDATE leads SET status = CASE status
+      WHEN 'CONTACTED'  THEN 'WELCOME_CALL'
+      WHEN 'QUALIFIED'  THEN 'WELCOME_CALL'
+      WHEN 'REGISTERED' THEN 'WELCOME_CALL'
+      WHEN 'ACTIVE'     THEN 'DEPOSITED'
+      WHEN 'OLDDB'      THEN 'LOST'
+      ELSE status END
+    WHERE status IN ('CONTACTED', 'QUALIFIED', 'REGISTERED', 'ACTIVE', 'OLDDB')
+  `);
+  // Anything a future stray value could be is parked at the start of the
+  // funnel rather than failing the constraint and taking the boot with it.
+  await pool.query(`
+    UPDATE leads SET status = 'NEW' WHERE status NOT IN (
+      'NEW', 'WELCOME_CALL', 'CALLBACK', 'DEPOSITED',
+      'LOW_POTENTIAL', 'NOT_INTERESTED', 'WRONG_INFO', 'UNDER_18',
+      'HANG_UP', 'NO_ANSWER', 'DENY_REG', 'TRASH', 'LOST'
+    )
+  `);
   await pool.query(`
     ALTER TABLE leads ADD CONSTRAINT leads_status_check CHECK (status IN (
-      'NEW', 'CONTACTED', 'QUALIFIED', 'CALLBACK', 'WELCOME_CALL',
-      'REGISTERED', 'DEPOSITED', 'ACTIVE',
-      'OLDDB', 'NO_ANSWER', 'WRONG_INFO', 'LOW_POTENTIAL',
-      'NOT_INTERESTED', 'DENY_REG', 'UNDER_18', 'LOST'
+      'NEW', 'WELCOME_CALL', 'CALLBACK', 'DEPOSITED',
+      'LOW_POTENTIAL', 'NOT_INTERESTED', 'WRONG_INFO', 'UNDER_18',
+      'HANG_UP', 'NO_ANSWER', 'DENY_REG', 'TRASH', 'LOST'
     ))
   `);
+  await pool.query(`
+    ALTER TABLE leads DROP CONSTRAINT IF EXISTS leads_activity_check
+  `);
+  await pool.query(`
+    ALTER TABLE leads ADD CONSTRAINT leads_activity_check CHECK (
+      activity_status IS NULL
+      OR activity_status IN ('ACTIVE_TRADER', 'LOW_TRADER', 'INACTIVE', 'CHURNED')
+    )
+  `);
+  // The lead's own verification column was a hand-kept copy of the platform's
+  // real KYC state (users.kyc_status), which is the one the compliance desk
+  // acts on. Two sources for one fact is what made the CRM's colours
+  // ambiguous, so the copy goes and the real one is read directly.
+  await pool.query("ALTER TABLE leads DROP COLUMN IF EXISTS verification_status");
   // The follow-up queue is read as "everything due before now, oldest first".
   await pool.query("CREATE INDEX IF NOT EXISTS idx_leads_next_action ON leads(next_action_at) WHERE next_action_at IS NOT NULL");
   // GIN, because every tag query is a containment test (`tags @> ARRAY[...]`).
@@ -686,10 +738,10 @@ async function backfillLeadsForUsers(): Promise<void> {
   for (const u of missing) {
     await pool.query(`
       INSERT INTO leads (id, full_name, phone, email, country, source, status,
-                         verification_status, assigned_manager_id, platform_user_id,
+                         assigned_manager_id, platform_user_id,
                          created_at, updated_at)
       VALUES ($1, $2, NULL, $3, NULL, 'Регистрация до внедрения CRM', 'NEW',
-              'NOT_SUBMITTED', NULL, $4, $5, $5)
+              NULL, $4, $5, $5)
     `, [newId(), u.name, u.email, u.id, u.created_at]);
   }
 }

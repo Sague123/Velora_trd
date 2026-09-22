@@ -15,7 +15,9 @@ import { ColumnManager } from "../components/crm/ColumnManager";
 import { BulkBar } from "../components/crm/BulkBar";
 import type { LeadColumn } from "../components/crm/leadColumns";
 import {
-  ACCOUNT_STATUS_LABEL, ACCOUNT_STATUS_TONE, LEAD_STATUS_LABEL, VERIFICATION_LABEL,
+  ACTIVITY_STATUS_HINT, ACTIVITY_STATUS_LABEL, ACTIVITY_STATUS_TONE,
+  KYC_STATUS_HINT, KYC_STATUS_LABEL, KYC_STATUS_TONE,
+  LEAD_STATUS_LABEL, VIP_HINT, VIP_LABEL, VIP_TONE,
 } from "../components/crm/leadLabels";
 import { EmptyRow, SkeletonTableRows } from "../components/common/States";
 import { Checkbox } from "../components/common/Checkbox";
@@ -38,7 +40,6 @@ const KYC_LABEL: Record<KycStatus, string> = {
 const ACCOUNT_FILTER_LABEL: Record<Exclude<LeadFilters["account"], "">, string> = {
   NO_ACCOUNT: "Без аккаунта",
   HAS_ACCOUNT: "С аккаунтом",
-  ACTIVE: "Аккаунт активен",
   BLOCKED: "Аккаунт заблокирован",
 };
 
@@ -49,10 +50,10 @@ const NEXT_ACTION_FILTER_LABEL: Record<Exclude<LeadFilters["nextAction"], "">, s
 };
 
 const DEFAULT_FILTERS: LeadFilters = {
-  status: [], managerId: [], kycStatus: [], verificationStatus: [], source: [],
+  status: [], managerId: [], kycStatus: [], activityStatus: [], source: [],
   search: "", converted: "", createdFrom: "", createdTo: "",
   fullName: "", phone: "", email: "", country: "", accountNumber: "",
-  account: "", nextAction: "", tag: [],
+  account: "", vip: "", nextAction: "", tag: [],
   sortBy: "createdAt", sortDir: "desc", page: 1, pageSize: 25,
 };
 
@@ -214,7 +215,7 @@ function SummaryBar({
     },
     {
       key: "accounts", label: "С аккаунтом", value: data.activeAccounts,
-      apply: { account: "ACTIVE" }, active: filters.account === "ACTIVE",
+      apply: { account: "HAS_ACCOUNT" }, active: filters.account === "HAS_ACCOUNT",
     },
   ];
 
@@ -283,9 +284,9 @@ export function CrmPage() {
 
   const hasAnyFilter = !!(filters.search
     || filters.fullName || filters.phone || filters.email || filters.country || filters.accountNumber
-    || filters.converted || filters.createdFrom || filters.createdTo || filters.account || filters.nextAction)
+    || filters.converted || filters.createdFrom || filters.createdTo || filters.account || filters.vip || filters.nextAction)
     || filters.status.length > 0 || filters.managerId.length > 0 || filters.kycStatus.length > 0
-    || filters.verificationStatus.length > 0 || filters.source.length > 0 || filters.tag.length > 0;
+    || filters.activityStatus.length > 0 || filters.source.length > 0 || filters.tag.length > 0;
 
   function resetAll() {
     setDrafts({ search: "", fullName: "", phone: "", email: "", country: "", accountNumber: "" });
@@ -418,12 +419,12 @@ export function CrmPage() {
         {moreFilters && (
           <div className="anim-rise mt-2 flex flex-wrap items-end gap-2 border-t border-line-soft pt-2">
             <div className="min-w-[150px]">
-              <span className="mb-1 block text-2xs font-medium text-txt-2">Верификация</span>
+              <span className="mb-1 block text-2xs font-medium text-txt-2">Активность</span>
               <MultiSelect
-                label="Верификация"
-                selected={filters.verificationStatus}
-                onChange={(v) => patch({ verificationStatus: v as LeadFilters["verificationStatus"] })}
-                options={(meta.data?.verificationStatuses ?? []).map((s) => ({ value: s, label: VERIFICATION_LABEL[s] ?? s }))}
+                label="Активность"
+                selected={filters.activityStatus}
+                onChange={(v) => patch({ activityStatus: v as LeadFilters["activityStatus"] })}
+                options={(meta.data?.activityStatuses ?? []).map((s) => ({ value: s, label: ACTIVITY_STATUS_LABEL[s] ?? s }))}
               />
             </div>
 
@@ -685,9 +686,21 @@ function MobileLeadList({
                 <Checkbox checked={checked} onChange={() => onToggle(l.id)} />
               </span>
               <span className="min-w-0 flex-1 truncate text-xs font-medium text-txt-0">{l.fullName}</span>
-              <StatusChip tone={ACCOUNT_STATUS_TONE[l.accountStatus]}>
-                {ACCOUNT_STATUS_LABEL[l.accountStatus]}
-              </StatusChip>
+              {/* The client fields, only once there is a client behind the
+                  lead — three chips rather than one merged scale. */}
+              <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+                {l.kycStatus && (
+                  <StatusChip tone={KYC_STATUS_TONE[l.kycStatus]} hint={KYC_STATUS_HINT[l.kycStatus]}>
+                    {KYC_STATUS_LABEL[l.kycStatus]}
+                  </StatusChip>
+                )}
+                {l.activityStatus && (
+                  <StatusChip tone={ACTIVITY_STATUS_TONE[l.activityStatus]} hint={ACTIVITY_STATUS_HINT[l.activityStatus]}>
+                    {ACTIVITY_STATUS_LABEL[l.activityStatus]}
+                  </StatusChip>
+                )}
+                {l.isVip && <StatusChip tone={VIP_TONE} hint={VIP_HINT}>{VIP_LABEL}</StatusChip>}
+              </span>
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-2xs">
               <StatusSelect leadId={l.id} status={l.status} />
@@ -740,7 +753,7 @@ function FilterChips({
   };
 
   addList("Этап", filters.status, (s) => LEAD_STATUS_LABEL[s] ?? s, (next) => ({ status: next }));
-  addList("Верификация", filters.verificationStatus, (s) => VERIFICATION_LABEL[s] ?? s, (next) => ({ verificationStatus: next }));
+  addList("Активность", filters.activityStatus, (s) => ACTIVITY_STATUS_LABEL[s] ?? s, (next) => ({ activityStatus: next }));
   addList("KYC", filters.kycStatus, (s) => KYC_LABEL[s as KycStatus] ?? s, (next) => ({ kycStatus: next }));
   addList("Источник", filters.source, (s) => s, (next) => ({ source: next }));
   addList("Тег", filters.tag, (t) => t, (next) => ({ tag: next }));

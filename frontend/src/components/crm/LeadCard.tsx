@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import {
-  useAssignLead, useCrmMeta, useEditLead, useLead, useSetLeadConsent, useSetLeadStatus, useSetLeadVerification,
+  useAssignLead, useCrmMeta, useEditLead, useLead, useSetLeadActivity, useSetLeadConsent, useSetLeadStatus, useSetLeadVip,
 } from "../../hooks/useCrm";
 import { useAuthStore } from "../../store/auth";
 import { classNames, fmtDateTime, fmtUsd } from "../../lib/format";
@@ -20,9 +20,13 @@ import { TagEditor } from "./TagEditor";
 import { ContactAction } from "./ContactActions";
 import { NextActionCell } from "./NextActionCell";
 import {
-  LEAD_STATUS_LABEL, LEAD_STATUS_TONE, VERIFICATION_LABEL, VERIFICATION_TONE,
+  ACTIVITY_STATUS_HINT, ACTIVITY_STATUS_LABEL, ACTIVITY_STATUS_TONE,
+  KYC_STATUS_HINT, KYC_STATUS_LABEL, KYC_STATUS_TONE,
+  LEAD_STATUS_HINT, LEAD_STATUS_LABEL, LEAD_STATUS_TONE,
+  PIPELINE_STAGES, VIP_HINT, VIP_LABEL, VIP_TONE, pipelineStep,
 } from "./leadLabels";
-import type { LeadDetail, LeadStatus, LeadVerificationStatus } from "../../lib/types";
+import { Checkbox } from "../common/Checkbox";
+import type { LeadActivityStatus, LeadDetail, LeadStatus } from "../../lib/types";
 import { IconClose, IconMail, IconPencil, IconPhone } from "../icons/Icon";
 import { buttonCls, fieldCls } from "../../lib/ui";
 
@@ -37,14 +41,18 @@ type Tab = "main" | "account" | "kyc";
  * later still has to be readable in the log of what happened. */
 const HISTORY_KIND_LABEL: Record<string, string> = {
   STATUS: "статус",
-  VERIFICATION: "верификация",
+  ACTIVITY: "активность",
+  VIP: "VIP",
   CONSENT: "согласие клиента",
   TRADE_EDIT: "правка сделки",
 };
 
-function historyLabel(kind: "STATUS" | "VERIFICATION", value: string | null): string {
+function historyLabel(kind: string, value: string | null): string {
   if (!value) return "—";
-  const map: Record<string, string> = kind === "STATUS" ? LEAD_STATUS_LABEL : VERIFICATION_LABEL;
+  const map: Record<string, string> =
+    kind === "STATUS" ? LEAD_STATUS_LABEL
+    : kind === "ACTIVITY" ? ACTIVITY_STATUS_LABEL
+    : {};
   return map[value] ?? value;
 }
 
@@ -161,7 +169,8 @@ export function LeadCard({ leadId, onClose }: { leadId: string; onClose: () => v
   const meta = useCrmMeta();
   const me = useAuthStore((s) => s.user);
   const setStatus = useSetLeadStatus();
-  const setVerification = useSetLeadVerification();
+  const setActivity = useSetLeadActivity();
+  const setVip = useSetLeadVip();
   const assign = useAssignLead();
   const editLead = useEditLead();
 
@@ -203,9 +212,14 @@ export function LeadCard({ leadId, onClose }: { leadId: string; onClose: () => v
     catch (e) { fail(e, "Не удалось сменить статус"); }
   }
 
-  async function changeVerification(verificationStatus: LeadVerificationStatus) {
-    try { await setVerification.mutateAsync({ id: leadId, verificationStatus }); }
-    catch (e) { fail(e, "Не удалось сменить статус верификации"); }
+  async function changeActivity(activityStatus: LeadActivityStatus | null) {
+    try { await setActivity.mutateAsync({ id: leadId, activityStatus }); }
+    catch (e) { fail(e, "Не удалось сменить статус активности"); }
+  }
+
+  async function changeVip(vip: boolean) {
+    try { await setVip.mutateAsync({ id: leadId, vip }); }
+    catch (e) { fail(e, "Не удалось изменить флаг VIP"); }
   }
 
   async function changeManager(managerId: string) {
@@ -261,11 +275,27 @@ export function LeadCard({ leadId, onClose }: { leadId: string; onClose: () => v
             </div>
             {lead && (
               <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                <StatusChip tone={LEAD_STATUS_TONE[lead.status]}>{LEAD_STATUS_LABEL[lead.status]}</StatusChip>
-                <StatusChip tone={VERIFICATION_TONE[lead.verificationStatus]}>
-                  {VERIFICATION_LABEL[lead.verificationStatus]}
+                <StatusChip tone={LEAD_STATUS_TONE[lead.status]} hint={LEAD_STATUS_HINT[lead.status]}>
+                  {LEAD_STATUS_LABEL[lead.status]}
+                  {pipelineStep(lead.status) > 0 && (
+                    <span className="ml-1 opacity-70">{pipelineStep(lead.status)}/{PIPELINE_STAGES.length}</span>
+                  )}
                 </StatusChip>
-                {lead.platform && <StatusChip tone="accent">зарегистрирован</StatusChip>}
+                {/* The client fields only appear once there is a client —
+                    showing "No KYC" on a lead who never registered would be
+                    answering a question nobody asked yet. */}
+                {lead.kycStatus && (
+                  <StatusChip tone={KYC_STATUS_TONE[lead.kycStatus]} hint={KYC_STATUS_HINT[lead.kycStatus]}>
+                    {KYC_STATUS_LABEL[lead.kycStatus]}
+                  </StatusChip>
+                )}
+                {lead.activityStatus && (
+                  <StatusChip tone={ACTIVITY_STATUS_TONE[lead.activityStatus]} hint={ACTIVITY_STATUS_HINT[lead.activityStatus]}>
+                    {ACTIVITY_STATUS_LABEL[lead.activityStatus]}
+                  </StatusChip>
+                )}
+                {lead.isVip && <StatusChip tone={VIP_TONE} hint={VIP_HINT}>{VIP_LABEL}</StatusChip>}
+                {lead.isBlocked && <StatusChip tone="crm-red" hint="Аккаунт заблокирован — клиент не может войти и торговать.">Заблокирован</StatusChip>}
               </div>
             )}
           </div>
@@ -439,18 +469,28 @@ export function LeadCard({ leadId, onClose }: { leadId: string; onClose: () => v
                       </select>
                     </label>
 
+                    {/* Client-only. KYC is not editable here at all: it is
+                        the platform's own compliance decision, read live, and
+                        a manager typing over it is exactly the two-sources
+                        problem this rebuild removed. */}
                     <label className="block">
-                      <span className="mb-1 block text-2xs font-medium text-txt-2">Верификация</span>
+                      <span className="mb-1 block text-2xs font-medium text-txt-2">Активность</span>
                       <select
-                        value={lead.verificationStatus}
-                        disabled={setVerification.isPending}
-                        onChange={(e) => changeVerification(e.target.value as LeadVerificationStatus)}
+                        value={lead.activityStatus ?? ""}
+                        disabled={setActivity.isPending}
+                        onChange={(e) => changeActivity(e.target.value === "" ? null : e.target.value as LeadActivityStatus)}
                         className={selectCls}
                       >
-                        {(meta.data?.verificationStatuses ?? [lead.verificationStatus]).map((s) => (
-                          <option key={s} value={s}>{VERIFICATION_LABEL[s] ?? s}</option>
+                        <option value="">— не задана</option>
+                        {(meta.data?.activityStatuses ?? []).map((s) => (
+                          <option key={s} value={s}>{ACTIVITY_STATUS_LABEL[s] ?? s}</option>
                         ))}
                       </select>
+                    </label>
+
+                    <label className="flex items-center gap-2 pt-5">
+                      <Checkbox checked={lead.isVip} onChange={(v) => changeVip(v)} />
+                      <span className="text-2xs font-medium text-txt-2">{VIP_LABEL} — крупный клиент</span>
                     </label>
 
                     <label className="block">
@@ -509,7 +549,7 @@ export function LeadCard({ leadId, onClose }: { leadId: string; onClose: () => v
                                   enum values, so they carry the whole sentence in
                                   newStatus — rendering them as "X → Y" would print
                                   a dash and half a message. */}
-                              {h.kind === "STATUS" || h.kind === "VERIFICATION" ? (
+                              {h.kind === "STATUS" || h.kind === "ACTIVITY" ? (
                                 <span>
                                   {historyLabel(h.kind, h.oldStatus)} → <span className="text-txt-0">{historyLabel(h.kind, h.newStatus)}</span>
                                 </span>
@@ -517,7 +557,9 @@ export function LeadCard({ leadId, onClose }: { leadId: string; onClose: () => v
                                 <span className={classNames("text-txt-0", h.kind === "TRADE_EDIT" && "text-warn")}>
                                   {h.kind === "CONSENT"
                                     ? (h.newStatus === "GRANTED" ? "получено" : "отозвано")
-                                    : h.newStatus}
+                                    : h.kind === "VIP"
+                                      ? (h.newStatus === "VIP" ? "отмечен" : "снят")
+                                      : h.newStatus}
                                 </span>
                               )}
                             </div>
