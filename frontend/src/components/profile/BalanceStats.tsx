@@ -106,14 +106,26 @@ export function BalanceStats() {
       {/* Total Balance and Futures Equity already lead the screen (the header
           card and the Futures card below), so this group leads with the
           result those two don't show on their own: realised, unrealised, ROI. */}
+      {/* How the account has done overall. Fees and win rate belong here and
+          not with the open-position counters they used to sit beside: they
+          are cumulative results, not live state. */}
       <StatGroup title="Результат">
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
           <Stat label={t("account.realisedPnl")} value={fmtSigned(a.realisedPnl)} tone={Number(a.realisedPnl) >= 0 ? "buy" : "sell"} />
           <Stat label={t("account.unrealisedPnl")} value={fmtSigned(a.unrealisedPnl)} tone={Number(a.unrealisedPnl) >= 0 ? "buy" : "sell"} />
           <Stat label={t("account.roi")} value={stats.roi !== null ? `${stats.roi >= 0 ? "+" : ""}${stats.roi.toFixed(1)}%` : "—"} tone={stats.roi !== null ? (stats.roi >= 0 ? "buy" : "sell") : undefined} />
+          {/* Every FEE ledger entry — one is booked when an order is placed
+              and another when the position closes (engine/execution.ts). The
+              History tab's own fee total sums the trade rows instead, which
+              only carry the closing fee, so the two figures legitimately
+              differ; both now say which half they count rather than showing
+              two unexplained numbers for "fees". */}
+          <Stat label={t("account.feesPaid")} value={fmtUsd(stats.fees, 4)} sub="вход + закрытие" />
+          <Stat label={t("account.winRate")} value={a.winRatePct !== null ? fmtRate(a.winRatePct) : "—"} sub={`сделок: ${a.totalTrades}`} />
         </div>
       </StatGroup>
 
+      {/* Money crossing the account's edge — what was put in and taken out. */}
       <StatGroup title="Движение средств">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           <Stat label={t("account.totalDeposited")} value={fmtUsd(stats.deposited)} />
@@ -122,17 +134,11 @@ export function BalanceStats() {
         </div>
       </StatGroup>
 
-      <StatGroup title="Торговая активность">
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-          {/* Every FEE ledger entry — one is booked when an order is placed
-              and another when the position closes (engine/execution.ts). The
-              History tab's own fee total sums the trade rows instead, which
-              only carry the closing fee, so the two figures legitimately
-              differ; both now say which half they count rather than showing
-              two unexplained numbers for "fees". */}
-          <Stat label={t("account.feesPaid")} value={fmtUsd(stats.fees, 4)} sub="вход + закрытие" />
-          <Stat label={t("account.winRate")} value={a.winRatePct !== null ? fmtRate(a.winRatePct) : "—"} sub={`${a.totalTrades} trades`} />
-          <Stat label={t("account.usedMargin")} value={fmtUsd(a.usedMargin)} sub={`${a.marginUsagePct.toFixed(1)}% of equity`} />
+      {/* Live state only: everything here can change on the next tick, and
+          answers "what is running right now" rather than "how have I done". */}
+      <StatGroup title="Сейчас открыто">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <Stat label={t("account.usedMargin")} value={fmtUsd(a.usedMargin)} sub={`${a.marginUsagePct.toFixed(1)}% от средств`} />
           <Stat label={t("account.openPositions")} value={String(a.openPositions)} />
           <Stat label={t("account.openOrders")} value={String(a.openOrders)} />
         </div>

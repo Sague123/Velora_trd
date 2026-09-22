@@ -12,7 +12,7 @@ import { RecentWalletActivity } from "./WalletActions";
 import { ErrorRow, SkeletonLines } from "../common/States";
 import { Tooltip } from "../common/Tooltip";
 import {
-  IconChevron, IconRefresh, IconSwap, IconWalletMinus, IconWalletPlus,
+  IconRefresh, IconSwap, IconWalletMinus, IconWalletPlus,
 } from "../icons/Icon";
 import type { KycStatus, Role } from "../../lib/types";
 import { useTranslation } from "react-i18next";
@@ -74,24 +74,6 @@ function ActionTile({
  * detail a trader checks occasionally rather than the reason they opened this
  * screen. Everything above it (balance, spot, actions, futures) stays open,
  * since those are exactly what the screen exists to show first. */
-function CollapsibleSection({ title, children }: { title: string; children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <section className="rounded-lg border border-line bg-bg-1">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className="flex w-full items-center justify-between px-3.5 py-3 text-left"
-      >
-        <span className="text-sm font-semibold text-txt-0">{title}</span>
-        <IconChevron size={14} direction={open ? "up" : "down"} className="text-txt-3" />
-      </button>
-      {open && <div className="border-t border-line-soft p-3.5">{children}</div>}
-    </section>
-  );
-}
-
 function MiniStat({ label, value, tone }: { label: string; value: string; tone?: "buy" | "sell" }) {
   return (
     <div className="rounded-lg bg-bg-2 px-2.5 py-2 text-center">
@@ -188,10 +170,14 @@ export function AccountOverview({ onSeeAllHistory }: { onSeeAllHistory?: () => v
         </section>
       )}
 
-      {/* ---- Trading statistics: collapsed by default ---- */}
-      <CollapsibleSection title="Статистика торговли">
+      {/* Open, not behind a disclosure: these are the figures the screen is
+          for, and a collapsed panel meant the default state of Account showed
+          none of them. Titled for what it now holds — two of its three groups
+          (money in/out, what is open right now) were never trading statistics. */}
+      <section className="rounded-lg border border-line bg-bg-1 p-3.5">
+        <div className="mb-3 text-sm font-semibold text-txt-0">Показатели счёта</div>
         <BalanceStats />
-      </CollapsibleSection>
+      </section>
 
       {/* ---- Account: ID / type / verification ---- */}
       <section className="rounded-lg border border-line bg-bg-1 p-3.5">
