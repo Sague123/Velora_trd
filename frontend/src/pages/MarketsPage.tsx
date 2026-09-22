@@ -4,9 +4,10 @@ import { useTranslation } from "react-i18next";
 import { useInstruments } from "../hooks/useMarket";
 import { useLiveInstruments } from "../hooks/useLivePrices";
 import { useTerminalStore } from "../store/terminal";
+import { useFavoritesStore } from "../store/favorites";
 import { classNames, fmtCompact, fmtPct, fmtPrice } from "../lib/format";
 import { ErrorRow, EmptyRow, SkeletonBar, SkeletonTableRows } from "../components/common/States";
-import { IconCoin } from "../components/icons/Icon";
+import { IconCoin, IconStar } from "../components/icons/Icon";
 import type { Category } from "../lib/types";
 import { Page } from "../components/layout/Page";
 import { Tooltip } from "../components/common/Tooltip";
@@ -38,7 +39,18 @@ const CATEGORIES: Array<{ id: Category | "ALL"; label: string; Icon?: typeof Ico
   { id: "COMMODITY", label: "Precious Metals", Icon: IconCoin },
 ];
 
-type SortKey = "symbol" | "price" | "change" | "volume";
+type SortKey = "symbol" | "price" | "change" | "volume" | "high" | "low" | "leverage";
+
+/** The subset worth offering on a phone, where there are no column headers to
+ * click. Each carries the direction that answers the question people actually
+ * ask of it — biggest volume, biggest movers, most expensive, A→Z — and the
+ * arrow button beside the select flips any of them. */
+const MOBILE_SORTS: { key: SortKey; dir: 1 | -1; label: string }[] = [
+  { key: "volume", dir: -1, label: "По объёму" },
+  { key: "change", dir: -1, label: "По изменению" },
+  { key: "price", dir: -1, label: "По цене" },
+  { key: "symbol", dir: 1, label: "По алфавиту" },
+];
 
 export function MarketsPage() {
   const { t } = useTranslation();
@@ -50,6 +62,11 @@ export function MarketsPage() {
   const [category, setCategory] = useState<Category | "ALL">("ALL");
   const [sortKey, setSortKey] = useState<SortKey>("symbol");
   const [sortDir, setSortDir] = useState<1 | -1>(1);
+  // Subscribe to the array, not to isFavorite() — the selector has to be the
+  // thing that changes, or starring a row wouldn't re-render the list.
+  const favoriteSymbols = useFavoritesStore((s) => s.symbols);
+  const toggleFavorite = useFavoritesStore((s) => s.toggle);
+  const favorites = useMemo(() => new Set(favoriteSymbols), [favoriteSymbols]);
 
   const rows = useMemo(() => {
     const q = query.trim().toUpperCase();
@@ -64,10 +81,21 @@ export function MarketsPage() {
       if (sortKey === "price") { av = Number(a.livePrice); bv = Number(b.livePrice); }
       if (sortKey === "change") { av = a.liveChange24h; bv = b.liveChange24h; }
       if (sortKey === "volume") { av = Number(a.volume24h ?? 0); bv = Number(b.volume24h ?? 0); }
+      // High/Low are null until a real feed fills them; Number(null) is 0,
+      // which would sort every unpriced row together at one end rather than
+      // pretending they are worth nothing.
+      if (sortKey === "high") { av = Number(a.liveHigh24h ?? 0); bv = Number(b.liveHigh24h ?? 0); }
+      if (sortKey === "low") { av = Number(a.liveLow24h ?? 0); bv = Number(b.liveLow24h ?? 0); }
+      if (sortKey === "leverage") { av = a.maxLeverage; bv = b.maxLeverage; }
       return sortDir * (av - bv);
     });
     return list;
   }, [instruments, query, category, sortKey, sortDir]);
+
+  // Starred pairs ride above the list, in the same sort order as everything
+  // else — pinning them is about finding them, not about reordering them.
+  const favRows = useMemo(() => rows.filter((i) => favorites.has(i.symbol)), [rows, favorites]);
+  const restRows = useMemo(() => rows.filter((i) => !favorites.has(i.symbol)), [rows, favorites]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) setSortDir((d) => (d === 1 ? -1 : 1));
@@ -78,6 +106,37 @@ export function MarketsPage() {
     setSymbol(symbol);
     navigate("/terminal");
   }
+
+  const StarButton = ({ symbol, className }: { symbol: string; className?: string }) => {
+    const on = favorites.has(symbol);
+    return (
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); toggleFavorite(symbol); }}
+        aria-pressed={on}
+        title={on ? "Убрать из избранного" : "В избранное"}
+        className={classNames(
+          "btn-fx tap-sm rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent",
+          on ? "text-warn" : "text-txt-3 hover:text-txt-1",
+          className,
+        )}
+      >
+        {/* Filled when starred, outline when not — the fill is what reads as
+            "on" at this size; colour alone would not. */}
+        <IconStar size={14} className={on ? "fill-warn" : undefined} />
+      </button>
+    );
+  };
+
+  /** Labels the two blocks, but only once there is a second block to tell the
+   * first one apart from. */
+  const GroupRow = ({ label, count }: { label: string; count: number }) => (
+    <tr className="bg-bg-2/40">
+      <td colSpan={10} className="px-3 py-1 text-2xs font-semibold uppercase tracking-wide text-txt-3">
+        {label} <span className="font-normal text-txt-3">· {count}</span>
+      </td>
+    </tr>
+  );
 
   const SortHeader = ({ id, label, align = "left" }: { id: SortKey; label: string; align?: "left" | "right" }) => (
     <th
@@ -107,6 +166,38 @@ export function MarketsPage() {
           value={category}
           onChange={setCategory}
         />
+
+        {/* Phone-only: the card layout below `sm` has no column headers to
+            click, so without this the list could be filtered and searched but
+            never reordered. The arrow flips direction, which is what turns
+            "по изменению" from top gainers into top losers. */}
+        <div className="flex items-center gap-1 sm:hidden">
+          <select
+            value={sortKey}
+            onChange={(e) => {
+              const next = MOBILE_SORTS.find((s) => s.key === e.target.value);
+              if (!next) return;
+              setSortKey(next.key);
+              setSortDir(next.dir);
+            }}
+            className={fieldCls("sm", "tap-sm w-auto")}
+            aria-label="Сортировка"
+          >
+            {MOBILE_SORTS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+            {/* Whatever a desktop header set, so the select never shows a
+                value that isn't the one actually in force. */}
+            {!MOBILE_SORTS.some((s) => s.key === sortKey) && <option value={sortKey}>—</option>}
+          </select>
+          <button
+            type="button"
+            onClick={() => setSortDir((d) => (d === 1 ? -1 : 1))}
+            title={sortDir === 1 ? "По возрастанию" : "По убыванию"}
+            className="btn-fx tap-sm rounded border border-line px-2 text-2xs text-txt-2 hover:text-txt-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+          >
+            {sortDir === 1 ? "▲" : "▼"}
+          </button>
+        </div>
+
         {data && (
           <span className="ml-auto text-2xs text-txt-3">
             Фид: {data.feed.healthy ? <span className="text-buy">live</span> : <span className="text-warn">stale</span>}
@@ -152,35 +243,59 @@ export function MarketsPage() {
                     <div className="mt-1.5"><SkeletonBar width="50%" height={9} /></div>
                   </div>
                 ))}
-              {!isLoading &&
-                rows.map((i) => (
-                  <button
-                    key={i.symbol}
-                    onClick={() => openInTerminal(i.symbol)}
-                    className="tap-sm flex w-full flex-col gap-1 border-b border-line-soft/60 px-3 py-2.5 text-left hover:bg-bg-2/60 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex min-w-0 items-center gap-1.5">
-                        <span className="truncate text-xs font-medium text-txt-0">{i.symbol}</span>
-                        <span className="shrink-0 rounded bg-bg-3 px-1 py-px text-3xs font-medium uppercase tracking-wide text-txt-3">{i.category.slice(0, 4)}</span>
-                        <SourceBadge source={i.source} />
+              {!isLoading && (() => {
+                // The star has to be its own button, so the card can no longer
+                // *be* one — a button inside a button is invalid markup and
+                // the inner one stops being reachable. The row is a flex pair
+                // instead: tap area on the left, star on the right.
+                const card = (i: (typeof rows)[number]) => (
+                  <div key={i.symbol} className="flex items-stretch border-b border-line-soft/60">
+                    <button
+                      onClick={() => openInTerminal(i.symbol)}
+                      className="tap-sm flex min-w-0 flex-1 flex-col gap-1 px-3 py-2.5 text-left hover:bg-bg-2/60 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <span className="truncate text-xs font-medium text-txt-0">{i.symbol}</span>
+                          <span className="shrink-0 rounded bg-bg-3 px-1 py-px text-3xs font-medium uppercase tracking-wide text-txt-3">{i.category.slice(0, 4)}</span>
+                          <SourceBadge source={i.source} />
+                        </div>
+                        <span className={classNames("shrink-0 tabular text-xs font-semibold", i.dir === "up" ? "text-buy" : i.dir === "down" ? "text-sell" : "text-txt-0")}>
+                          {fmtPrice(i.livePrice, i.priceDecimals)}
+                        </span>
                       </div>
-                      <span className={classNames("shrink-0 tabular text-xs font-semibold", i.dir === "up" ? "text-buy" : i.dir === "down" ? "text-sell" : "text-txt-0")}>
-                        {fmtPrice(i.livePrice, i.priceDecimals)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-2xs text-txt-2">
-                      <span className="truncate">{i.name}</span>
-                      <span className={classNames("tabular font-medium", i.liveChange24h >= 0 ? "text-buy" : "text-sell")}>{fmtPct(i.liveChange24h)}</span>
-                    </div>
-                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-2xs text-txt-3 tabular">
-                      <span>H <span className="text-txt-2">{fmtPrice(i.liveHigh24h, i.priceDecimals)}</span></span>
-                      <span>L <span className="text-txt-2">{fmtPrice(i.liveLow24h, i.priceDecimals)}</span></span>
-                      <span>Vol <span className="text-txt-2">{fmtCompact(i.volume24h)}</span></span>
-                      <span>Max <span className="text-txt-2">{i.maxLeverage}x</span></span>
-                    </div>
-                  </button>
-                ))}
+                      <div className="flex items-center justify-between gap-2 text-2xs text-txt-2">
+                        <span className="truncate">{i.name}</span>
+                        <span className={classNames("shrink-0 tabular font-medium", i.liveChange24h >= 0 ? "text-buy" : "text-sell")}>{fmtPct(i.liveChange24h)}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-2xs text-txt-3 tabular">
+                        <span>H <span className="text-txt-2">{fmtPrice(i.liveHigh24h, i.priceDecimals)}</span></span>
+                        <span>L <span className="text-txt-2">{fmtPrice(i.liveLow24h, i.priceDecimals)}</span></span>
+                        <span>Vol <span className="text-txt-2">{fmtCompact(i.volume24h)}</span></span>
+                        <span>Max <span className="text-txt-2">{i.maxLeverage}x</span></span>
+                      </div>
+                    </button>
+                    <StarButton symbol={i.symbol} className="shrink-0 px-3" />
+                  </div>
+                );
+                const heading = (label: string, count: number) => (
+                  <div className="bg-bg-2/40 px-3 py-1 text-2xs font-semibold uppercase tracking-wide text-txt-3">
+                    {label} <span className="font-normal">· {count}</span>
+                  </div>
+                );
+                return (
+                  <>
+                    {favRows.length > 0 && (
+                      <>
+                        {heading("Избранное", favRows.length)}
+                        {favRows.map(card)}
+                        {restRows.length > 0 && heading("Все инструменты", restRows.length)}
+                      </>
+                    )}
+                    {restRows.map(card)}
+                  </>
+                );
+              })()}
             </div>
 
             {/* `sm` and up: unchanged desktop table. */}
@@ -188,46 +303,28 @@ export function MarketsPage() {
               <table className="w-full min-w-[760px] text-xs">
                 <thead className="sticky top-0 bg-bg-1">
                   <tr className="border-b border-line text-left">
+                    <th className="w-8 px-2 py-2"></th>
                     <SortHeader id="symbol" label="Instrument" />
                     <th className="px-3 py-2 font-medium text-txt-3">Category</th>
                     <SortHeader id="price" label="Last Price" align="right" />
                     <SortHeader id="change" label="24h Change" align="right" />
-                    <th className="px-3 py-2 text-right font-medium text-txt-3">24h High</th>
-                    <th className="px-3 py-2 text-right font-medium text-txt-3">24h Low</th>
+                    <SortHeader id="high" label="24h High" align="right" />
+                    <SortHeader id="low" label="24h Low" align="right" />
                     <SortHeader id="volume" label="24h Volume" align="right" />
-                    <th className="px-3 py-2 text-right font-medium text-txt-3">Max Lev.</th>
+                    <SortHeader id="leverage" label="Max Lev." align="right" />
                     <th className="px-3 py-2"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {isLoading && <SkeletonTableRows columns={9} />}
-                  {!isLoading && rows.map((i) => (
-                    <tr key={i.symbol} className="border-b border-line-soft/60 tabular hover:bg-bg-2/60">
-                      <td className="px-3 py-2">
-                        <div className="font-medium text-txt-0">{i.symbol}</div>
-                        <div className="text-2xs text-txt-3">{i.name}</div>
-                      </td>
-                      <td className="px-3 py-2 text-txt-2">
-                        <div className="flex items-center gap-1.5">
-                          {i.category}
-                          <SourceBadge source={i.source} />
-                        </div>
-                      </td>
-                      <td className={classNames("px-3 py-2 text-right", i.dir === "up" ? "text-buy" : i.dir === "down" ? "text-sell" : "text-txt-0")}>
-                        {fmtPrice(i.livePrice, i.priceDecimals)}
-                      </td>
-                      <td className={classNames("px-3 py-2 text-right", i.liveChange24h >= 0 ? "text-buy" : "text-sell")}>{fmtPct(i.liveChange24h)}</td>
-                      <td className="px-3 py-2 text-right text-txt-1">{fmtPrice(i.liveHigh24h, i.priceDecimals)}</td>
-                      <td className="px-3 py-2 text-right text-txt-1">{fmtPrice(i.liveLow24h, i.priceDecimals)}</td>
-                      <td className="px-3 py-2 text-right text-txt-1">{fmtCompact(i.volume24h)}</td>
-                      <td className="px-3 py-2 text-right text-txt-1">{i.maxLeverage}x</td>
-                      <td className="px-3 py-2 text-right">
-                        <button onClick={() => openInTerminal(i.symbol)} className="btn-fx rounded border border-line px-2.5 py-1 text-2xs text-txt-1 hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent">
-                          Trade
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {isLoading && <SkeletonTableRows columns={10} />}
+                  {!isLoading && favRows.length > 0 && (
+                    <>
+                      <GroupRow label="Избранное" count={favRows.length} />
+                      {favRows.map(renderRow)}
+                      {restRows.length > 0 && <GroupRow label="Все инструменты" count={restRows.length} />}
+                    </>
+                  )}
+                  {!isLoading && restRows.map(renderRow)}
                 </tbody>
               </table>
             </div>
@@ -237,4 +334,40 @@ export function MarketsPage() {
 
     </Page>
   );
+
+  /** Declared after the return (hoisted) so the table markup above stays
+   *  readable top-to-bottom; both the favourites block and the main list
+   *  render through it, so the two can never drift apart. */
+  function renderRow(i: (typeof rows)[number]) {
+    return (
+      <tr key={i.symbol} className="border-b border-line-soft/60 tabular hover:bg-bg-2/60">
+        <td className="px-2 py-2 text-center">
+          <StarButton symbol={i.symbol} />
+        </td>
+        <td className="px-3 py-2">
+          <div className="font-medium text-txt-0">{i.symbol}</div>
+          <div className="text-2xs text-txt-3">{i.name}</div>
+        </td>
+        <td className="px-3 py-2 text-txt-2">
+          <div className="flex items-center gap-1.5">
+            {i.category}
+            <SourceBadge source={i.source} />
+          </div>
+        </td>
+        <td className={classNames("px-3 py-2 text-right", i.dir === "up" ? "text-buy" : i.dir === "down" ? "text-sell" : "text-txt-0")}>
+          {fmtPrice(i.livePrice, i.priceDecimals)}
+        </td>
+        <td className={classNames("px-3 py-2 text-right", i.liveChange24h >= 0 ? "text-buy" : "text-sell")}>{fmtPct(i.liveChange24h)}</td>
+        <td className="px-3 py-2 text-right text-txt-1">{fmtPrice(i.liveHigh24h, i.priceDecimals)}</td>
+        <td className="px-3 py-2 text-right text-txt-1">{fmtPrice(i.liveLow24h, i.priceDecimals)}</td>
+        <td className="px-3 py-2 text-right text-txt-1">{fmtCompact(i.volume24h)}</td>
+        <td className="px-3 py-2 text-right text-txt-1">{i.maxLeverage}x</td>
+        <td className="px-3 py-2 text-right">
+          <button onClick={() => openInTerminal(i.symbol)} className="btn-fx rounded border border-line px-2.5 py-1 text-2xs text-txt-1 hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent">
+            Trade
+          </button>
+        </td>
+      </tr>
+    );
+  }
 }

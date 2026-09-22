@@ -32,39 +32,32 @@ const KYC_LABEL: Record<KycStatus, { text: string; cls: string }> = {
   REJECTED: { text: "отклонена", cls: "text-sell" },
 };
 
-type ActionTone = "buy" | "sell" | "accent" | "convert";
-// Solid fills, not the tinted -soft backgrounds these started with: at four
-// tiles side by side the tints read as disabled, which is the opposite of
-// what a primary action row should say. These are the same -fill tokens the
-// terminal's own Buy/Sell buttons use, each already contrast-checked against
-// the text colour sitting on it. Convert gets its own tone rather than
-// reusing "accent" — Transfer already owns that blue, and side by side the
-// two were indistinguishable.
-const ACTION_TONE_CLS: Record<ActionTone, string> = {
-  buy: "border-transparent bg-buy-fill text-black hover:brightness-110",
-  sell: "border-transparent bg-sell-fill text-white hover:brightness-110",
-  accent: "border-transparent bg-accent-fill text-white hover:brightness-110",
-  convert: "border-transparent bg-convert-fill text-white hover:brightness-110",
-};
-
+/**
+ * One neutral control surface for all four, deliberately.
+ *
+ * These were a green Deposit and a red Withdraw (the buy/sell -fill tokens),
+ * which this design system reserves strictly for market direction and the
+ * sign of a P&L — a green tile on a trading screen reads as "up", and moving
+ * your own money between your own wallets says nothing about the market.
+ * They are four equal money actions, so they get one raised-control surface
+ * (`bg-3`) with the accent carried by the icon, which keeps them reading as
+ * interactive without the tinted backgrounds that made an earlier version of
+ * this row look disabled.
+ */
 function ActionTile({
-  Icon, label, tone, onClick,
+  Icon, label, onClick,
 }: {
-  Icon: ComponentType<{ size?: number }>;
+  Icon: ComponentType<{ size?: number; className?: string }>;
   label: string;
-  tone: ActionTone;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={classNames(
-        "btn-fx tap flex flex-col items-center gap-1.5 rounded-xl border px-2 py-3 text-center shadow-btn transition-[filter,transform]",
-        ACTION_TONE_CLS[tone]
-      )}
+      className="btn-fx tap flex flex-col items-center gap-1.5 rounded-xl border border-line bg-bg-3 px-2 py-3 text-center text-txt-1 shadow-btn transition-[filter,transform] hover:bg-bg-4 hover:text-txt-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
     >
-      <Icon size={18} />
+      <Icon size={18} className="text-accent" />
       <span className="text-2xs font-bold">{label}</span>
     </button>
   );
@@ -146,10 +139,10 @@ export function AccountOverview({ onSeeAllHistory }: { onSeeAllHistory?: () => v
 
       {/* ---- Actions: after Spot, not under the balance ---- */}
       <div className="grid grid-cols-4 gap-2">
-        <ActionTile Icon={IconWalletPlus} label={t("account.deposit")} tone="buy" onClick={() => setWalletModal("deposit")} />
-        <ActionTile Icon={IconWalletMinus} label={t("account.withdraw")} tone="sell" onClick={() => setWalletModal("withdraw")} />
-        <ActionTile Icon={IconSwap} label={t("account.convert")} tone="convert" onClick={() => setExchange({ mode: "convert" })} />
-        <ActionTile Icon={IconRefresh} label={t("account.transfer")} tone="accent" onClick={() => setTransferOpen(true)} />
+        <ActionTile Icon={IconWalletPlus} label={t("account.deposit")} onClick={() => setWalletModal("deposit")} />
+        <ActionTile Icon={IconWalletMinus} label={t("account.withdraw")} onClick={() => setWalletModal("withdraw")} />
+        <ActionTile Icon={IconSwap} label={t("account.convert")} onClick={() => setExchange({ mode: "convert" })} />
+        <ActionTile Icon={IconRefresh} label={t("account.transfer")} onClick={() => setTransferOpen(true)} />
       </div>
       {/* ---- Futures: Equity, Available, Unrealized PnL ---- */}
       {account.data && (
