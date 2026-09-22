@@ -62,7 +62,8 @@ const WALLET_CHIP: Record<Wallet, { label: string; cls: string }> = {
 /**
  * The last few account movements — enough to confirm a deposit landed, not a
  * second copy of the ledger. `onSeeAll` opens the History tab, which holds
- * the full ledger.
+ * every one of these rows in full (it merges both journals and the closed
+ * trades); it used to open a trade-only list where none of them appeared.
  */
 export function RecentWalletActivity({ onSeeAll }: { onSeeAll?: () => void } = {}) {
   const { t } = useTranslation();

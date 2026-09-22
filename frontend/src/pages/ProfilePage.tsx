@@ -4,23 +4,21 @@ import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../store/auth";
 import { useSettingsStore } from "../store/settings";
 import { useThemeStore } from "../store/theme";
-import { useLedger, useOrders, usePositions, useTrades } from "../hooks/useTrading";
+import { useOrders, usePositions } from "../hooks/useTrading";
 import { useUpdateProfile } from "../hooks/useProfile";
 import { AccountOverview } from "../components/profile/AccountOverview";
 import { SpotHoldingsPanel } from "../components/profile/SpotHoldingsPanel";
-import { TradeHistoryTab } from "../components/profile/TradeHistoryTab";
+import { HistoryTab } from "../components/profile/HistoryTab";
 import { AvatarUpload } from "../components/profile/AvatarUpload";
 import { SecurityTab } from "../components/profile/SecurityTab";
 import { PositionsTable } from "../components/terminal/PositionsTable";
 import { OrdersTable } from "../components/terminal/OrdersTable";
-import { TradesTable } from "../components/terminal/TradesTable";
-import { LedgerTable } from "../components/terminal/LedgerTable";
 import { LoadingRow, ErrorRow, EmptyState } from "../components/common/States";
 import { Checkbox } from "../components/common/Checkbox";
 import { classNames, fmtDateTime } from "../lib/format";
 import { toast } from "../store/toast";
 import { ApiError } from "../lib/api";
-import { IconCoin, IconListView, IconMoon, IconOrderHistory, IconSun, IconTrade } from "../components/icons/Icon";
+import { IconListView, IconMoon, IconSun, IconTrade } from "../components/icons/Icon";
 import type { OrderStatus, Timeframe } from "../lib/types";
 import { buttonCls, fieldCls } from "../lib/ui";
 import { Page } from "../components/layout/Page";
@@ -160,13 +158,17 @@ function SettingsTab() {
   );
 }
 
+/**
+ * Current state only — what is open right now. Everything historical (closed
+ * trades, the cash journal, the spot journal) lives in the History tab, which
+ * shows all of it in one filterable list; this tab used to carry its own
+ * "Trade History" and "Ledger" copies of two of those datasets.
+ */
 function PortfolioTab({ onGoTrade }: { onGoTrade: () => void }) {
-  const [sub, setSub] = useState<"positions" | "spot" | "orders" | "history" | "ledger">("positions");
+  const [sub, setSub] = useState<"positions" | "spot" | "orders">("positions");
   const [orderStatus, setOrderStatus] = useState<OrderStatus | "ALL">("NEW");
   const positions = usePositions(sub === "positions");
   const orders = useOrders(orderStatus, sub === "orders");
-  const trades = useTrades(sub === "history");
-  const ledger = useLedger(sub === "ledger");
 
   // Height follows the rows. This used to be `flex-1` with an inner scroll
   // area, which reserved a full screen of panel whether it held twelve
@@ -185,8 +187,6 @@ function PortfolioTab({ onGoTrade }: { onGoTrade: () => void }) {
             ["positions", "Positions"],
             ["spot", "Spot Holdings"],
             ["orders", "Orders"],
-            ["history", "Trade History"],
-            ["ledger", "Ledger"],
           ] as [typeof sub, string][]
         ).map(([id, label]) => (
           <button key={id} onClick={() => setSub(id)} className={classNames("btn-fx tap-sm border-b-2 px-3 py-2 text-2xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent", sub === id ? "border-accent text-txt-0" : "border-transparent text-txt-2 hover:text-txt-0")}>
@@ -237,32 +237,6 @@ function PortfolioTab({ onGoTrade }: { onGoTrade: () => void }) {
                 />
               ) : (
                 <OrdersTable orders={orders.data.orders} showStatus={orderStatus === "ALL"} />
-              )
-            )}
-          </>
-        )}
-        {sub === "history" && (
-          <>
-            {trades.isLoading && <LoadingRow />}
-            {trades.isError && <ErrorRow label="Ошибка загрузки" onRetry={() => trades.refetch()} />}
-            {trades.data && (
-              trades.data.trades.length === 0 ? (
-                <EmptyState icon={<IconOrderHistory size={24} />} label="История сделок пуста" hint="Здесь появятся закрытые сделки с их результатом." />
-              ) : (
-                <TradesTable trades={trades.data.trades} />
-              )
-            )}
-          </>
-        )}
-        {sub === "ledger" && (
-          <>
-            {ledger.isLoading && <LoadingRow />}
-            {ledger.isError && <ErrorRow label="Ошибка загрузки" onRetry={() => ledger.refetch()} />}
-            {ledger.data && (
-              ledger.data.entries.length === 0 ? (
-                <EmptyState icon={<IconCoin size={24} />} label="Леджер пуст" hint="Каждое движение по счёту — пополнение, комиссия, PnL — попадёт сюда." />
-              ) : (
-                <LedgerTable entries={ledger.data.entries} />
               )
             )}
           </>
@@ -341,7 +315,7 @@ export function ProfilePage() {
 
         {tab === "portfolio" && <PortfolioTab onGoTrade={() => navigate("/terminal")} />}
 
-        {tab === "history" && <TradeHistoryTab />}
+        {tab === "history" && <HistoryTab />}
 
         {tab === "security" && <SecurityTab />}
 

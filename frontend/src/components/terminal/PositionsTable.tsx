@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { Position } from "../../lib/types";
-import { classNames, fmtDateTime, fmtPrice, fmtQty, fmtSigned, fmtUsd } from "../../lib/format";
+import { classNames, fmtDateTime, fmtPrice, fmtQty, fmtSigned, fmtUsd, n } from "../../lib/format";
 import { useClosePosition, useUpdatePosition } from "../../hooks/useTrading";
 import { useTerminalStore } from "../../store/terminal";
 import { EmptyRow } from "../common/States";
+import { SortTh, useTableSort, type SortCol } from "../common/SortableTable";
 import { toast } from "../../store/toast";
 import { ApiError } from "../../lib/api";
 import { PositionEditModal } from "./PositionEditModal";
@@ -70,8 +71,28 @@ function TpSlEditor({ position, onDone }: { position: Position; onDone: () => vo
   );
 }
 
+type PosSortKey = "symbol" | "side" | "qty" | "entry" | "mark" | "liq" | "margin" | "pnl";
+
+/** Module scope so the reference stays stable across renders — see useTableSort. */
+const POSITION_COLS: SortCol<Position, PosSortKey>[] = [
+  { key: "symbol", label: "Symbol", firstDir: 1, compare: (a, b) => a.symbol.localeCompare(b.symbol) },
+  { key: "side", label: "Side", firstDir: 1, compare: (a, b) => a.side.localeCompare(b.side) || a.leverage - b.leverage },
+  { key: "qty", label: "Qty", align: "right", compare: (a, b) => n(a.qty) - n(b.qty) },
+  { key: "entry", label: "Entry", align: "right", compare: (a, b) => n(a.entryPrice) - n(b.entryPrice) },
+  { key: "mark", label: "Mark", align: "right", compare: (a, b) => n(a.markPrice) - n(b.markPrice) },
+  { key: "liq", label: "Liq.", align: "right", compare: (a, b) => n(a.liquidationPrice) - n(b.liquidationPrice) },
+  { key: "margin", label: "Margin", align: "right", compare: (a, b) => n(a.margin) - n(b.margin) },
+  // By magnitude, not sign: "show me my biggest movers" wants the worst loss
+  // and the best win at the same end, not the losses buried under every
+  // break-even position.
+  { key: "pnl", label: "uPnL / ROE", align: "right", compare: (a, b) => Math.abs(n(a.unrealisedPnl)) - Math.abs(n(b.unrealisedPnl)) },
+];
+
 export function PositionsTable({ positions, compact = false }: { positions: Position[]; compact?: boolean }) {
   const { t } = useTranslation();
+  // Largest exposure first by default — the position that needs attention is
+  // the one that moved most, not the one that happened to open first.
+  const { sorted, sort, toggle } = useTableSort(positions, POSITION_COLS, { key: "pnl", dir: -1 });
   const close = useClosePosition();
   const navigate = useNavigate();
   const setSymbol = useTerminalStore((s) => s.setSymbol);
@@ -130,7 +151,7 @@ export function PositionsTable({ positions, compact = false }: { positions: Posi
           Entry/Mark/Liq/Margin/uPnL) without needing any scroll at all, and
           gives Edit/Close real touch targets (tap-sm) instead of 20px chips. */}
       <div className="sm:hidden">
-        {positions.map((p) => {
+        {sorted.map((p) => {
           const pnl = Number(p.unrealisedPnl);
           return (
             <div
@@ -183,20 +204,15 @@ export function PositionsTable({ positions, compact = false }: { positions: Posi
         <table className="w-full min-w-[720px] text-2xs">
           <thead>
             <tr className="border-b border-line-soft text-left text-txt-3">
-              <th className="px-2 py-1.5 font-medium">Symbol</th>
-              <th className="px-2 py-1.5 font-medium">Side</th>
-              <th className="px-2 py-1.5 text-right font-medium">Qty</th>
-              <th className="px-2 py-1.5 text-right font-medium">Entry</th>
-              <th className="px-2 py-1.5 text-right font-medium">Mark</th>
-              <th className="px-2 py-1.5 text-right font-medium">Liq.</th>
-              <th className="px-2 py-1.5 text-right font-medium">Margin</th>
-              <th className="px-2 py-1.5 text-right font-medium">uPnL / ROE</th>
+              {POSITION_COLS.map((c) => (
+                <SortTh key={c.key} col={c} sort={sort} onToggle={toggle} />
+              ))}
               {!compact && <th className="px-2 py-1.5 font-medium">TP / SL</th>}
               <th className="px-2 py-1.5 font-medium"></th>
             </tr>
           </thead>
           <tbody>
-            {positions.map((p) => {
+            {sorted.map((p) => {
               const pnl = Number(p.unrealisedPnl);
               return (
                 <tr
