@@ -9,8 +9,12 @@
 /* every value. Tailwind colors in tailwind.config.js all read from these  */
 /* as rgb(var(--x) / alpha-value), so every existing bg, text and border   */
 /* utility across the app repaints automatically when the theme switches.  */
+/* `[data-theme="dark"]` also re-scopes the dark values onto any element  */
+/* that carries it, so one surface (the landing's closing stage) can stay  */
+/* dark inside the light theme.                                            */
 /* ---------------------------------------------------------------------- */
-:root {
+:root,
+[data-theme="dark"] {
   --c-bg-0: 5 7 10;
   --c-bg-1: 10 13 18;
   --c-bg-2: 14 18 24;
@@ -694,5 +698,41 @@ button:disabled { cursor: not-allowed; }
   .landing-scan {
     animation: none;
     display: none;
+  }
+}
+
+/* ------------------------------ landing stage ----------------------------- */
+/* The closing stage embeds illustrated artwork. It never shows a hard image
+ * edge: the sharp copy is masked on every side it meets the stage, and a
+ * heavily blurred copy of the same artwork fills the stage behind it (and
+ * behind the copy), so the picture dissolves into its own atmosphere. */
+.landing-stage-art {
+  -webkit-mask-image:
+    linear-gradient(to right, transparent 0%, #000 22%, #000 80%, transparent 100%),
+    linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent 0%, #000 22%, #000 80%, transparent 100%),
+    linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%);
+  mask-composite: intersect;
+}
+/* Scrim over the atmosphere: dense under the copy, clear under the figure. */
+.landing-stage-scrim {
+  background:
+    linear-gradient(to bottom, rgb(var(--c-bg-0) / 0.2) 30%, rgb(var(--c-bg-0) / 0.9) 100%);
+}
+@media (min-width: 1024px) {
+  .landing-stage-art {
+    -webkit-mask-image:
+      linear-gradient(to right, transparent 0%, #000 38%, #000 86%, transparent 100%),
+      linear-gradient(to bottom, transparent 0%, #000 10%, #000 70%, transparent 100%);
+    mask-image:
+      linear-gradient(to right, transparent 0%, #000 38%, #000 86%, transparent 100%),
+      linear-gradient(to bottom, transparent 0%, #000 10%, #000 70%, transparent 100%);
+  }
+  .landing-stage-scrim {
+    background:
+      linear-gradient(to right, rgb(var(--c-bg-0) / 0.85) 0%, rgb(var(--c-bg-0) / 0.55) 42%, rgb(var(--c-bg-0) / 0.05) 75%),
+      linear-gradient(to bottom, transparent 55%, rgb(var(--c-bg-0) / 0.6) 100%);
   }
 }

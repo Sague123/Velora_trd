@@ -17,6 +17,16 @@ import { classNames } from "../../../lib/format";
 /** The page measure. One place, so no section invents its own width. */
 export const LANDING_WRAP = "mx-auto w-full max-w-[1200px] px-4 sm:px-6 lg:px-8";
 
+/**
+ * Section boundaries. Open sections sit on the page (bg-0); the raised ones
+ * are inset, rounded bg-1 panels with a small gutter, so the page alternates
+ * open → contained → open and every section edge is visible without a single
+ * divider line. The content inside still uses LANDING_WRAP, so text columns
+ * line up across open and contained sections alike.
+ */
+export const LANDING_PANEL_GUTTER = "px-2 sm:px-4 lg:px-6";
+export const LANDING_PANEL = "mx-auto max-w-[1440px] overflow-hidden rounded-xl border border-line bg-bg-1";
+
 export type Point = readonly [x: number, y: number];
 
 export function toPath(points: readonly Point[]): string {

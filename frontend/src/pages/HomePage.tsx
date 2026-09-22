@@ -13,7 +13,8 @@ import { SiteFooter } from "../components/layout/SiteFooter";
  *
  * Every section is drawn from one vocabulary (`landing/primitives.tsx`) —
  * the signature line, grid levels, nodes, technical labels — and none of it
- * is a screenshot. Sections alternate bg-0 / bg-1 and are numbered 01–05, so
+ * is a screenshot. Open sections alternate with inset rounded panels, the
+ * page closes on the illustrated stage, and sections are numbered 01–05, so
  * the page reads as one system rather than a stack of cards.
  */
 export function HomePage() {
