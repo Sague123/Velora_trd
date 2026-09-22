@@ -49,6 +49,13 @@ Testing
 - Run only relevant tests/checks.
 - For financial changes, test the affected scenario and important edge cases.
 
+Git
+
+- Always commit and push finished work to `main`. This is standing permission —
+  do not ask for it each time.
+- When a session is also assigned a feature branch, keep it fast-forwarded to
+  `main` so the two never diverge.
+
 Communication
 
 Keep final responses concise:
