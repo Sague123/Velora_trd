@@ -319,6 +319,31 @@
       "charts": "Timeframe, chart type and overlays",
       "notifications": "What we tell you, and where",
       "security": "Password, 2FA and sessions"
+    },
+    "profile": {
+      "description": "How you appear in Velora and how we can reach you.",
+      "personal": "Personal details",
+      "contact": "Contact",
+      "photo": "Photo",
+      "photoHint": "Square image, applied as soon as it uploads.",
+      "removePhoto": "Remove",
+      "name": "Full name",
+      "nameRequired": "Name can't be empty",
+      "dob": "Date of birth",
+      "email": "Email",
+      "emailVerified": "Verified. Used to sign in and for security notices.",
+      "emailUnverified": "Not verified yet.",
+      "verify": "Verify",
+      "phone": "Phone",
+      "country": "Country / region",
+      "notSet": "Not set",
+      "timezone": "Time zone",
+      "timezoneHint": "Used for times in history, statements and notifications.",
+      "timezoneAuto": "Automatic ({{zone}})",
+      "language": "Communication language",
+      "languageHint": "For emails and your personal manager. Interface language is under Appearance.",
+      "sameAsInterface": "Same as interface",
+      "selfReported": "Details on this page are provided by you and are not verified by Velora. Identity verification (KYC) is a separate process under Security."
     }
   },
   "signals": {

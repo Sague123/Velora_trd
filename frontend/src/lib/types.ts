@@ -12,6 +12,11 @@ export interface AuthUser {
   balance?: string;
   createdAt?: string;
   dateOfBirth?: string | null;
+  /** Self-reported contact detail — only present on /me, never verified. */
+  phone?: string | null;
+  country?: string | null;
+  timezone?: string | null;
+  preferredLanguage?: string | null;
   avatar?: string | null;
   accountNumber?: string | null;
   emailVerified?: boolean;

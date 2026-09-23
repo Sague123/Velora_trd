@@ -319,6 +319,31 @@
       "charts": "Časový rámec, typ grafu a překryvy",
       "notifications": "O čem a kam vás informovat",
       "security": "Heslo, 2FA a relace"
+    },
+    "profile": {
+      "description": "Jak se zobrazujete ve Velora a jak vás můžeme kontaktovat.",
+      "personal": "Osobní údaje",
+      "contact": "Kontakt",
+      "photo": "Fotka",
+      "photoHint": "Čtvercový obrázek, použije se hned po nahrání.",
+      "removePhoto": "Odstranit",
+      "name": "Celé jméno",
+      "nameRequired": "Jméno nesmí být prázdné",
+      "dob": "Datum narození",
+      "email": "E-mail",
+      "emailVerified": "Ověřen. Slouží k přihlášení a bezpečnostním upozorněním.",
+      "emailUnverified": "Zatím neověřen.",
+      "verify": "Ověřit",
+      "phone": "Telefon",
+      "country": "Země / region",
+      "notSet": "Neuvedeno",
+      "timezone": "Časové pásmo",
+      "timezoneHint": "Pro časy v historii, výpisech a oznámeních.",
+      "timezoneAuto": "Automaticky ({{zone}})",
+      "language": "Jazyk komunikace",
+      "languageHint": "Pro e-maily a osobního manažera. Jazyk rozhraní je ve Vzhledu.",
+      "sameAsInterface": "Stejný jako rozhraní",
+      "selfReported": "Údaje na této stránce uvádíte vy a Velora je neověřuje. Ověření totožnosti (KYC) je samostatný proces v části Zabezpečení."
     }
   },
   "signals": {

@@ -11,7 +11,11 @@ export function useChangePassword() {
 export function useUpdateProfile() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { name?: string; dateOfBirth?: string | null; avatar?: string | null }) => apiPatch<{ ok: boolean }>("/api/auth/me", input),
+    mutationFn: (input: {
+      name?: string; dateOfBirth?: string | null; avatar?: string | null;
+      // Self-reported contact detail; "" clears.
+      phone?: string; country?: string; timezone?: string; preferredLanguage?: string;
+    }) => apiPatch<{ ok: boolean }>("/api/auth/me", input),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["me"] }),
   });
 }

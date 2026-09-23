@@ -135,13 +135,14 @@ export function Segmented<T extends string>({
 }
 
 export function Select<T extends string>({
-  value, onChange, options, id, label,
+  value, onChange, options, id, label, className = "min-w-[10rem] max-w-full",
 }: {
   value: T;
   onChange: (v: T) => void;
   options: { value: T; label: string }[];
   id?: string;
   label?: string;
+  className?: string;
 }) {
   return (
     <select
@@ -149,7 +150,7 @@ export function Select<T extends string>({
       aria-label={label}
       value={value}
       onChange={(e) => onChange(e.target.value as T)}
-      className={fieldCls("md", "tap-sm min-w-[10rem] max-w-full pr-8")}
+      className={fieldCls("md", `tap-sm pr-8 ${className}`)}
     >
       {options.map((o) => (
         <option key={o.value} value={o.value}>{o.label}</option>
