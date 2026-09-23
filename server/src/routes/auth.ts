@@ -12,7 +12,8 @@ import { conflict, unauthorized, badRequest, forbidden } from "../lib/errors.js"
 import { encryptSecret, decryptSecret } from "../lib/crypto.js";
 import { consumeBackupCode, newBackupCodes, newTotpSecret, totpQrDataUrl, totpUri, verifyTotp } from "../lib/totp.js";
 import { consumeAuthToken, issueAuthToken } from "../lib/authTokens.js";
-import { passwordChangedEmail, passwordResetEmail, sendMail, verificationEmail } from "../lib/mailer.js";
+import { newLoginEmail, passwordChangedEmail, passwordResetEmail, securityChangeEmail, sendMail, verificationEmail } from "../lib/mailer.js";
+import { notifyByEmail } from "../lib/notify.js";
 import { createLeadForUser } from "../lib/leadIntake.js";
 
 const password = z.string().min(10, "Пароль должен быть не короче 10 символов").max(200)
@@ -64,6 +65,11 @@ const q = {
     WHERE user_id = ? AND revoked_at IS NULL AND expires_at > ? ORDER BY created_at DESC`),
   revokeSession: db.prepare("UPDATE refresh_tokens SET revoked_at = ? WHERE id = ? AND user_id = ? AND revoked_at IS NULL AND token_hash <> ?"),
   revokeOthers: db.prepare("UPDATE refresh_tokens SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL AND token_hash <> ?"),
+  // Has this user signed in from this exact browser + address before?
+  seenDevice: db.prepare(`SELECT
+      EXISTS (SELECT 1 FROM refresh_tokens WHERE user_id = @id) AS any_before,
+      EXISTS (SELECT 1 FROM refresh_tokens WHERE user_id = @id
+              AND user_agent IS NOT DISTINCT FROM @ua AND ip IS NOT DISTINCT FROM @ip) AS seen`),
   loginHistory: db.prepare(`SELECT action, ip, meta, created_at FROM audit_logs
     WHERE (target_user_id = @id AND action IN ('LOGIN_SUCCESS', 'LOGIN_MFA_FAILED'))
        OR (action = 'LOGIN_FAILED' AND meta::jsonb->>'email' = @email)
@@ -508,6 +514,7 @@ export default async function authRoutes(app: FastifyInstance) {
     const { codes, hashes } = newBackupCodes();
     await q.enableTotp.run(JSON.stringify(hashes), now(), user.id);
     await audit({ actorId: user.id, targetUserId: user.id, action: "TOTP_ENABLED", ip: req.ip });
+    notifyByEmail(user.id, "securityChanges", (to) => securityChangeEmail(to, "включена двухфакторная аутентификация"));
     return { ok: true, backupCodes: codes };
   });
 
@@ -532,6 +539,7 @@ export default async function authRoutes(app: FastifyInstance) {
 
     await q.disableTotp.run(now(), user.id);
     await audit({ actorId: user.id, targetUserId: user.id, action: "TOTP_DISABLED", ip: req.ip });
+    notifyByEmail(user.id, "securityChanges", (to) => securityChangeEmail(to, "отключена двухфакторная аутентификация"));
     return { ok: true };
   });
 
@@ -551,6 +559,7 @@ export default async function authRoutes(app: FastifyInstance) {
     const { codes, hashes } = newBackupCodes();
     await q.setBackupCodes.run(JSON.stringify(hashes), now(), user.id);
     await audit({ actorId: user.id, targetUserId: user.id, action: "TOTP_BACKUP_CODES_REGENERATED", ip: req.ip });
+    notifyByEmail(user.id, "securityChanges", (to) => securityChangeEmail(to, "созданы новые резервные коды 2FA"));
     return { backupCodes: codes };
   });
 }
@@ -568,7 +577,13 @@ async function finishLogin(
     actorId: user.id, targetUserId: user.id, action: "LOGIN_SUCCESS",
     meta: { userAgent: String(req.headers["user-agent"] ?? "").slice(0, 255) || undefined }, ip: req.ip,
   });
+  const ua = String(req.headers["user-agent"] ?? "").slice(0, 255) || null;
+  const device = (await q.seenDevice.get({ id: user.id, ua, ip: req.ip ?? null })) as { any_before: boolean; seen: boolean };
   const tokens = await issueTokens(app, user, { userAgent: req.headers["user-agent"], ip: req.ip });
   reply.setCookie(REFRESH_COOKIE, tokens.refreshToken, { ...cookieOpts, expires: tokens.refreshExpiresAt });
+  // Not on the very first sign-in (every device is new then).
+  if (device.any_before && !device.seen) {
+    notifyByEmail(user.id, "newLogin", (to) => newLoginEmail(to, { userAgent: ua, ip: req.ip ?? null, at: now().slice(0, 16).replace("T", " ") }));
+  }
   return { accessToken: tokens.accessToken, user: sUser(user) };
 }

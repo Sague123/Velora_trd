@@ -4,6 +4,12 @@ import { fillRestingOrder, closePositionRow, type OrderRow, type PositionRow } f
 import { shouldFill, exitReason, isLiquidated, type Side } from "./risk.js";
 import { quoteIsFresh } from "./prices.js";
 import { captureError } from "../lib/monitoring.js";
+import { notifyByEmail } from "../lib/notify.js";
+import { orderFilledEmail, positionClosedEmail } from "../lib/mailer.js";
+import { out } from "../lib/money.js";
+
+/** 0.00100000 → 0.001, for people rather than ledgers. */
+const plain = (v: bigint) => (out(v) ?? "").replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
 
 /**
  * The engine tick. Runs server-side on a fixed interval so resting orders,
@@ -45,13 +51,22 @@ export async function tick() {
       if (mark === undefined) continue;
       if (!shouldFill(order.type as "LIMIT" | "STOP", order.side as Side, asBig(order.price_scaled), mark)) continue;
       try {
+        let filled = false;
         await tx(async () => {
           // Re-read inside the transaction: the order may have been cancelled.
           const fresh = (await q.order.get(order.id)) as OrderRow | undefined;
           if (!fresh || fresh.status !== "NEW") return;
           await fillRestingOrder(fresh);
           result.filled++;
+          filled = true;
         });
+        // After commit — resting orders fill at their own price.
+        if (filled) {
+          notifyByEmail(order.user_id, "orderFilled", (to) => orderFilledEmail(to, {
+            symbol: order.symbol, side: order.side, type: order.type,
+            qty: plain(asBig(order.qty_scaled)), price: plain(asBig(order.price_scaled)),
+          }));
+        }
       } catch (e) {
         captureError(e, { scope: "engine.matching.fill", userId: order.user_id, extra: { orderId: order.id, symbol: order.symbol } });
       }
@@ -70,6 +85,7 @@ export async function tick() {
       if (!reason) continue;
 
       try {
+        let exitPrice: bigint | null = null;
         await tx(async () => {
           const fresh = (await q.position.get(pos.id)) as PositionRow | undefined;
           if (!fresh || fresh.status !== "OPEN") return;
@@ -77,7 +93,14 @@ export async function tick() {
           await closePositionRow(fresh, exitAt, reason!);
           if (reason === "LIQUIDATION") result.liquidated++;
           else result.closed++;
+          exitPrice = exitAt;
         });
+        if (exitPrice !== null) {
+          // A liquidation is the margin story's end, so it follows the margin
+          // warning preference; TP/SL follow their own.
+          notifyByEmail(pos.user_id, reason === "LIQUIDATION" ? "marginWarning" : "slTpTriggered", (to) =>
+            positionClosedEmail(to, { symbol: pos.symbol, side: pos.side, reason: reason!, exitPrice: plain(exitPrice!) }));
+        }
       } catch (e) {
         captureError(e, { scope: "engine.matching.close", userId: pos.user_id, extra: { positionId: pos.id, symbol: pos.symbol, reason } });
       }

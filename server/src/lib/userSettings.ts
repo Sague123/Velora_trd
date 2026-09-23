@@ -13,11 +13,15 @@ import { z } from "zod";
  * validated by the engine on its own terms.
  */
 
-const channels = z.object({
+const channelShape = z.object({
   inApp: z.boolean().default(true),
   email: z.boolean().default(false),
+  // Stored for when push delivery exists; nothing sends push today.
   push: z.boolean().default(false),
-}).default({});
+});
+const channels = channelShape.default({});
+/** Account events default to email on: they matter most when you're not looking. */
+const emailOnChannels = channelShape.default({ inApp: true, email: true, push: false });
 
 const pct = z.number().min(0).max(100).nullable().default(null);
 
@@ -66,8 +70,8 @@ export const settingsSchema = z.object({
     orderFilled: channels,
     slTpTriggered: channels,
     marginWarning: channels,
-    newLogin: channels,
-    securityChanges: channels,
+    newLogin: emailOnChannels,
+    securityChanges: emailOnChannels,
     maintenance: channels,
     news: channels,
   }).default({}),
@@ -80,7 +84,7 @@ export const settingsPatchSchema = z.object({
   appearance: settingsSchema.shape.appearance.removeDefault().partial().optional(),
   trading: settingsSchema.shape.trading.removeDefault().partial().optional(),
   charts: settingsSchema.shape.charts.removeDefault().partial().optional(),
-  notifications: z.record(z.string(), channels.removeDefault().partial()).optional(),
+  notifications: z.record(z.string(), channelShape.partial()).optional(),
 }).strict();
 
 export type UserSettingsPatch = z.infer<typeof settingsPatchSchema>;

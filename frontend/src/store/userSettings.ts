@@ -84,7 +84,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   },
   notifications: {
     orderFilled: ch(), slTpTriggered: ch(), marginWarning: ch(),
-    newLogin: ch(), securityChanges: ch(), maintenance: ch(), news: ch(),
+    newLogin: ch(true, true), securityChanges: ch(true, true), maintenance: ch(), news: ch(),
   },
 };
 

@@ -451,6 +451,39 @@
       "resetHint": "Vrátí výchozí hodnoty na této stránce a zapomene uložené rozložení. Kresby zůstanou.",
       "resetButton": "Obnovit",
       "resetDone": "Nastavení grafu obnoveno"
+    },
+    "notifications": {
+      "description": "Vyberte, o čem vás Velora informuje a kam.",
+      "groups": {
+        "trading": "Obchodování",
+        "account": "Účet",
+        "platform": "Platforma"
+      },
+      "channels": {
+        "inApp": "V aplikaci",
+        "email": "E-mail",
+        "push": "Push"
+      },
+      "events": {
+        "orderFilled": "Pokyn vyplněn",
+        "slTpTriggered": "Spuštěn stop loss / take profit",
+        "marginWarning": "Upozornění na marži",
+        "newLogin": "Nové přihlášení",
+        "securityChanges": "Změny zabezpečení",
+        "maintenance": "Údržba",
+        "news": "Důležité novinky"
+      },
+      "hints": {
+        "orderFilled": "Byl proveden čekající limitní nebo stop pokyn.",
+        "slTpTriggered": "Pozice byla uzavřena stop lossem nebo take profitem.",
+        "marginWarning": "Využití marže nad 80 % (v aplikaci) nebo likvidace pozice.",
+        "newLogin": "Přihlášení ze zařízení nebo adresy, které jsme dosud neviděli.",
+        "securityChanges": "Změna hesla, 2FA nebo záložních kódů. E-mailem se posílá vždy.",
+        "maintenance": "Plánovaná odstávka ovlivňující obchodování.",
+        "news": "Změny platformy, o kterých byste měli vědět."
+      },
+      "unavailable": "Pro tuto událost není k dispozici",
+      "note": "Push oznámení zatím nejsou k dispozici. Oznámení v aplikaci se zobrazují, když je Velora otevřená. E-maily chodí na adresu z profilu."
     }
   },
   "signals": {
@@ -459,5 +492,13 @@
     "neutral": "Neutrální",
     "buy": "Nákup",
     "strongBuy": "Silný nákup"
+  },
+  "notices": {
+    "orderFilled": "Pokyn vyplněn",
+    "takeProfit": "Spuštěn take profit",
+    "stopLoss": "Spuštěn stop loss",
+    "liquidated": "Pozice likvidována",
+    "marginWarning": "Vysoké využití marže",
+    "marginWarningBody": "Využito {{pct}} % marže. Zvažte vklad nebo snížení pozic."
   }
 }

@@ -29,6 +29,7 @@ import { AdminPage } from "./pages/AdminPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { hideSplash } from "./lib/splash";
 import { useUserSettings } from "./store/userSettings";
+import { useInAppNotices } from "./hooks/useInAppNotices";
 
 function AppLayout() {
   const location = useLocation();
@@ -49,6 +50,9 @@ function AppLayout() {
   useEffect(() => {
     prevPathRef.current = location.pathname;
   }, [location.pathname]);
+
+  // Signed-in shell only: trading notices per Settings → Notifications.
+  useInAppNotices(true);
 
   return (
     <div className="app-shell flex flex-col bg-bg-0 text-txt-0">

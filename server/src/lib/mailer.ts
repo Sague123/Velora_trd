@@ -90,3 +90,58 @@ export const passwordChangedEmail = (to: string): Mail => ({
 
 Если это были не вы — немедленно восстановите доступ через «Забыли пароль?» и включите двухфакторную аутентификацию в профиле.`,
 });
+
+/* ------------------------------ notifications ------------------------------ */
+// Sent only when the user's Settings → Notifications allow email for the event
+// (see lib/notify.ts), except security changes, which always go out.
+
+const sideRu = (side: string) => (side === "BUY" ? "покупка (long)" : "продажа (short)");
+
+export const orderFilledEmail = (to: string, o: { symbol: string; side: string; type: string; qty: string; price: string }): Mail => ({
+  to,
+  subject: `${config.appName}: ордер исполнен — ${o.symbol}`,
+  text: `Ваш ${o.type === "STOP" ? "стоп" : "лимитный"} ордер исполнен.
+
+${o.symbol}, ${sideRu(o.side)}
+Количество: ${o.qty}
+Цена: ${o.price}
+
+Позиция открыта — подробности в терминале: ${config.publicAppUrl}/terminal`,
+});
+
+export const positionClosedEmail = (
+  to: string,
+  p: { symbol: string; side: string; reason: "TAKE_PROFIT" | "STOP_LOSS" | "LIQUIDATION"; exitPrice: string },
+): Mail => {
+  const what = p.reason === "TAKE_PROFIT" ? "сработал тейк-профит" : p.reason === "STOP_LOSS" ? "сработал стоп-лосс" : "позиция ликвидирована";
+  return {
+    to,
+    subject: `${config.appName}: ${what} — ${p.symbol}`,
+    text: `${what[0].toUpperCase()}${what.slice(1)}.
+
+${p.symbol}, ${sideRu(p.side)}
+Цена закрытия: ${p.exitPrice}
+
+Итог сделки — в истории: ${config.publicAppUrl}/profile`,
+  };
+};
+
+export const newLoginEmail = (to: string, l: { userAgent: string | null; ip: string | null; at: string }): Mail => ({
+  to,
+  subject: `${config.appName}: вход с нового устройства`,
+  text: `В ваш аккаунт ${config.appName} выполнен вход с устройства, которого мы раньше не видели.
+
+Время: ${l.at} (UTC)
+IP: ${l.ip ?? "неизвестен"}
+Устройство: ${l.userAgent ?? "неизвестно"}
+
+Если это были вы — ничего делать не нужно. Если нет — смените пароль и завершите остальные сеансы в Настройках → Безопасность: ${config.publicAppUrl}/settings/security`,
+});
+
+export const securityChangeEmail = (to: string, what: string): Mail => ({
+  to,
+  subject: `${config.appName}: изменение безопасности аккаунта`,
+  text: `В настройках безопасности вашего аккаунта ${config.appName}: ${what}.
+
+Если это были не вы — немедленно смените пароль и завершите остальные сеансы: ${config.publicAppUrl}/settings/security`,
+});

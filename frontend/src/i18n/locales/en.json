@@ -451,6 +451,39 @@
       "resetHint": "Restores the defaults on this page and forgets the remembered layout. Drawings are kept.",
       "resetButton": "Reset",
       "resetDone": "Chart settings reset"
+    },
+    "notifications": {
+      "description": "Choose what Velora tells you about, and where.",
+      "groups": {
+        "trading": "Trading",
+        "account": "Account",
+        "platform": "Platform"
+      },
+      "channels": {
+        "inApp": "In-app",
+        "email": "Email",
+        "push": "Push"
+      },
+      "events": {
+        "orderFilled": "Order filled",
+        "slTpTriggered": "Stop loss / take profit triggered",
+        "marginWarning": "Margin warning",
+        "newLogin": "New sign-in",
+        "securityChanges": "Security changes",
+        "maintenance": "Maintenance",
+        "news": "Important news"
+      },
+      "hints": {
+        "orderFilled": "A resting limit or stop order was executed.",
+        "slTpTriggered": "A position was closed by its stop loss or take profit.",
+        "marginWarning": "Margin usage above 80% (in-app), or a position liquidated.",
+        "newLogin": "Someone signed in from a device or address not seen before.",
+        "securityChanges": "Password, 2FA or backup codes changed. Always sent by email.",
+        "maintenance": "Planned downtime that affects trading.",
+        "news": "Changes to the platform you should know about."
+      },
+      "unavailable": "Not available for this event",
+      "note": "Push notifications aren't available yet. In-app notices appear while Velora is open. Emails go to the address in your profile."
     }
   },
   "signals": {
@@ -459,5 +492,13 @@
     "neutral": "Neutral",
     "buy": "Buy",
     "strongBuy": "Strong Buy"
+  },
+  "notices": {
+    "orderFilled": "Order filled",
+    "takeProfit": "Take profit triggered",
+    "stopLoss": "Stop loss triggered",
+    "liquidated": "Position liquidated",
+    "marginWarning": "High margin usage",
+    "marginWarningBody": "Margin usage is {{pct}}%. Consider adding funds or reducing positions."
   }
 }
