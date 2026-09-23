@@ -103,11 +103,11 @@ export function HeroSection() {
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <button
                 onClick={() => navigate(user ? "/terminal" : "/register")}
-                className={buttonCls("primary", "lg", "tap gap-2 rounded-full px-6")}
+                className={buttonCls("primary", "lg", "tap gap-2 !rounded-full px-6")}
               >
                 {t("home.landing.heroCta")} <IconArrowRight size={15} />
               </button>
-              <a href="#arsenal" className={buttonCls("secondary", "lg", "tap rounded-full px-6")}>
+              <a href="#arsenal" className={buttonCls("secondary", "lg", "tap !rounded-full px-6")}>
                 {t("home.landing.heroSecondary")}
               </a>
             </div>

@@ -40,6 +40,7 @@ export const IconCamera = (p: IconProps) => base({ ...p, children: <><path d="M4
 export const IconClipboard = (p: IconProps) => base({ ...p, children: <><rect x="5" y="4" width="14" height="17" rx="2" /><rect x="8.5" y="2.5" width="7" height="3.5" rx="1" /><path d="M8.5 11h7M8.5 15h7M8.5 19h4" /></> });
 export const IconGear = (p: IconProps) => base({ ...p, children: <><circle cx="12" cy="12" r="3" /><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l1.9-1.5-2-3.4-2.2.9a7.6 7.6 0 0 0-2.6-1.5L14 2.5h-4l-.5 2.5a7.6 7.6 0 0 0-2.6 1.5l-2.2-.9-2 3.4L4.6 10.5a7.6 7.6 0 0 0 0 3l-1.9 1.5 2 3.4 2.2-.9c.76.66 1.64 1.17 2.6 1.5l.5 2.5h4l.5-2.5a7.6 7.6 0 0 0 2.6-1.5l2.2.9 2-3.4Z" /></> });
 export const IconCheck = (p: IconProps) => base({ ...p, children: <path d="M4 12.5 9.5 18 20 6" /> });
+export const IconMenu = (p: IconProps) => base({ ...p, children: <><path d="M4 7h16M4 12h16M4 17h16" /></> });
 export const IconClose = (p: IconProps) => base({ ...p, children: <><path d="M6 6l12 12M18 6 6 18" /></> });
 export const IconWarning = (p: IconProps) => base({ ...p, children: <><path d="M12 3 2 20h20L12 3Z" /><path d="M12 10v4" /><circle cx="12" cy="17" r="0.8" fill="currentColor" stroke="none" /></> });
 export const IconInfo = (p: IconProps) => base({ ...p, children: <><circle cx="12" cy="12" r="9" /><path d="M12 11v5" /><circle cx="12" cy="8" r="0.8" fill="currentColor" stroke="none" /></> });

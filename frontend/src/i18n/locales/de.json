@@ -244,7 +244,8 @@
       "ctaRisk": "Trading ist mit Risiken verbunden. Vergangene Ergebnisse garantieren keine zukünftigen."
     },
     "footerTagline": "die beste Krypto-Plattform",
-    "privacyPolicy": "Datenschutzrichtlinie"
+    "privacyPolicy": "Datenschutzrichtlinie",
+    "menu": "Menü"
   },
   "common": {
     "save": "Speichern",

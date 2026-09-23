@@ -71,7 +71,7 @@ export function FinalCtaSection() {
             <div className="mt-8">
               <button
                 onClick={() => navigate(user ? "/terminal" : "/register")}
-                className={buttonCls("primary", "lg", "tap gap-2 rounded-full px-6")}
+                className={buttonCls("primary", "lg", "tap gap-2 !rounded-full px-6")}
               >
                 {t("home.landing.heroCta")} <IconArrowRight size={15} />
               </button>

@@ -5,7 +5,18 @@ import { LANGUAGES, setLanguage } from "../../i18n";
 import { IconGlobe } from "../icons/Icon";
 import { classNames } from "../../lib/format";
 
-export function LanguageSwitcher() {
+/**
+ * `className` replaces the header icon-button skin; `align` picks which edge
+ * the menu hangs from, so a switcher at the left of a row doesn't open off
+ * the screen.
+ */
+export function LanguageSwitcher({
+  className = iconButtonCls, align = "right", showFlag = true,
+}: {
+  className?: string;
+  align?: "left" | "right";
+  showFlag?: boolean;
+}) {
   const { i18n } = useTranslation();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -25,13 +36,14 @@ export function LanguageSwitcher() {
         onClick={() => setOpen((v) => !v)}
         aria-label="Language"
         title="Language"
-        className={iconButtonCls}
+        aria-expanded={open}
+        className={className}
       >
-        <IconGlobe size={14} />
-        <span className="hidden text-2xs sm:inline">{current.flag}</span>
+        <IconGlobe />
+        {showFlag && <span className="hidden text-2xs sm:inline">{current.flag}</span>}
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 max-h-80 w-44 overflow-y-auto rounded border border-line bg-bg-2 py-1 shadow-float">
+        <div className={classNames("absolute top-full z-50 mt-1", align === "right" ? "right-0" : "left-0", "max-h-80 w-44 overflow-y-auto rounded border border-line bg-bg-2 py-1 shadow-float")}>
           {LANGUAGES.map((l) => (
             <button
               key={l.code}

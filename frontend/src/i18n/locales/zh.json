@@ -244,7 +244,8 @@
       "ctaRisk": "交易涉及风险。过往表现不代表未来结果。"
     },
     "footerTagline": "最佳加密货币平台",
-    "privacyPolicy": "隐私政策"
+    "privacyPolicy": "隐私政策",
+    "menu": "菜单"
   },
   "common": {
     "save": "保存",
