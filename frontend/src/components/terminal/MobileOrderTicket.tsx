@@ -38,7 +38,7 @@ export function MobileOrderTicket() {
   const { t } = useTranslation();
   const {
     inst, baseAsset, effectivePrice, qty, estimate, availableCash,
-    insufficientFunds, halted, side,
+    insufficientFunds, halted, side, risk, prefs,
   } = useOrderTicket();
 
   const type = useOrderTicketStore((s) => s.type);
@@ -220,14 +220,14 @@ export function MobileOrderTicket() {
               value={tp}
               onChange={(e) => setTp(e.target.value.replace(/[^0-9.]/g, ""))}
               inputMode="decimal"
-              placeholder={t("terminal.takeProfit")}
+              placeholder={prefs.takeProfitPct ? `${t("terminal.takeProfit")} · ${t("terminal.autoFromEntry", { pct: prefs.takeProfitPct })}` : t("terminal.takeProfit")}
               className={fieldCls("md", "w-full tabular text-buy focus:border-buy")}
             />
             <input
               value={sl}
               onChange={(e) => setSl(e.target.value.replace(/[^0-9.]/g, ""))}
               inputMode="decimal"
-              placeholder={t("terminal.stopLoss")}
+              placeholder={prefs.stopLossPct ? `${t("terminal.stopLoss")} · ${t("terminal.autoFromEntry", { pct: prefs.stopLossPct })}` : t("terminal.stopLoss")}
               className={fieldCls("md", "w-full tabular text-sell focus:border-sell")}
             />
           </div>
@@ -261,9 +261,9 @@ export function MobileOrderTicket() {
         <InfoCell label={t("terminal.price")} value={effectivePrice > 0 ? fmtPrice(effectivePrice, inst?.priceDecimals ?? 2) : "—"} />
         <InfoCell label={t("terminal.qty")} value={qty > 0 ? `${fmtQty(qty)} ${baseAsset}` : "—"} />
         <InfoCell label={t("terminal.totalCost")} value={fmtUsd(estimate.total)} tone={insufficientFunds ? "sell" : undefined} />
-        <InfoCell label={t("terminal.available")} value={fmtUsd(availableCash)} />
-        <InfoCell label={t("terminal.estFee")} value={fmtUsd(estimate.fee, 4)} />
-        <InfoCell
+        {prefs.showAvailableMargin && <InfoCell label={t("terminal.available")} value={fmtUsd(availableCash)} />}
+        {prefs.showFees && <InfoCell label={t("terminal.estFee")} value={fmtUsd(estimate.fee, 4)} />}
+        {prefs.showLiquidation && <InfoCell
           label={`${t("terminal.estLiqPrice")} · L/S`}
           value={
             estimate.liqLong !== null && estimate.liqShort !== null
@@ -271,11 +271,11 @@ export function MobileOrderTicket() {
               : "—"
           }
           tone={estimate.liqLong !== null ? "warn" : undefined}
-        />
+        />}
       </div>
-      <p className="mt-1.5 text-3xs leading-snug text-txt-3">
+      {prefs.showLiquidation && <p className="mt-1.5 text-3xs leading-snug text-txt-3">
         Maintenance margin {(MAINTENANCE_MARGIN_RATIO * 100).toFixed(1)}% — оценка, финальная цена считается сервером.
-      </p>
+      </p>}
 
       {halted && (
         <div className="mt-2.5 rounded-lg border border-warn/40 bg-warn/10 px-2.5 py-2 text-2xs text-warn">
@@ -285,6 +285,11 @@ export function MobileOrderTicket() {
       {insufficientFunds && (
         <div className="mt-2.5 rounded-lg border border-sell/40 bg-sell-soft px-2.5 py-2 text-2xs text-sell">
           {t("terminal.insufficientFunds")}
+        </div>
+      )}
+      {risk?.exceeded && (
+        <div className="mt-2.5 rounded-lg border border-warn/40 bg-warn/10 px-2.5 py-2 text-2xs text-warn">
+          {t("terminal.riskExceeded", { loss: fmtUsd(risk.lossAtSl), pct: risk.pctOfEquity?.toFixed(1), limit: prefs.riskPerTradePct })}
         </div>
       )}
     </section>

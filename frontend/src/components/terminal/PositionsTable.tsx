@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { Position } from "../../lib/types";
 import { classNames, fmtDateTime, fmtPrice, fmtQty, fmtSigned, fmtUsd, n } from "../../lib/format";
 import { useClosePosition, useUpdatePosition } from "../../hooks/useTrading";
+import { useUserSettings } from "../../store/userSettings";
 import { useTerminalStore } from "../../store/terminal";
 import { EmptyRow } from "../common/States";
 import { SortTh, useTableSort, type SortCol } from "../common/SortableTable";
@@ -99,6 +100,14 @@ export function PositionsTable({ positions, compact = false }: { positions: Posi
   const [editingId, setEditingId] = useState<string | null>(null);
   const [closingId, setClosingId] = useState<string | null>(null);
   const [editModalId, setEditModalId] = useState<string | null>(null);
+  // Settings → Trading → Interface.
+  const pnlDisplay = useUserSettings((s) => s.settings.trading.pnlDisplay);
+  const confirmClose = useUserSettings((s) => s.settings.trading.confirmClose);
+  // With confirmation on, the first press arms Close for a few seconds and
+  // the second one sends it — the same two-press pattern as the order ticket.
+  const [armedCloseId, setArmedCloseId] = useState<string | null>(null);
+  const armTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (armTimer.current) clearTimeout(armTimer.current); }, []);
   const editModalPosition = editModalId ? positions.find((p) => p.id === editModalId) ?? null : null;
 
   // A position that just appeared (bot fill, manual order filling, a fresh
@@ -123,6 +132,32 @@ export function PositionsTable({ positions, compact = false }: { positions: Posi
     setSymbol(symbol);
     navigate("/terminal");
   }
+
+  function requestClose(p: Position) {
+    if (confirmClose && armedCloseId !== p.id) {
+      setArmedCloseId(p.id);
+      if (armTimer.current) clearTimeout(armTimer.current);
+      armTimer.current = setTimeout(() => setArmedCloseId(null), 4000);
+      return;
+    }
+    setArmedCloseId(null);
+    void handleClose(p);
+  }
+
+  const closeLabel = (p: Position) =>
+    closingId === p.id ? "…" : armedCloseId === p.id ? t("terminal.confirmClose") : "Close";
+
+  const pnlText = (p: Position) => (
+    <>
+      {pnlDisplay !== "PERCENT" && fmtSigned(p.unrealisedPnl)}
+      {pnlDisplay === "BOTH" && " "}
+      {pnlDisplay !== "CURRENCY" && (
+        <span className={pnlDisplay === "BOTH" ? "text-2xs font-normal text-txt-3" : undefined}>
+          {pnlDisplay === "BOTH" ? `(${p.roePct.toFixed(1)}%)` : `${p.roePct >= 0 ? "+" : ""}${p.roePct.toFixed(1)}%`}
+        </span>
+      )}
+    </>
+  );
 
   async function handleClose(p: Position) {
     setClosingId(p.id);
@@ -167,7 +202,7 @@ export function PositionsTable({ positions, compact = false }: { positions: Posi
                   </span>
                 </div>
                 <span className={classNames("shrink-0 text-right text-xs font-semibold", pnl >= 0 ? "text-buy" : "text-sell")}>
-                  {fmtSigned(p.unrealisedPnl)} <span className="text-2xs font-normal text-txt-3">({p.roePct.toFixed(1)}%)</span>
+                  {pnlText(p)}
                 </span>
               </div>
               <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-2xs text-txt-2">
@@ -186,11 +221,11 @@ export function PositionsTable({ positions, compact = false }: { positions: Posi
                     <IconGear size={13} /> {p.takeProfit || p.stopLoss ? "TP/SL" : "Edit"}
                   </button>
                   <button
-                    onClick={() => handleClose(p)}
+                    onClick={() => requestClose(p)}
                     disabled={closingId === p.id}
                     className="btn-fx tap-sm flex-1 rounded border border-line text-2xs text-txt-1 hover:border-sell hover:text-sell disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sell"
                   >
-                    {closingId === p.id ? "…" : "Close"}
+                    {closeLabel(p)}
                   </button>
                 </div>
               )}
@@ -233,7 +268,7 @@ export function PositionsTable({ positions, compact = false }: { positions: Posi
                   <td className="px-2 py-1.5 text-right text-warn">{p.liquidationPrice ? fmtPrice(p.liquidationPrice, 4) : "—"}</td>
                   <td className="px-2 py-1.5 text-right">{fmtUsd(p.margin)}</td>
                   <td className={classNames("px-2 py-1.5 text-right font-medium", pnl >= 0 ? "text-buy" : "text-sell")}>
-                    {fmtSigned(p.unrealisedPnl)} <span className="text-txt-3">({p.roePct.toFixed(1)}%)</span>
+                    {pnlText(p)}
                   </td>
                   {!compact && (
                     <td className="relative px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
@@ -253,11 +288,11 @@ export function PositionsTable({ positions, compact = false }: { positions: Posi
                         <IconGear size={12} />
                       </button>
                       <button
-                        onClick={() => handleClose(p)}
+                        onClick={() => requestClose(p)}
                         disabled={closingId === p.id}
                         className={buttonCls("danger", "sm")}
                       >
-                        {closingId === p.id ? "…" : "Close"}
+                        {closeLabel(p)}
                       </button>
                     </div>
                   </td>

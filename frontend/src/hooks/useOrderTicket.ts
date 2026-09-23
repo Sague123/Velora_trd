@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useTerminalStore } from "../store/terminal";
 import { useOrderTicketStore } from "../store/orderTicket";
-import { useSettingsStore } from "../store/settings";
+import { useUserSettings } from "../store/userSettings";
 import { useAuthStore } from "../store/auth";
 import { useLiveInstrument } from "./useLivePrices";
 import { useAccount, usePlaceOrder } from "./useTrading";
@@ -20,13 +20,20 @@ import type { OrderSide } from "../lib/types";
  * store/orderTicket.ts). Both callers get identical validation and the same
  * two-press arming behaviour from here rather than each re-implementing it.
  */
+/** Which saved defaults the ticket was last seeded from (see below). */
+let seededKey: string | null = null;
+
 export function useOrderTicket() {
   const symbol = useTerminalStore((s) => s.symbol);
   const inst = useLiveInstrument(symbol);
   const user = useAuthStore((s) => s.user);
   const { data: account } = useAccount(!!user);
   const place = usePlaceOrder();
-  const confirmOnOrder = useSettingsStore((s) => s.confirmOnOrder);
+  // Settings → Trading. Only pre-fills and guards the ticket; the engine
+  // validates every order on its own terms regardless.
+  const prefs = useUserSettings((s) => s.settings.trading);
+  const prefsLoaded = useUserSettings((s) => s.loaded);
+  const confirmOnOrder = prefs.confirmOrders;
 
   const side = useOrderTicketStore((s) => s.side);
   const type = useOrderTicketStore((s) => s.type);
@@ -42,6 +49,22 @@ export function useOrderTicket() {
   const setArmed = useOrderTicketStore((s) => s.setArmed);
   const setLeverage = useOrderTicketStore((s) => s.setLeverage);
   const clearAfterSubmit = useOrderTicketStore((s) => s.clearAfterSubmit);
+
+  // Seed the ticket from the saved defaults — once per distinct set of
+  // defaults, so it happens on arrival and again after they're changed in
+  // Settings, but never over the top of what the trader is typing.
+  useEffect(() => {
+    if (!prefsLoaded) return;
+    const key = JSON.stringify([prefs.orderType, prefs.amountMode, prefs.defaultAmount, prefs.leverage, prefs.stopLossPct, prefs.takeProfitPct]);
+    if (seededKey === key) return;
+    seededKey = key;
+    const st = useOrderTicketStore.getState();
+    st.setType(prefs.orderType);
+    st.setAmountMode(prefs.amountMode);
+    st.setLeverage(prefs.leverage);
+    if (prefs.defaultAmount && !st.amount) st.setAmount(prefs.defaultAmount);
+    if (prefs.stopLossPct || prefs.takeProfitPct) st.setUseTpSl(true);
+  }, [prefsLoaded, prefs]);
 
   const armTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (armTimer.current) clearTimeout(armTimer.current); }, []);
@@ -83,6 +106,31 @@ export function useOrderTicket() {
   }, [qty, effectivePrice, leverage]);
 
   const availableCash = n(account?.cash);
+
+  // Default TP/SL as a distance from the entry price. Direction isn't known
+  // until Buy or Sell is pressed, so they are resolved at submit (and shown
+  // to the trader as the fields' placeholders until then).
+  const tpSlFromDefaults = (submitSide: OrderSide, entry: number) => {
+    const dec = inst?.priceDecimals ?? 2;
+    const at = (pct: number | null, sign: 1 | -1) =>
+      pct && entry > 0 ? (entry * (1 + (sign * pct) / 100)).toFixed(dec) : undefined;
+    const long = submitSide === "BUY";
+    return { tp: at(prefs.takeProfitPct, long ? 1 : -1), sl: at(prefs.stopLossPct, long ? -1 : 1) };
+  };
+
+  // What the order would lose if its stop is hit, against the trader's own
+  // per-trade limit. Advisory — it warns, it doesn't block.
+  const risk = useMemo(() => {
+    if (!prefs.riskPerTradePct || qty <= 0 || effectivePrice <= 0) return null;
+    const slDistance = useTpSl && n(sl) > 0
+      ? Math.abs(effectivePrice - n(sl))
+      : prefs.stopLossPct && useTpSl ? (effectivePrice * prefs.stopLossPct) / 100 : null;
+    if (slDistance === null) return null;
+    const lossAtSl = qty * slDistance;
+    const equity = n(account?.equity ?? account?.cash);
+    const limit = (equity * prefs.riskPerTradePct) / 100;
+    return { lossAtSl, limit, exceeded: equity > 0 && lossAtSl > limit, pctOfEquity: equity > 0 ? (lossAtSl / equity) * 100 : null };
+  }, [prefs.riskPerTradePct, prefs.stopLossPct, qty, effectivePrice, useTpSl, sl, account?.equity, account?.cash]);
   const insufficientFunds = estimate.total > 0 && estimate.total > availableCash;
   const priceMissing = type !== "MARKET" && !price.trim();
   const qtyInvalid = qty <= 0;
@@ -98,6 +146,7 @@ export function useOrderTicket() {
     if (priceMissing) return toast.warning("Укажите цену для лимитного/стоп-ордера");
 
     const qtyStr = qty.toFixed(8).replace(/0+$/, "").replace(/\.$/, "") || "0";
+    const defaults = tpSlFromDefaults(submitSide, effectivePrice);
 
     try {
       const res = await place.mutateAsync({
@@ -107,8 +156,8 @@ export function useOrderTicket() {
         qty: qtyStr,
         price: type === "MARKET" ? undefined : price.trim(),
         leverage,
-        takeProfit: useTpSl && tp.trim() ? tp.trim() : undefined,
-        stopLoss: useTpSl && sl.trim() ? sl.trim() : undefined,
+        takeProfit: useTpSl ? tp.trim() || defaults.tp : undefined,
+        stopLoss: useTpSl ? sl.trim() || defaults.sl : undefined,
       });
       toast.success(
         res.order.status === "FILLED" ? "Ордер исполнен" : "Ордер выставлен",
@@ -148,6 +197,7 @@ export function useOrderTicket() {
   return {
     inst, account, baseAsset, markPrice, effectivePrice, qty, estimate, availableCash,
     insufficientFunds, priceMissing, qtyInvalid, halted, canSubmit,
+    risk, prefs,
     side, armed, isPending: place.isPending,
     handleSubmitClick,
   };

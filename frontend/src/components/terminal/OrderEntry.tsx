@@ -24,7 +24,7 @@ export function OrderEntry() {
   const { t } = useTranslation();
   const {
     inst, account, baseAsset, effectivePrice, qty, estimate, insufficientFunds,
-    halted, canSubmit, side, armed, isPending, handleSubmitClick,
+    halted, canSubmit, side, armed, isPending, handleSubmitClick, risk, prefs,
   } = useOrderTicket();
 
   const type = useOrderTicketStore((s) => s.type);
@@ -193,7 +193,7 @@ export function OrderEntry() {
                     value={tp}
                     onChange={(e) => setTp(e.target.value)}
                     inputMode="decimal"
-                    placeholder="price"
+                    placeholder={prefs.takeProfitPct ? t("terminal.autoFromEntry", { pct: prefs.takeProfitPct }) : "price"}
                     tabIndex={useTpSl ? 0 : -1}
                     className={fieldCls("sm", "w-full bg-bg-3 tabular focus:border-buy")}
                   />
@@ -204,7 +204,7 @@ export function OrderEntry() {
                     value={sl}
                     onChange={(e) => setSl(e.target.value)}
                     inputMode="decimal"
-                    placeholder="price"
+                    placeholder={prefs.stopLossPct ? t("terminal.autoFromEntry", { pct: prefs.stopLossPct }) : "price"}
                     tabIndex={useTpSl ? 0 : -1}
                     className={fieldCls("sm", "w-full bg-bg-3 tabular focus:border-sell")}
                   />
@@ -223,13 +223,15 @@ export function OrderEntry() {
             <span>{t("terminal.estMargin")}</span>
             <span className="text-txt-1">{fmtUsd(estimate.margin)}</span>
           </div>
-          <div className="flex justify-between text-txt-2">
-            <Tooltip label="Taker fee 0.04% от нотионала">
-              <span className="cursor-help underline decoration-dotted">{t("terminal.estFee")}</span>
-            </Tooltip>
-            <span className="text-txt-1">{fmtUsd(estimate.fee, 4)}</span>
-          </div>
-          {estimate.liqLong !== null && estimate.liqShort !== null && (
+          {prefs.showFees && (
+            <div className="flex justify-between text-txt-2">
+              <Tooltip label="Taker fee 0.04% от нотионала">
+                <span className="cursor-help underline decoration-dotted">{t("terminal.estFee")}</span>
+              </Tooltip>
+              <span className="text-txt-1">{fmtUsd(estimate.fee, 4)}</span>
+            </div>
+          )}
+          {prefs.showLiquidation && estimate.liqLong !== null && estimate.liqShort !== null && (
             <div className="flex justify-between text-txt-2">
               <Tooltip label={`Maintenance margin ${(MAINTENANCE_MARGIN_RATIO * 100).toFixed(1)}% — приблизительно, финальная цена считается сервером. Слева для Long, справа для Short.`}>
                 <span className="cursor-help underline decoration-dotted">{t("terminal.estLiqPrice")}</span>
@@ -245,10 +247,12 @@ export function OrderEntry() {
             <span>{t("terminal.totalCost")}</span>
             <span>{fmtUsd(estimate.total)}</span>
           </div>
-          <div className="flex justify-between text-txt-2">
-            <span>{t("terminal.available")}</span>
-            <span className={insufficientFunds ? "text-sell" : "text-txt-1"}>{fmtUsd(account?.cash ?? 0)}</span>
-          </div>
+          {(prefs.showAvailableMargin || insufficientFunds) && (
+            <div className="flex justify-between text-txt-2">
+              <span>{t("terminal.available")}</span>
+              <span className={insufficientFunds ? "text-sell" : "text-txt-1"}>{fmtUsd(account?.cash ?? 0)}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -262,6 +266,11 @@ export function OrderEntry() {
         )}
         {insufficientFunds && (
           <div className="rounded border border-sell/40 bg-sell-soft px-2 py-1.5 text-2xs text-sell">{t("terminal.insufficientFunds")}</div>
+        )}
+        {risk?.exceeded && (
+          <div className="rounded border border-warn/40 bg-warn/10 px-2 py-1.5 text-2xs text-warn">
+            {t("terminal.riskExceeded", { loss: fmtUsd(risk.lossAtSl), pct: risk.pctOfEquity?.toFixed(1), limit: prefs.riskPerTradePct })}
+          </div>
         )}
 
         {/* One pair of buttons that both choose the direction and submit —
