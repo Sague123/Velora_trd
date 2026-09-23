@@ -26,7 +26,7 @@ import { SavingsPage } from "./pages/SavingsPage";
 import { CrmPage } from "./pages/CrmPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { AdminPage } from "./pages/AdminPage";
-import { Spinner } from "./components/common/States";
+import { hideSplash } from "./lib/splash";
 
 function AppLayout() {
   const location = useLocation();
@@ -73,20 +73,6 @@ function AppLayout() {
   );
 }
 
-function BootScreen() {
-  return (
-    <div className="flex h-screen w-screen items-center justify-center bg-bg-0">
-      <div className="flex flex-col items-center gap-3">
-        <svg width="36" height="36" viewBox="0 0 32 32" aria-hidden>
-          <rect width="32" height="32" rx="6" fill="#0b0e14" />
-          <path d="M8 9l8 15 8-15h-3.4L16 19.6 10.4 9H8z" fill="#17c885" />
-        </svg>
-        <Spinner size={18} />
-      </div>
-    </div>
-  );
-}
-
 export default function App() {
   const bootstrap = useAuthStore((s) => s.bootstrap);
   const booting = useAuthStore((s) => s.booting);
@@ -107,7 +93,13 @@ export default function App() {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
-  if (booting) return <BootScreen />;
+  // The splash from index.html covers the screen until auth has resolved;
+  // rendering nothing underneath it avoids a flash of the wrong route.
+  useEffect(() => {
+    if (!booting) hideSplash();
+  }, [booting]);
+
+  if (booting) return null;
 
   return (
     <>
