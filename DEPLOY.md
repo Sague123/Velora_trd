@@ -4,6 +4,10 @@ Two services (API + static frontend) on Render's free tier, plus a Supabase Post
 
 Render's own free Postgres is **not** used: free instances are deleted 30 days after creation, and that deletion would take the ledger — the money journal every balance is derived from — with it. Supabase's free tier has no such expiry, so `DATABASE_URL` points there instead.
 
+> **Already deployed from the original Blueprint?** Its first version provisioned a free Render Postgres and wired `DATABASE_URL` to it automatically. Removing that block from `render.yaml` does **not** change an already-deployed service: `DATABASE_URL` is `sync: false` now, which tells Render to leave whatever value is already in the dashboard — so the service keeps pointing at the Render database until someone changes it by hand, and keeps working right up until Render deletes that database on day 30. Then every deploy fails with `getaddrinfo ENOTFOUND dpg-…` and the data is gone with it.
+>
+> If `DATABASE_URL` on **velora-api** still starts with `postgres://…@dpg-`, do step 1 below and then paste the Supabase string into the dashboard (step 2.4). A database created this way is empty, so run the seed from step 4 afterwards. Render's free databases have no backups; anything that was in the deleted one is not recoverable from here.
+
 ## 0. Push this repo to GitHub
 
 Render deploys from a git repo it can pull from. If this project isn't on GitHub yet:

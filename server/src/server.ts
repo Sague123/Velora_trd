@@ -19,9 +19,21 @@ const app = await buildApp().catch((err: NodeJS.ErrnoException & { code?: string
   const unreachable = ["ENOTFOUND", "EAI_AGAIN", "ECONNREFUSED", "ETIMEDOUT", "ECONNRESET"].includes(err.code ?? "");
   const badLogin = err.code === "28P01" || err.code === "3D000"; // wrong password / no such database
   if (unreachable || badLogin) {
+    // `dpg-…` is a Render-managed Postgres host. This Blueprint stopped
+    // provisioning one in Phase 0 (free instances are deleted 30 days after
+    // creation, taking the ledger with them), but a service deployed before
+    // that keeps the old value: `sync: false` means Render leaves whatever is
+    // already in the dashboard. Say so outright — the generic "check
+    // DATABASE_URL" reads as a typo, when the database is in fact gone.
+    const staleRenderDb = unreachable && dbHost().startsWith("dpg-");
     console.error(
       `\n[startup] Cannot ${badLogin ? "log in to" : "reach"} the database at ${dbHost()} (${err.code}).\n` +
-      "[startup] Check DATABASE_URL in the service's environment — it should be the Supabase\n" +
+      (staleRenderDb
+        ? "[startup] That is a Render-managed database, which this project no longer provisions:\n" +
+          "[startup] Render deletes free databases 30 days after creation, so this one is gone\n" +
+          "[startup] along with any data it held.\n"
+        : "") +
+      "[startup] Set DATABASE_URL in the service's environment to the Supabase\n" +
       "[startup] Transaction pooler string (port 6543). See DEPLOY.md §1.\n",
     );
   }
