@@ -736,3 +736,25 @@ button:disabled { cursor: not-allowed; }
       linear-gradient(to bottom, transparent 55%, rgb(var(--c-bg-0) / 0.6) 100%);
   }
 }
+
+/* ------------------------- user appearance settings ------------------------ */
+/* Settings → Appearance. Both are attributes on <html>, set before first
+ * paint from the cached settings (App.tsx) and again once the saved ones
+ * arrive (store/userSettings.ts). */
+
+/* Comfortable: everything sized in rem (Tailwind's spacing and type scale)
+ * grows ~7%. The px-pinned micro tiers (2xs/3xs) stay put on purpose — they
+ * are already at the legibility floor, not below it. */
+html[data-density="comfortable"] { font-size: 17px; }
+
+/* Animations off: the app's own motion stops, like prefers-reduced-motion
+ * but chosen in-app. Durations go to ~0 rather than `none`, so anything
+ * waiting on animationend/transitionend still gets its event. */
+html[data-motion="off"] *,
+html[data-motion="off"] *::before,
+html[data-motion="off"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}

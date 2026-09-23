@@ -1,7 +1,12 @@
 import { useState, type ReactNode } from "react";
+import { useUserSettings } from "../../store/userSettings";
 
 export function Tooltip({ label, children }: { label: string; children: ReactNode }) {
   const [show, setShow] = useState(false);
+  // Settings → Appearance → Hints. Off means the bubble never opens; the
+  // trigger itself (and its aria-label, where it has one) stays.
+  const enabled = useUserSettings((s) => s.live.tooltips);
+  if (!enabled) return <span className="relative inline-flex">{children}</span>;
   return (
     <span
       className="relative inline-flex"

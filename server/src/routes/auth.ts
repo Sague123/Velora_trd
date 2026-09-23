@@ -4,7 +4,7 @@ import { db, newId, now, tx, asBig, newAccountNumber } from "../db.js";
 import { config } from "../config.js";
 import {
   hashPassword, verifyPassword, issueTokens, rotateRefreshToken,
-  revokeRefreshToken, revokeAllForUser, type UserRow,
+  revokeRefreshToken, revokeAllForUser, sha256, type UserRow,
 } from "../lib/auth.js";
 import { audit } from "../lib/ledger.js";
 import { toScaled, out } from "../lib/money.js";
@@ -54,12 +54,35 @@ const q = {
   setName: db.prepare("UPDATE users SET name = ?, updated_at = ? WHERE id = ?"),
   setDob: db.prepare("UPDATE users SET date_of_birth = ?, updated_at = ? WHERE id = ?"),
   setAvatar: db.prepare("UPDATE users SET avatar = ?, updated_at = ? WHERE id = ?"),
+  setContact: db.prepare(`UPDATE users SET
+      phone = COALESCE(@phone, phone), country = COALESCE(@country, country),
+      timezone = COALESCE(@timezone, timezone), preferred_language = COALESCE(@language, preferred_language),
+      updated_at = @ts
+    WHERE id = @id`),
+  // Empty string clears a field; COALESCE above keeps the ones not sent.
+  sessions: db.prepare(`SELECT id, user_agent, ip, created_at, expires_at, token_hash FROM refresh_tokens
+    WHERE user_id = ? AND revoked_at IS NULL AND expires_at > ? ORDER BY created_at DESC`),
+  revokeSession: db.prepare("UPDATE refresh_tokens SET revoked_at = ? WHERE id = ? AND user_id = ? AND revoked_at IS NULL AND token_hash <> ?"),
+  revokeOthers: db.prepare("UPDATE refresh_tokens SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL AND token_hash <> ?"),
+  loginHistory: db.prepare(`SELECT action, ip, meta, created_at FROM audit_logs
+    WHERE (target_user_id = @id AND action IN ('LOGIN_SUCCESS', 'LOGIN_MFA_FAILED'))
+       OR (action = 'LOGIN_FAILED' AND meta::jsonb->>'email' = @email)
+    ORDER BY created_at DESC LIMIT 20`),
   setTotpSecret: db.prepare("UPDATE users SET totp_secret = ?, totp_enabled = FALSE, backup_codes = NULL, updated_at = ? WHERE id = ?"),
   enableTotp: db.prepare("UPDATE users SET totp_enabled = TRUE, backup_codes = ?, updated_at = ? WHERE id = ?"),
   disableTotp: db.prepare("UPDATE users SET totp_secret = NULL, totp_enabled = FALSE, backup_codes = NULL, updated_at = ? WHERE id = ?"),
   setBackupCodes: db.prepare("UPDATE users SET backup_codes = ?, updated_at = ? WHERE id = ?"),
   markEmailVerified: db.prepare("UPDATE users SET email_verified = TRUE, updated_at = ? WHERE id = ?"),
 };
+
+function isTimeZone(tz: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /** Shape returned alongside every access token. Kept in one place so a field
  * added here can never be present on login but missing on refresh. */
@@ -260,6 +283,10 @@ export default async function authRoutes(app: FastifyInstance) {
       ...sUser(user),
       status: user.status,
       dateOfBirth: (user as any).date_of_birth ?? null,
+      phone: (user as any).phone ?? null,
+      country: (user as any).country ?? null,
+      timezone: (user as any).timezone ?? null,
+      preferredLanguage: (user as any).preferred_language ?? null,
       backupCodesRemaining: (((user as any).backup_codes ?? []) as string[]).length,
       createdAt: user.created_at, balance: out(acc ? asBig(acc.cash_scaled) : 0n, 2),
     };
@@ -273,6 +300,11 @@ export default async function authRoutes(app: FastifyInstance) {
       // A small base64 data-URI, capped well under the request body limit —
       // there's no file-storage service here, just a column like the rest.
       avatar: z.string().max(150_000).startsWith("data:image/").nullable().optional(),
+      // Self-reported contact detail. "" clears a field.
+      phone: z.string().max(32).regex(/^$|^\+?[0-9 ()-]{5,31}$/, "Некорректный номер телефона").optional(),
+      country: z.string().max(64).optional(),
+      timezone: z.string().max(64).refine((tz) => tz === "" || isTimeZone(tz), "Неизвестный часовой пояс").optional(),
+      preferredLanguage: z.string().max(8).optional(),
     }).parse(req.body);
 
     if (body.dateOfBirth) {
@@ -286,7 +318,21 @@ export default async function authRoutes(app: FastifyInstance) {
     if (body.name !== undefined) await q.setName.run(body.name, now(), req.user.sub);
     if (body.dateOfBirth !== undefined) await q.setDob.run(body.dateOfBirth, now(), req.user.sub);
     if (body.avatar !== undefined) await q.setAvatar.run(body.avatar, now(), req.user.sub);
-    await audit({ actorId: req.user.sub, targetUserId: req.user.sub, action: "PROFILE_UPDATED", meta: { name: body.name, dateOfBirth: body.dateOfBirth, avatar: body.avatar ? "[updated]" : body.avatar }, ip: req.ip });
+    const contact = { phone: body.phone, country: body.country, timezone: body.timezone, language: body.preferredLanguage };
+    if (Object.values(contact).some((v) => v !== undefined)) {
+      // undefined → keep (COALESCE), "" → clear (stored as NULL below).
+      const val = (v: string | undefined) => (v === undefined ? null : v);
+      await q.setContact.run({
+        id: req.user.sub, ts: now(),
+        phone: val(contact.phone), country: val(contact.country),
+        timezone: val(contact.timezone), language: val(contact.language),
+      });
+      await db.prepare(`UPDATE users SET
+          phone = NULLIF(phone, ''), country = NULLIF(country, ''),
+          timezone = NULLIF(timezone, ''), preferred_language = NULLIF(preferred_language, '')
+        WHERE id = ?`).run(req.user.sub);
+    }
+    await audit({ actorId: req.user.sub, targetUserId: req.user.sub, action: "PROFILE_UPDATED", meta: { name: body.name, dateOfBirth: body.dateOfBirth, avatar: body.avatar ? "[updated]" : body.avatar, ...contact }, ip: req.ip });
     return { ok: true };
   });
 
@@ -305,6 +351,57 @@ export default async function authRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
+
+  /* ------------------------------- sessions -------------------------------- */
+  // A session is one live refresh token. Rotation replaces the row on every
+  // refresh, so `created_at` of the live row is when that device was last
+  // active, not when it first signed in. The cookie is scoped to /api/auth,
+  // which is why these live here: it is how the current device is recognised.
+  const currentHash = (req: any) => {
+    const raw = (req.cookies as Record<string, string>)[REFRESH_COOKIE];
+    return raw ? sha256(raw) : "";
+  };
+
+  app.get("/sessions", { preHandler: [app.authenticate] }, async (req) => {
+    const rows = (await q.sessions.all(req.user.sub, now())) as any[];
+    const current = currentHash(req);
+    return {
+      sessions: rows.map((r) => ({
+        id: r.id, userAgent: r.user_agent ?? null, ip: r.ip ?? null,
+        lastActiveAt: r.created_at, expiresAt: r.expires_at, current: r.token_hash === current,
+      })),
+    };
+  });
+
+  app.delete("/sessions/:id", { preHandler: [app.authenticate] }, async (req) => {
+    const { id } = z.object({ id: z.string().min(1) }).parse(req.params);
+    // The current session can't be revoked from here — that is "Log out".
+    const res = await q.revokeSession.run(now(), id, req.user.sub, currentHash(req));
+    await audit({ actorId: req.user.sub, targetUserId: req.user.sub, action: "SESSION_REVOKED", meta: { id }, ip: req.ip });
+    return { ok: true, revoked: (res as any)?.changes ?? 0 };
+  });
+
+  app.post("/sessions/revoke-others", { preHandler: [app.authenticate] }, async (req) => {
+    await q.revokeOthers.run(now(), req.user.sub, currentHash(req));
+    await audit({ actorId: req.user.sub, targetUserId: req.user.sub, action: "SESSIONS_REVOKED_OTHERS", ip: req.ip });
+    return { ok: true };
+  });
+
+  app.get("/login-history", { preHandler: [app.authenticate] }, async (req) => {
+    const user = (await q.byId.get(req.user.sub)) as UserRow | undefined;
+    if (!user) throw unauthorized();
+    const rows = (await q.loginHistory.all({ id: user.id, email: user.email })) as any[];
+    return {
+      entries: rows.map((r) => {
+        let meta: any = null;
+        try { meta = r.meta ? JSON.parse(r.meta) : null; } catch { /* legacy row */ }
+        return {
+          at: r.created_at, ip: r.ip ?? null, userAgent: meta?.userAgent ?? null,
+          result: r.action === "LOGIN_SUCCESS" ? "SUCCESS" : r.action === "LOGIN_MFA_FAILED" ? "MFA_FAILED" : "FAILED",
+        };
+      }),
+    };
+  });
 
   /* --------------------------- email verification -------------------------- */
   // Public: the link arrives in an inbox, and requiring a logged-in session to
@@ -467,7 +564,10 @@ async function finishLogin(
   user: UserRow
 ) {
   await q.touchLogin.run(now(), user.id);
-  await audit({ actorId: user.id, targetUserId: user.id, action: "LOGIN_SUCCESS", ip: req.ip });
+  await audit({
+    actorId: user.id, targetUserId: user.id, action: "LOGIN_SUCCESS",
+    meta: { userAgent: String(req.headers["user-agent"] ?? "").slice(0, 255) || undefined }, ip: req.ip,
+  });
   const tokens = await issueTokens(app, user, { userAgent: req.headers["user-agent"], ip: req.ip });
   reply.setCookie(REFRESH_COOKIE, tokens.refreshToken, { ...cookieOpts, expires: tokens.refreshExpiresAt });
   return { accessToken: tokens.accessToken, user: sUser(user) };

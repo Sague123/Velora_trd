@@ -296,7 +296,30 @@
     "baseAsset": "Základní aktivum",
     "totalUsd": "Částka (USD)",
     "marginUsd": "Marže (USD)",
-    "localOnly": "Uloženo lokálně, neodesílá se na server."
+    "localOnly": "Uloženo lokálně, neodesílá se na server.",
+    "title": "Nastavení",
+    "unsaved": "Neuložené změny",
+    "discard": "Zahodit",
+    "save": "Uložit změny",
+    "saving": "Ukládání…",
+    "saved": "Nastavení uloženo",
+    "saveFailed": "Nastavení se nepodařilo uložit",
+    "sections": {
+      "profile": "Profil",
+      "appearance": "Vzhled",
+      "trading": "Obchodování",
+      "charts": "Grafy",
+      "notifications": "Oznámení",
+      "security": "Zabezpečení"
+    },
+    "sectionHints": {
+      "profile": "Fotka, jméno a kontaktní údaje",
+      "appearance": "Motiv, hustota, jazyk",
+      "trading": "Výchozí pokyny, riziko a zobrazení",
+      "charts": "Časový rámec, typ grafu a překryvy",
+      "notifications": "O čem a kam vás informovat",
+      "security": "Heslo, 2FA a relace"
+    }
   },
   "signals": {
     "strongSell": "Silný prodej",

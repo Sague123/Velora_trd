@@ -9,7 +9,7 @@ export const hashPassword = (plain: string) => bcrypt.hash(plain, BCRYPT_ROUNDS)
 export const verifyPassword = (plain: string, hash: string) => bcrypt.compare(plain, hash);
 
 /** Refresh tokens are stored hashed — a database leak must not yield usable tokens. */
-const sha256 = (v: string) => crypto.createHash("sha256").update(v).digest("hex");
+export const sha256 = (v: string) => crypto.createHash("sha256").update(v).digest("hex");
 
 export interface AccessClaims { sub: string; role: string; email: string }
 export interface UserRow {

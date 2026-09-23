@@ -664,6 +664,23 @@ export async function migrate(): Promise<void> {
   await addColumnIfMissing("leads", "activity_status", "activity_status TEXT");
   await addColumnIfMissing("leads", "is_vip", "is_vip BOOLEAN NOT NULL DEFAULT FALSE");
 
+  // --- user settings ---------------------------------------------------------
+  // Self-reported contact/profile detail, like date_of_birth above: shown back
+  // to the owner, never verified against a document or authority.
+  await addColumnIfMissing("users", "phone", "phone TEXT");
+  await addColumnIfMissing("users", "country", "country TEXT");
+  await addColumnIfMissing("users", "timezone", "timezone TEXT");
+  await addColumnIfMissing("users", "preferred_language", "preferred_language TEXT");
+  // Preferences as one document (shape and defaults: lib/userSettings.ts), so
+  // adding a setting never needs a migration.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_settings (
+      user_id    TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      data       JSONB NOT NULL DEFAULT '{}'::jsonb,
+      updated_at TEXT NOT NULL
+    )
+  `);
+
   // The four overlapping status scales collapsed into one lead funnel plus
   // three independent client fields (see SCHEMA). Five old stages have no
   // counterpart in the new funnel and are remapped by meaning; the constraint

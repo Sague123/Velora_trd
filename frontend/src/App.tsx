@@ -26,7 +26,9 @@ import { SavingsPage } from "./pages/SavingsPage";
 import { CrmPage } from "./pages/CrmPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { AdminPage } from "./pages/AdminPage";
+import { SettingsPage } from "./pages/SettingsPage";
 import { hideSplash } from "./lib/splash";
+import { useUserSettings } from "./store/userSettings";
 
 function AppLayout() {
   const location = useLocation();
@@ -87,7 +89,19 @@ export default function App() {
 
   useEffect(() => {
     bootstrap();
+    // Density and motion from the last saved settings, before anything
+    // fetches, so a reload doesn't paint once compact and then re-flow.
+    const a = useUserSettings.getState().settings.appearance;
+    document.documentElement.dataset.density = a.density;
+    document.documentElement.dataset.motion = a.animations ? "on" : "off";
   }, [bootstrap]);
+
+  // The signed-in user's saved preferences are the authority once known.
+  const userId = user?.id;
+  useEffect(() => {
+    if (userId) void useUserSettings.getState().load().catch(() => undefined);
+    else useUserSettings.getState().reset();
+  }, [userId]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -143,11 +157,12 @@ export default function App() {
             <Route path="/terminal" element={<TerminalPage />} />
             <Route path="/markets" element={<MarketsPage />} />
             {/* Portfolio/Orders moved into Profile; Alerts moved into the Trade terminal;
-                Settings folded into Profile — all kept as redirects for old links/bookmarks. */}
+                kept as redirects for old links/bookmarks. Settings has its own page again. */}
             <Route path="/portfolio" element={<Navigate to="/profile" replace />} />
             <Route path="/orders" element={<Navigate to="/profile" replace />} />
             <Route path="/alerts" element={<Navigate to="/terminal" replace />} />
-            <Route path="/settings" element={<Navigate to="/profile" replace />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/settings/:section" element={<SettingsPage />} />
             <Route path="/strategies" element={<StrategiesPage />} />
             <Route path="/savings" element={<SavingsPage />} />
             <Route path="/profile" element={<ProfilePage />} />

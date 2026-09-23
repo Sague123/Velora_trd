@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next";
 import { LANGUAGES, setLanguage } from "../../i18n";
 import { IconGlobe } from "../icons/Icon";
 import { classNames } from "../../lib/format";
+import { useAuthStore } from "../../store/auth";
+import { rememberAppearance } from "../../store/userSettings";
 
 /**
  * `className` replaces the header icon-button skin; `align` picks which edge
@@ -19,6 +21,7 @@ export function LanguageSwitcher({
 }) {
   const { i18n } = useTranslation();
   const [open, setOpen] = useState(false);
+  const signedIn = useAuthStore((s) => !!s.user);
   const ref = useRef<HTMLDivElement>(null);
   const current = LANGUAGES.find((l) => l.code === i18n.language) ?? LANGUAGES[0];
 
@@ -47,7 +50,7 @@ export function LanguageSwitcher({
           {LANGUAGES.map((l) => (
             <button
               key={l.code}
-              onClick={() => { setLanguage(l.code); setOpen(false); }}
+              onClick={() => { setLanguage(l.code); rememberAppearance({ language: l.code }, signedIn); setOpen(false); }}
               className={classNames(
                 "flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs hover:bg-bg-3",
                 l.code === current.code ? "text-accent" : "text-txt-1"

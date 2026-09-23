@@ -56,7 +56,9 @@ i18next.use(initReactI18next).init({
     uk: { translation: uk },
   },
   lng: initialLanguage(),
-  fallbackLng: "ru",
+  // English first for everything but English itself: a string not yet
+  // translated into, say, German reads better in English than in Russian.
+  fallbackLng: { en: ["ru"], default: ["en", "ru"] },
   interpolation: { escapeValue: false },
 });
 

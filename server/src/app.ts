@@ -12,6 +12,7 @@ import { MoneyError, out } from "./lib/money.js";
 import { captureError, initMonitoring, monitoringEnabled } from "./lib/monitoring.js";
 import authPlugin from "./plugins/authenticate.js";
 import authRoutes from "./routes/auth.js";
+import settingsRoutes from "./routes/settings.js";
 import tradingRoutes from "./routes/trading.js";
 import adminRoutes from "./routes/admin.js";
 import strategyRoutes from "./routes/strategies.js";
@@ -137,6 +138,7 @@ export async function buildApp() {
   });
 
   await app.register(authRoutes, { prefix: "/api/auth" });
+  await app.register(settingsRoutes, { prefix: "/api/settings" });
   await app.register(tradingRoutes, { prefix: "/api" });
   await app.register(strategyRoutes, { prefix: "/api/strategies" });
   await app.register(kycRoutes, { prefix: "/api/kyc" });

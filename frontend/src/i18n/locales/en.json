@@ -296,7 +296,30 @@
     "baseAsset": "Base asset",
     "totalUsd": "Total (USD)",
     "marginUsd": "Margin (USD)",
-    "localOnly": "Stored locally, never sent to the server."
+    "localOnly": "Stored locally, never sent to the server.",
+    "title": "Settings",
+    "unsaved": "Unsaved changes",
+    "discard": "Discard",
+    "save": "Save changes",
+    "saving": "Saving…",
+    "saved": "Settings saved",
+    "saveFailed": "Couldn't save settings",
+    "sections": {
+      "profile": "Profile",
+      "appearance": "Appearance",
+      "trading": "Trading",
+      "charts": "Charts",
+      "notifications": "Notifications",
+      "security": "Security"
+    },
+    "sectionHints": {
+      "profile": "Photo, name and contact details",
+      "appearance": "Theme, density, language",
+      "trading": "Order defaults, risk and display",
+      "charts": "Timeframe, chart type and overlays",
+      "notifications": "What we tell you, and where",
+      "security": "Password, 2FA and sessions"
+    }
   },
   "signals": {
     "strongSell": "Strong Sell",
