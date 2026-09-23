@@ -27,7 +27,7 @@ export interface UserSettings {
     density: "compact" | "comfortable";
     animations: boolean;
     tooltips: boolean;
-    navLabels: "always" | "auto" | "icons";
+    navStyle: "text" | "both" | "icons";
     language: string;
   };
   trading: {
@@ -72,7 +72,7 @@ export type SettingsPatch = {
 const ch = (inApp = true, email = false, push = false): Channels => ({ inApp, email, push });
 
 export const DEFAULT_SETTINGS: UserSettings = {
-  appearance: { theme: "dark", density: "compact", animations: true, tooltips: true, navLabels: "auto", language: "ru" },
+  appearance: { theme: "dark", density: "compact", animations: true, tooltips: true, navStyle: "text", language: "ru" },
   trading: {
     amountMode: "BASE", defaultAmount: null, leverage: 1, orderType: "MARKET", confirmOrders: false,
     stopLossPct: null, takeProfitPct: null, riskPerTradePct: null,
@@ -139,6 +139,18 @@ export const useUserSettings = create<State>()(
     {
       name: "velora-user-settings",
       partialize: (s) => ({ settings: s.settings }),
+      // A cache written by an older build may lack keys added since; fill
+      // them from the defaults so nothing reads undefined.
+      merge: (persisted, current) => {
+        const p = (persisted as { settings?: Partial<UserSettings> } | undefined)?.settings ?? {};
+        const settings: UserSettings = {
+          appearance: { ...DEFAULT_SETTINGS.appearance, ...p.appearance },
+          trading: { ...DEFAULT_SETTINGS.trading, ...p.trading },
+          charts: { ...DEFAULT_SETTINGS.charts, ...p.charts },
+          notifications: { ...DEFAULT_SETTINGS.notifications, ...p.notifications },
+        };
+        return { ...current, settings, live: settings.appearance };
+      },
     }
   )
 );

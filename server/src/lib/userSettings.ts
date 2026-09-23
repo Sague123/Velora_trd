@@ -27,9 +27,8 @@ export const settingsSchema = z.object({
     density: z.enum(["compact", "comfortable"]).default("compact"),
     animations: z.boolean().default(true),
     tooltips: z.boolean().default(true),
-    // The authenticated shell's navigation: always labelled, icons only, or
-    // labels that collapse on narrow desktop widths.
-    navLabels: z.enum(["always", "auto", "icons"]).default("auto"),
+    // How the desktop navigation bar shows its destinations.
+    navStyle: z.enum(["text", "both", "icons"]).default("text"),
     language: z.string().min(2).max(8).default("ru"),
   }).default({}),
 

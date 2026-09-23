@@ -58,7 +58,7 @@ export function SettingsRow({
         {hint && <span className="mt-0.5 block text-xs leading-relaxed text-txt-3">{hint}</span>}
       </Label>
       {children !== undefined && (
-        <div className={classNames("flex shrink-0 items-center justify-end", stack && "sm:w-64")}>{children}</div>
+        <div className={classNames("flex shrink-0 items-center", stack ? "justify-start sm:justify-end" : "justify-end")}>{children}</div>
       )}
     </div>
   );

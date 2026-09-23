@@ -6,6 +6,7 @@ import { PRIMARY_NAV, moreNavItems } from "../../lib/nav";
 import { Popover } from "../common/Popover";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { IconDots } from "../icons/Icon";
+import { useUserSettings } from "../../store/userSettings";
 
 /**
  * The one navigation in the product, in two layouts.
@@ -22,6 +23,9 @@ export function MainNav({ variant }: { variant: "row" | "tabs" }) {
   const location = useLocation();
   const more = moreNavItems(user);
   const moreActive = more.some((i) => i.to === location.pathname);
+  // Settings → Appearance → Navigation (desktop row only; the phone's tab bar
+  // always shows both, since its labels are what make the icons learnable).
+  const navStyle = useUserSettings((s) => s.live.navStyle ?? "text");
 
   const rowCls = (active: boolean, warn?: boolean) =>
     classNames(
@@ -93,8 +97,15 @@ export function MainNav({ variant }: { variant: "row" | "tabs" }) {
   return (
     <nav className="flex h-full items-stretch gap-0.5">
       {PRIMARY_NAV.map((item) => (
-        <NavLink key={item.to} to={item.to} className={({ isActive }) => rowCls(isActive)}>
-          {t(item.key)}
+        <NavLink
+          key={item.to}
+          to={item.to}
+          title={navStyle === "icons" ? t(item.key) : undefined}
+          aria-label={navStyle === "icons" ? t(item.key) : undefined}
+          className={({ isActive }) => rowCls(isActive)}
+        >
+          {navStyle !== "text" && <item.Icon size={15} />}
+          {navStyle !== "icons" && t(item.key)}
         </NavLink>
       ))}
       <Popover
