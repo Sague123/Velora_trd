@@ -51,11 +51,12 @@ export const settingsSchema = z.object({
 
   charts: z.object({
     timeframe: z.enum(["1m", "5m", "15m", "1H", "4H", "1D", "1W"]).default("1H"),
-    chartType: z.enum(["CANDLES", "BARS", "LINE", "AREA"]).default("CANDLES"),
+    chartType: z.enum(["CANDLES", "LINE", "AREA"]).default("CANDLES"),
     showVolume: z.boolean().default(true),
     showGrid: z.boolean().default(true),
     crosshair: z.enum(["NORMAL", "MAGNET"]).default("NORMAL"),
-    autoScale: z.boolean().default(true),
+    // Off keeps the price axis stretchable (drag the axis) and pannable.
+    autoScale: z.boolean().default(false),
     showPositions: z.boolean().default(true),
     showOrders: z.boolean().default(true),
     rememberLayout: z.boolean().default(true),

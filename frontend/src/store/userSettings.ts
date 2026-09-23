@@ -47,7 +47,7 @@ export interface UserSettings {
   };
   charts: {
     timeframe: Timeframe;
-    chartType: "CANDLES" | "BARS" | "LINE" | "AREA";
+    chartType: "CANDLES" | "LINE" | "AREA";
     showVolume: boolean;
     showGrid: boolean;
     crosshair: "NORMAL" | "MAGNET";
@@ -80,7 +80,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   },
   charts: {
     timeframe: "1H", chartType: "CANDLES", showVolume: true, showGrid: true, crosshair: "NORMAL",
-    autoScale: true, showPositions: true, showOrders: true, rememberLayout: true,
+    autoScale: false, showPositions: true, showOrders: true, rememberLayout: true,
   },
   notifications: {
     orderFilled: ch(), slTpTriggered: ch(), marginWarning: ch(),

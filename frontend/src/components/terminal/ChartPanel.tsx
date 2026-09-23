@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChartEngine, type Bar, type Drawing, type OverlayLine, type TradeMarker } from "../../lib/chartEngine";
+import { ChartEngine, type Bar, type Drawing, type OrderLine, type OverlayLine, type TradeMarker } from "../../lib/chartEngine";
 import { chartThemeFor } from "../../lib/chartTheme";
 import { useChartBars } from "../../hooks/useMarket";
 import { useLiveInstrument } from "../../hooks/useLivePrices";
@@ -8,7 +8,9 @@ import { useTerminalStore } from "../../store/terminal";
 import { usePriceStore } from "../../store/prices";
 import { useThemeStore } from "../../store/theme";
 import { useAuthStore } from "../../store/auth";
-import { usePositions, useUpdatePosition, useClosePosition, useTrades } from "../../hooks/useTrading";
+import { usePositions, useUpdatePosition, useClosePosition, useTrades, useOrders } from "../../hooks/useTrading";
+import { useUserSettings } from "../../store/userSettings";
+import { useChartLayout } from "../../hooks/useChartLayout";
 import { useBinanceSymbolFeed } from "../../hooks/useBinanceSymbolFeed";
 import { classNames, fmtCompact, fmtPct, fmtPrice, fmtQty, fmtSigned, fmtUsd, n } from "../../lib/format";
 import { ema, macd as macdCalc, rsi as rsiCalc, sma } from "../../lib/indicators";
@@ -162,13 +164,35 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clearDrawingsRequest]);
   useEffect(() => engineRef.current?.setTheme(chartThemeFor(theme)), [theme]);
+
+  // Settings → Charts.
+  const chartPrefs = useUserSettings((s) => s.settings.charts);
+  useChartLayout();
+  useEffect(() => {
+    engineRef.current?.setOptions({
+      showGrid: chartPrefs.showGrid,
+      showVolume: chartPrefs.showVolume,
+      magnet: chartPrefs.crosshair === "MAGNET",
+      autoScale: chartPrefs.autoScale,
+    });
+  }, [chartPrefs.showGrid, chartPrefs.showVolume, chartPrefs.crosshair, chartPrefs.autoScale]);
+
+  // Resting limit/stop orders for this symbol, at their prices.
+  const openOrders = useOrders("NEW", !!user && chartPrefs.showOrders);
+  const orderLines = useMemo<OrderLine[]>(() => {
+    if (!chartPrefs.showOrders) return [];
+    return (openOrders.data?.orders ?? [])
+      .filter((o) => o.symbol === symbol && o.type !== "MARKET" && n(o.price) > 0)
+      .map((o) => ({ price: n(o.price), side: o.side, label: `${o.type === "LIMIT" ? "LMT" : "STP"} ${o.side} ${fmtQty(o.qty)}` }));
+  }, [openOrders.data, symbol, chartPrefs.showOrders]);
+  useEffect(() => engineRef.current?.setOrderLines(orderLines), [orderLines]);
   useEffect(() => engineRef.current?.setTool(tool), [tool]);
 
   // ---- open position for this symbol, drawn directly on the chart ----
   useEffect(() => {
     const engine = engineRef.current;
     if (!engine) return;
-    if (!position) { engine.setPosition(null); return; }
+    if (!position || !chartPrefs.showPositions) { engine.setPosition(null); return; }
     engine.setPosition({
       side: position.side,
       entry: n(position.entryPrice),
@@ -179,7 +203,7 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
       pnlPct: `${position.roePct.toFixed(1)}%`,
       pnlPositive: n(position.unrealisedPnl) >= 0,
     });
-  }, [position]);
+  }, [position, chartPrefs.showPositions]);
 
   // ---- where this symbol was opened and closed, as dots on the time axis ----
   //
@@ -227,7 +251,9 @@ export function ChartPanel({ onToggleWatch, watchCollapsed, compact = false }: {
     return out;
   }, [tradesQuery.data, symbol, position]);
 
-  useEffect(() => { engineRef.current?.setTradeMarkers(tradeMarkers); }, [tradeMarkers]);
+  useEffect(() => {
+    engineRef.current?.setTradeMarkers(chartPrefs.showPositions ? tradeMarkers : []);
+  }, [tradeMarkers, chartPrefs.showPositions]);
 
   // drawings are per-symbol and persisted locally — real, user-made annotations
   useEffect(() => {

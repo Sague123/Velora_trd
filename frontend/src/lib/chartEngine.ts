@@ -39,6 +39,23 @@ export interface GridLevel {
 }
 
 export type ChartKind = "candles" | "line" | "area";
+
+/** Display options from Settings → Charts. */
+export interface ChartOptions {
+  showGrid: boolean;
+  showVolume: boolean;
+  /** Crosshair's horizontal line snaps to the hovered bar's close. */
+  magnet: boolean;
+  /** Price axis always fits the visible bars: no manual stretch or vertical pan. */
+  autoScale: boolean;
+}
+
+/** A resting (unfilled) order drawn at its trigger/limit price. */
+export interface OrderLine {
+  price: number;
+  side: "BUY" | "SELL";
+  label: string;
+}
 export type DrawTool = "cursor" | "trendline" | "hline";
 
 export interface TrendDrawing { id: string; type: "trend"; t1: number; p1: number; t2: number; p2: number }
@@ -169,6 +186,8 @@ export class ChartEngine {
   private tool: DrawTool = "cursor";
   private pendingPoint: { time: number; price: number } | null = null;
   private kind: ChartKind = "candles";
+  private options: ChartOptions = { showGrid: true, showVolume: true, magnet: false, autoScale: false };
+  private orderLines: OrderLine[] = [];
   private theme: ChartTheme = DEFAULT_THEME;
   private priceDecimals = 2;
 
@@ -277,6 +296,20 @@ export class ChartEngine {
 
   setPriceDecimals(d: number) {
     this.priceDecimals = d;
+  }
+
+  setOptions(options: Partial<ChartOptions>) {
+    this.options = { ...this.options, ...options };
+    if (this.options.autoScale) {
+      this.priceScaleFactor = 1;
+      this.priceOffset = 0;
+    }
+    this.scheduleRender();
+  }
+
+  setOrderLines(lines: OrderLine[]) {
+    this.orderLines = lines;
+    this.scheduleRender();
   }
 
   setKind(kind: ChartKind) {
@@ -627,7 +660,7 @@ export class ChartEngine {
     // dragging the price-axis gutter stretches/compresses the Y scale,
     // independent of the horizontal pan/zoom — a standard terminal control
     // this chart was missing entirely.
-    if (x > this.lastAxisX) {
+    if (x > this.lastAxisX && !this.options.autoScale) {
       this.priceDragging = true;
       this.priceDragLastY = e.clientY;
       this.canvas.setPointerCapture(e.pointerId);
@@ -758,7 +791,7 @@ export class ChartEngine {
       // new one isn't computed until the next render.
       const dy = e.clientY - this.dragLastY;
       this.dragLastY = e.clientY;
-      if (this.lastPriceH > 0) {
+      if (this.lastPriceH > 0 && !this.options.autoScale) {
         const range = this.lastMaxP - this.lastMinP;
         this.priceOffset += (dy / this.lastPriceH) * range;
         // Finite, not tight — 4x was reported as stopping a drag well short
@@ -944,15 +977,16 @@ export class ChartEngine {
     minP -= pad;
     maxP += pad;
 
-    // manual vertical stretch from dragging the price-axis gutter
-    if (this.priceScaleFactor !== 1) {
+    // manual vertical stretch from dragging the price-axis gutter (off
+    // while auto-scale is on — setOptions resets both to neutral)
+    if (!this.options.autoScale && this.priceScaleFactor !== 1) {
       const mid = (minP + maxP) / 2;
       const half = ((maxP - minP) / 2) * this.priceScaleFactor;
       minP = mid - half;
       maxP = mid + half;
     }
     // manual vertical pan from dragging the chart body
-    if (this.priceOffset !== 0) {
+    if (!this.options.autoScale && this.priceOffset !== 0) {
       minP += this.priceOffset;
       maxP += this.priceOffset;
     }
@@ -984,11 +1018,13 @@ export class ChartEngine {
     const firstTick = Math.ceil(minP / priceStep) * priceStep;
     for (let p = firstTick; p <= maxP; p += priceStep) {
       const y = yForPrice(p) + 0.5;
-      ctx.strokeStyle = theme.grid;
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(plotW, y);
-      ctx.stroke();
+      if (this.options.showGrid) {
+        ctx.strokeStyle = theme.grid;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(plotW, y);
+        ctx.stroke();
+      }
       drawAxisLabel(p.toFixed(this.priceDecimals), y, theme.text);
     }
 
@@ -1162,6 +1198,47 @@ export class ChartEngine {
     ctx.beginPath();
     ctx.rect(0, 0, cssW, priceH);
     ctx.clip();
+
+    // ---- volume ----
+    // A low band along the bottom of the price pane, scaled to the busiest
+    // visible bar. Only when the feed actually supplies volume.
+    if (this.options.showVolume) {
+      let maxV = 0;
+      for (let i = firstIdx; i <= lastIdx; i++) maxV = Math.max(maxV, this.bars[i]?.volume ?? 0);
+      if (maxV > 0) {
+        const bandH = priceH * 0.16;
+        const volW = Math.max(1, barWidth * 0.62);
+        ctx.globalAlpha = 0.28;
+        for (let i = firstIdx; i <= lastIdx; i++) {
+          const b = this.bars[i];
+          if (!b?.volume) continue;
+          const h = (b.volume / maxV) * bandH;
+          ctx.fillStyle = b.close >= b.open ? theme.buy : theme.sell;
+          ctx.fillRect(xForIndex(i) + barWidth / 2 - volW / 2, priceH - h, volW, h);
+        }
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    // ---- resting orders ----
+    for (const o of this.orderLines) {
+      const y = yForPrice(o.price) + 0.5;
+      if (y < 0 || y > priceH) continue;
+      const color = o.side === "BUY" ? theme.buy : theme.sell;
+      ctx.strokeStyle = color;
+      ctx.globalAlpha = 0.7;
+      ctx.setLineDash([2, 4]);
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(plotW, y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = color;
+      ctx.textAlign = "left";
+      ctx.fillText(o.label, 6, y - 4);
+      drawAxisLabel(o.price.toFixed(this.priceDecimals), y, color);
+    }
 
     // ---- price series ----
     if (this.kind === "candles") {
@@ -1420,7 +1497,12 @@ export class ChartEngine {
 
     // ---- crosshair ----
     if (this.crosshair) {
-      const { x, y } = this.crosshair;
+      const { x } = this.crosshair;
+      let { y } = this.crosshair;
+      if (this.options.magnet && y <= priceH) {
+        const hovered = this.bars[Math.floor(this.viewStart + x / barWidth)];
+        if (hovered) y = yForPrice(hovered.close);
+      }
       if (x >= 0 && x <= plotW && y >= 0 && y <= totalPlotH) {
         ctx.strokeStyle = theme.crosshair;
         ctx.setLineDash([3, 3]);
