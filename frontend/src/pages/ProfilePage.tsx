@@ -1,162 +1,26 @@
-import { FormEvent, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../store/auth";
-import { useSettingsStore } from "../store/settings";
-import { useThemeStore } from "../store/theme";
 import { useOrders, usePositions } from "../hooks/useTrading";
-import { useUpdateProfile } from "../hooks/useProfile";
 import { AccountOverview } from "../components/profile/AccountOverview";
 import { SpotHoldingsPanel } from "../components/profile/SpotHoldingsPanel";
 import { HistoryTab } from "../components/profile/HistoryTab";
 import { AvatarUpload } from "../components/profile/AvatarUpload";
-import { SecurityTab } from "../components/profile/SecurityTab";
 import { PositionsTable } from "../components/terminal/PositionsTable";
 import { OrdersTable } from "../components/terminal/OrdersTable";
 import { LoadingRow, ErrorRow, EmptyState } from "../components/common/States";
-import { Checkbox } from "../components/common/Checkbox";
-import { classNames, fmtDateTime } from "../lib/format";
+import { classNames } from "../lib/format";
 import { toast } from "../store/toast";
-import { ApiError } from "../lib/api";
-import { IconListView, IconMoon, IconSun, IconTrade } from "../components/icons/Icon";
-import type { OrderStatus, Timeframe } from "../lib/types";
-import { buttonCls, fieldCls } from "../lib/ui";
+import { IconListView, IconSliders, IconTrade } from "../components/icons/Icon";
+import type { OrderStatus } from "../lib/types";
 import { Page } from "../components/layout/Page";
 import { Tabs } from "../components/common/Tabs";
 
 /** Wallet and Balance were two tabs describing one thing — what's in the
  * account — split by whether you wanted to act on it or read it. They're one
  * `account` tab now; the rest keep their meaning. */
-type Tab = "account" | "portfolio" | "history" | "security" | "settings";
-
-function InfoForm() {
-  const user = useAuthStore((s) => s.user);
-  const refreshMe = useAuthStore((s) => s.refreshMe);
-  const updateProfile = useUpdateProfile();
-  const [name, setName] = useState(user?.name ?? "");
-  const [dob, setDob] = useState(user?.dateOfBirth ?? "");
-
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    const patch: { name?: string; dateOfBirth?: string | null } = {};
-    if (name.trim() && name.trim() !== user?.name) patch.name = name.trim();
-    if (dob !== (user?.dateOfBirth ?? "")) patch.dateOfBirth = dob || null;
-    if (Object.keys(patch).length === 0) return;
-    try {
-      await updateProfile.mutateAsync(patch);
-      await refreshMe();
-      toast.success("Профиль обновлён");
-    } catch (e) {
-      toast.error("Не удалось сохранить профиль", e instanceof ApiError ? e.message : undefined);
-    }
-  }
-
-  return (
-    <form onSubmit={onSubmit} className="rounded-lg border border-line bg-bg-1 p-4">
-      <h2 className="mb-1 text-xs font-semibold text-txt-0">Basic Info</h2>
-      <p className="mb-3 text-2xs text-txt-3">
-        Самостоятельно указанные данные — Velora не проверяет их по документам и не проводит настоящую KYC-верификацию.
-      </p>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <label className="block">
-          <span className="mb-1 block text-2xs text-txt-2">Full Name (ФИО)</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={80}
-            className={fieldCls("md", "w-full")} />
-        </label>
-        <label className="block">
-          <span className="mb-1 block text-2xs text-txt-2">Date of Birth</span>
-          <input type="date" value={dob} onChange={(e) => setDob(e.target.value)}
-            className={fieldCls("md", "w-full")} />
-        </label>
-        <label className="block sm:col-span-2">
-          <span className="mb-1 block text-2xs text-txt-2">Email</span>
-          <input value={user?.email ?? ""} disabled
-            className="w-full cursor-not-allowed rounded border border-line bg-bg-2/50 px-2.5 py-1.5 text-xs text-txt-2" />
-        </label>
-      </div>
-      <button type="submit" disabled={updateProfile.isPending} className={buttonCls("primary", "md", "mt-3")}>
-        {updateProfile.isPending ? "Сохранение…" : "Save"}
-      </button>
-    </form>
-  );
-}
-
-function SettingsTab() {
-  const user = useAuthStore((s) => s.user);
-  const s = useSettingsStore();
-  const theme = useThemeStore((t) => t.theme);
-  const setTheme = useThemeStore((t) => t.setTheme);
-  const TIMEFRAMES: Timeframe[] = ["1m", "5m", "15m", "1H", "4H", "1D", "1W"];
-
-  return (
-    <div className="flex flex-col gap-3">
-      <InfoForm />
-      {/* Account number dropped from here — it's on the Account tab, next to
-          the balance it belongs to. Changing the password moved to Security,
-          with 2FA and identity. What's left is what describes the person,
-          not what protects the account. */}
-      {user && (
-        <div className="rounded border border-line-soft bg-bg-2/40 px-3 py-2 text-2xs text-txt-3">
-          Registered {fmtDateTime(user.createdAt)}
-        </div>
-      )}
-
-      <div className="rounded-lg border border-line bg-bg-1 p-4">
-        <h2 className="mb-3 text-xs font-semibold text-txt-0">Appearance</h2>
-        <div className="flex gap-1">
-          {(["dark", "light"] as const).map((t) => (
-            <button key={t} onClick={() => setTheme(t)}
-              className={classNames("btn-fx tap-sm flex items-center gap-1.5 rounded border px-3 py-1.5 text-2xs font-medium capitalize focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent", theme === t ? "border-accent bg-accent-soft text-accent" : "border-line text-txt-2")}>
-              {t === "dark" ? <IconMoon size={13} /> : <IconSun size={13} />} {t}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="rounded-lg border border-line bg-bg-1 p-4">
-        <h2 className="mb-3 text-xs font-semibold text-txt-0">Trading Defaults</h2>
-        <p className="mb-3 text-2xs text-txt-3">Хранится локально, на сервер не отправляется.</p>
-
-        <label className="mb-3 block">
-          <span className="mb-1 flex justify-between text-2xs text-txt-2"><span>Default Leverage</span><span className="tabular text-txt-0">{s.defaultLeverage}x</span></span>
-          <input type="range" min={1} max={50} value={s.defaultLeverage} onChange={(e) => s.setDefaultLeverage(Number(e.target.value))} className="w-full accent-accent" />
-        </label>
-
-        <label className="mb-3 block">
-          <span className="mb-1 block text-2xs text-txt-2">Default Amount Mode</span>
-          <div className="flex flex-wrap gap-1">
-            {(["BASE", "QUOTE", "MARGIN"] as const).map((m) => (
-              <button key={m} onClick={() => s.setDefaultAmountMode(m)} className={classNames("btn-fx tap-sm rounded border px-3 py-1.5 text-2xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent", s.defaultAmountMode === m ? "border-accent bg-accent-soft text-accent" : "border-line text-txt-2")}>
-                {m === "BASE" ? "Base asset" : m === "QUOTE" ? "Total (USD)" : "Margin (USD)"}
-              </button>
-            ))}
-          </div>
-        </label>
-
-        <label className="mb-3 block">
-          <span className="mb-1 block text-2xs text-txt-2">Default Chart Timeframe</span>
-          <div className="flex flex-wrap gap-1">
-            {TIMEFRAMES.map((tf) => (
-              <button key={tf} onClick={() => s.setDefaultTimeframe(tf)} className={classNames("btn-fx tap-sm rounded border px-3 py-1.5 text-2xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent", s.defaultTimeframe === tf ? "border-accent bg-accent-soft text-accent" : "border-line text-txt-2")}>
-                {tf}
-              </button>
-            ))}
-          </div>
-        </label>
-
-        <Checkbox checked={s.confirmOnOrder} onChange={s.setConfirmOnOrder} className="text-2xs text-txt-2">
-          Требовать повторное нажатие Buy/Sell для подтверждения
-        </Checkbox>
-      </div>
-
-      <div className="rounded-lg border border-line bg-bg-1 p-4">
-        <button onClick={() => { s.reset(); toast.info("Настройки сброшены"); }} className="btn-fx tap-sm rounded border border-line px-3 py-1.5 text-2xs text-txt-2 hover:border-sell hover:text-sell focus-visible:outline focus-visible:outline-2 focus-visible:outline-sell">
-          Reset to Defaults
-        </button>
-      </div>
-    </div>
-  );
-}
+type Tab = "account" | "portfolio" | "history";
 
 /**
  * Current state only — what is open right now. Everything historical (closed
@@ -278,7 +142,11 @@ export function ProfilePage() {
         <span className={classNames("relative ml-1 shrink-0 rounded px-2 py-0.5 text-2xs font-medium", user.role === "ADMIN" ? "bg-warn/10 text-warn" : "bg-accent-soft text-accent")}>
           {user.role}
         </span>
-        <button onClick={handleLogout} className="btn-fx tap-sm relative ml-auto shrink-0 rounded border border-line px-3 py-1.5 text-xs text-txt-2 hover:border-sell hover:text-sell focus-visible:outline focus-visible:outline-sell focus-visible:outline-2">
+        {/* Profile details, preferences and security live on their own page. */}
+        <Link to="/settings" className="btn-fx tap-sm relative ml-auto flex shrink-0 items-center gap-1.5 rounded border border-line px-3 py-1.5 text-xs text-txt-2 hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent">
+          <IconSliders size={13} /> {t("settings.title")}
+        </Link>
+        <button onClick={handleLogout} className="btn-fx tap-sm relative shrink-0 rounded border border-line px-3 py-1.5 text-xs text-txt-2 hover:border-sell hover:text-sell focus-visible:outline focus-visible:outline-sell focus-visible:outline-2">
           {t("common.logout")}
         </button>
       </div>
@@ -299,8 +167,6 @@ export function ProfilePage() {
           { id: "account", label: t("profileTabs.account") },
           { id: "portfolio", label: t("profileTabs.portfolio") },
           { id: "history", label: t("profileTabs.history") },
-          { id: "security", label: t("profileTabs.security") },
-          { id: "settings", label: t("profileTabs.settings") },
         ] satisfies { id: Tab; label: string }[]}
       />
 
@@ -316,10 +182,6 @@ export function ProfilePage() {
         {tab === "portfolio" && <PortfolioTab onGoTrade={() => navigate("/terminal")} />}
 
         {tab === "history" && <HistoryTab />}
-
-        {tab === "security" && <SecurityTab />}
-
-        {tab === "settings" && <SettingsTab />}
       </div>
     </Page>
   );

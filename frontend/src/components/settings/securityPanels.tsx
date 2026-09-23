@@ -1,5 +1,6 @@
 import { FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../../store/auth";
 import { useKyc } from "../../hooks/useKyc";
 import { useChangePassword } from "../../hooks/useProfile";
@@ -14,11 +15,16 @@ import { buttonCls, fieldCls, labelCls } from "../../lib/ui";
 
 const inputCls = fieldCls("md", "w-full");
 
+/**
+ * One security control as a settings row: title and status on top, the
+ * control's own content under it. Rendered inside a SettingsGroup (see
+ * components/settings/SecuritySection.tsx), which draws the dividers.
+ */
 function Panel({ title, badge, children }: { title: string; badge?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-line bg-bg-1 p-4">
-      <div className="mb-3 flex items-center gap-2">
-        <h2 className="text-xs font-semibold text-txt-0">{title}</h2>
+    <div className="py-4">
+      <div className="mb-2 flex items-center gap-2">
+        <h3 className="text-sm text-txt-0">{title}</h3>
         {badge}
       </div>
       {children}
@@ -26,7 +32,7 @@ function Panel({ title, badge, children }: { title: string; badge?: React.ReactN
   );
 }
 
-function StatusBadge({ tone, children }: { tone: "ok" | "warn" | "bad" | "muted"; children: React.ReactNode }) {
+export function StatusBadge({ tone, children }: { tone: "ok" | "warn" | "bad" | "muted"; children: React.ReactNode }) {
   return (
     <span
       className={classNames(
@@ -75,7 +81,7 @@ function BackupCodes({ codes, onDone }: { codes: string[]; onDone: () => void })
   );
 }
 
-function TwoFactorPanel() {
+export function TwoFactorPanel() {
   const user = useAuthStore((s) => s.user);
   const refreshMe = useAuthStore((s) => s.refreshMe);
   const [setup, setSetup] = useState<TotpSetup | null>(null);
@@ -237,7 +243,7 @@ function TwoFactorPanel() {
   );
 }
 
-function EmailPanel() {
+export function EmailPanel() {
   const user = useAuthStore((s) => s.user);
   const [busy, setBusy] = useState(false);
   const verified = user?.emailVerified === true;
@@ -280,7 +286,7 @@ const KYC_BADGE: Record<KycStatus, { tone: "ok" | "warn" | "bad" | "muted"; labe
   REJECTED: { tone: "bad", label: "отклонена" },
 };
 
-function KycPanel() {
+export function KycPanel() {
   const kyc = useKyc();
   const refreshMe = useAuthStore((s) => s.refreshMe);
   const [submitting, setSubmitting] = useState(false);
@@ -361,7 +367,8 @@ function KycPanel() {
  * here, ahead of 2FA: the password is the credential that exists on every
  * account, the second factor is what you add on top of it.
  */
-function PasswordPanel() {
+export function PasswordPanel() {
+  const { t } = useTranslation();
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
   const changePassword = useChangePassword();
@@ -386,44 +393,30 @@ function PasswordPanel() {
   }
 
   return (
-    <Panel title="Пароль">
+    <Panel title={t("settings.security.password")}>
       <form onSubmit={onSubmit}>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <label className="block">
-            <span className={labelCls}>Current Password</span>
+            <span className={labelCls}>{t("settings.security.currentPassword")}</span>
             <input type="password" required value={current} onChange={(e) => setCurrent(e.target.value)} className={inputCls} />
           </label>
           <label className="block">
-            <span className={labelCls}>New Password</span>
-            <input type="password" required value={next} onChange={(e) => setNext(e.target.value)} placeholder="Мин. 10, буквы и цифры" className={inputCls} />
+            <span className={labelCls}>{t("settings.security.newPassword")}</span>
+            <input type="password" required value={next} onChange={(e) => setNext(e.target.value)} placeholder={t("settings.security.passwordRule")} className={inputCls} />
           </label>
           <label className="block">
-            <span className={labelCls}>Confirm Password</span>
+            <span className={labelCls}>{t("settings.security.confirmPassword")}</span>
             <input type="password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} className={inputCls} />
           </label>
         </div>
         {error && <div className="mt-3 rounded border border-sell/40 bg-sell-soft px-2.5 py-1.5 text-2xs text-sell">{error}</div>}
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button type="submit" disabled={changePassword.isPending} className={buttonCls("primary", "sm")}>
-            {changePassword.isPending ? "Сохранение…" : "Update Password"}
+            {changePassword.isPending ? t("settings.saving") : t("settings.security.changePassword")}
           </button>
-          <span className="text-2xs text-txt-3">Смена пароля завершит все ваши сессии.</span>
+          <span className="text-2xs text-txt-3">{t("settings.security.passwordNote")}</span>
         </div>
       </form>
     </Panel>
-  );
-}
-
-/** Everything about who can get into this account and what they can do once
- * they are in — kept together, because that is how someone thinks about it
- * when they come looking. */
-export function SecurityTab() {
-  return (
-    <div className="flex flex-col gap-3">
-      <PasswordPanel />
-      <TwoFactorPanel />
-      <EmailPanel />
-      <KycPanel />
-    </div>
   );
 }

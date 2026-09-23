@@ -8,7 +8,8 @@
     "crm": "CRM",
     "admin": "Admin",
     "profile": "Profile",
-    "more": "More"
+    "more": "More",
+    "settings": "Settings"
   },
   "topbar": {
     "live": "Live",
@@ -484,6 +485,42 @@
       },
       "unavailable": "Not available for this event",
       "note": "Push notifications aren't available yet. In-app notices appear while Velora is open. Emails go to the address in your profile."
+    },
+    "security": {
+      "description": "Who can get into your account, and who has.",
+      "protected": "Protected",
+      "attention": "Needs attention",
+      "checkEmail": "Email verified",
+      "check2fa": "Two-factor authentication",
+      "checkKyc": "Identity verified",
+      "optional": "needed for withdrawals",
+      "signIn": "Sign-in",
+      "identity": "Identity",
+      "sessions": "Active sessions",
+      "history": "Sign-in history",
+      "sessionsNote": "A signed-out device loses access within 15 minutes, when its current access expires.",
+      "signOutOthers": "Sign out all other devices",
+      "confirmSignOut": "Confirm sign-out",
+      "signedOutOthers": "Other devices signed out",
+      "revoke": "Sign out",
+      "revokeFailed": "Couldn't end the session",
+      "thisDevice": "This device",
+      "lastActive": "active",
+      "unknownDevice": "Unknown device",
+      "noHistory": "No sign-ins recorded yet.",
+      "result": {
+        "SUCCESS": "Signed in",
+        "FAILED": "Wrong password",
+        "MFA_FAILED": "Wrong 2FA code"
+      },
+      "showAll": "Show all ({{count}})",
+      "password": "Password",
+      "currentPassword": "Current password",
+      "newPassword": "New password",
+      "confirmPassword": "Repeat new password",
+      "passwordRule": "At least 10 characters, letters and digits",
+      "changePassword": "Change password",
+      "passwordNote": "Changing the password signs you out everywhere."
     }
   },
   "signals": {

@@ -8,7 +8,8 @@
     "crm": "CRM",
     "admin": "Admin",
     "profile": "Profil",
-    "more": "Więcej"
+    "more": "Więcej",
+    "settings": "Ustawienia"
   },
   "topbar": {
     "live": "Live",

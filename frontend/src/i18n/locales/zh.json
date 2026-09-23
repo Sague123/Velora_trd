@@ -8,7 +8,8 @@
     "crm": "CRM",
     "admin": "管理",
     "profile": "个人资料",
-    "more": "更多"
+    "more": "更多",
+    "settings": "设置"
   },
   "topbar": {
     "live": "实时",

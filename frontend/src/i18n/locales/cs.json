@@ -8,7 +8,8 @@
     "crm": "CRM",
     "admin": "Admin",
     "profile": "Profil",
-    "more": "Více"
+    "more": "Více",
+    "settings": "Nastavení"
   },
   "topbar": {
     "live": "Live",
@@ -484,6 +485,42 @@
       },
       "unavailable": "Pro tuto událost není k dispozici",
       "note": "Push oznámení zatím nejsou k dispozici. Oznámení v aplikaci se zobrazují, když je Velora otevřená. E-maily chodí na adresu z profilu."
+    },
+    "security": {
+      "description": "Kdo se může přihlásit k vašemu účtu — a kdo se přihlásil.",
+      "protected": "Chráněno",
+      "attention": "Vyžaduje pozornost",
+      "checkEmail": "E-mail ověřen",
+      "check2fa": "Dvoufázové ověření",
+      "checkKyc": "Totožnost ověřena",
+      "optional": "nutné pro výběry",
+      "signIn": "Přihlášení",
+      "identity": "Totožnost",
+      "sessions": "Aktivní relace",
+      "history": "Historie přihlášení",
+      "sessionsNote": "Odhlášené zařízení ztratí přístup do 15 minut, jakmile vyprší jeho aktuální přístup.",
+      "signOutOthers": "Odhlásit všechna ostatní zařízení",
+      "confirmSignOut": "Potvrdit odhlášení",
+      "signedOutOthers": "Ostatní zařízení odhlášena",
+      "revoke": "Odhlásit",
+      "revokeFailed": "Relaci se nepodařilo ukončit",
+      "thisDevice": "Toto zařízení",
+      "lastActive": "aktivní",
+      "unknownDevice": "Neznámé zařízení",
+      "noHistory": "Zatím žádná přihlášení.",
+      "result": {
+        "SUCCESS": "Přihlášení",
+        "FAILED": "Špatné heslo",
+        "MFA_FAILED": "Špatný kód 2FA"
+      },
+      "showAll": "Zobrazit vše ({{count}})",
+      "password": "Heslo",
+      "currentPassword": "Současné heslo",
+      "newPassword": "Nové heslo",
+      "confirmPassword": "Zopakujte nové heslo",
+      "passwordRule": "Alespoň 10 znaků, písmena a číslice",
+      "changePassword": "Změnit heslo",
+      "passwordNote": "Změna hesla vás odhlásí všude."
     }
   },
   "signals": {

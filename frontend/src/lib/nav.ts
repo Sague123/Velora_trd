@@ -1,5 +1,5 @@
 import {
-  IconBot, IconClipboard, IconGear, IconHome, IconMarkets, IconTrade, IconVault,
+  IconBot, IconClipboard, IconGear, IconHome, IconMarkets, IconSliders, IconTrade, IconVault,
 } from "../components/icons/Icon";
 import type { AuthUser } from "./types";
 
@@ -43,6 +43,7 @@ export function moreNavItems(user: AuthUser | null): NavItem[] {
   const isManager = user?.role === "MANAGER" || user?.role === "ADMIN";
   return [
     { to: "/savings", key: "nav.savings", Icon: IconVault },
+    { to: "/settings", key: "nav.settings", Icon: IconSliders },
     ...(isManager ? [{ to: "/crm", key: "nav.crm", Icon: IconClipboard }] : []),
     ...(user?.role === "ADMIN" ? [{ to: "/admin", key: "nav.admin", Icon: IconGear, warn: true }] : []),
   ];
