@@ -83,6 +83,31 @@ export const config = {
   // displays. Binance's REST rate limit is generous (1200 weight/min; this
   // is ~2 calls/cycle, ~80 weight/min), so 2s is safe.
   priceRefreshMs: 2_000,
+
+  /* ---------------------------- market data ------------------------------ */
+  // Hosts, not hardcoded URLs, so a deployment behind a regional mirror
+  // (data-api.binance.vision serves the same public market data where
+  // api.binance.com answers 451) changes one variable.
+  binanceSpotWs: process.env.BINANCE_SPOT_WS ?? "wss://stream.binance.com:9443",
+  binanceFuturesWs: process.env.BINANCE_FUTURES_WS ?? "wss://fstream.binance.com",
+  binanceSpotRest: process.env.BINANCE_SPOT_REST ?? "https://api.binance.com",
+  binanceFuturesRest: process.env.BINANCE_FUTURES_REST ?? "https://fapi.binance.com",
+  /** How often the instrument catalogue is re-read from the venue. */
+  catalogSyncMs: Number(process.env.CATALOG_SYNC_MS ?? 6 * 60 * 60 * 1000),
+  /** Streams are off by default so a deployment that cannot reach Binance
+   * (or does not want to) boots quietly instead of retrying forever. */
+  marketStreamsEnabled: (process.env.MARKET_STREAMS ?? "on") !== "off",
+  /** The legacy CoinGecko/Frankfurter REST poll. Kept behind a flag as a
+   * fallback while the streams prove themselves; "off" retires it. */
+  legacyPollEnabled: (process.env.LEGACY_PRICE_POLL ?? "on") !== "off",
+  /** Not implemented — see market/oanda.ts and market/alpaca.ts. Tokens come
+   * from the environment and are never defaulted to anything. */
+  oandaEnabled: process.env.OANDA_ENABLED === "1",
+  oandaToken: process.env.OANDA_TOKEN ?? null,
+  oandaAccountId: process.env.OANDA_ACCOUNT_ID ?? null,
+  alpacaEnabled: process.env.ALPACA_ENABLED === "1",
+  alpacaKeyId: process.env.ALPACA_KEY_ID ?? null,
+  alpacaSecret: process.env.ALPACA_SECRET ?? null,
   // How often the server-side strategy engine (engine/strategy.ts) steps every
   // RUNNING bot. Slower than the matching tick on purpose: a bot step can place
   // or close real orders, and there is nothing to gain from re-evaluating a

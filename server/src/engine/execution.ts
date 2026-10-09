@@ -1,8 +1,10 @@
 import { db, newId, now, tx, asBig, asBigOrNull, asNum, asBool } from "../db.js";
+import { out } from "../lib/money.js";
 import { postLedger, chargeFee, refundFee } from "../lib/ledger.js";
 import { badRequest, conflict, notFound } from "../lib/errors.js";
-import { notional, marginFor, feeFor, pnlFor, liquidationPrice, maxSafeLeverage, type Side } from "./risk.js";
+import { notional, marginFor, feeFor, pnlFor, liquidationPrice, maxSafeLeverage, leverageCap, type Side } from "./risk.js";
 import { quoteIsFresh } from "./prices.js";
+import { priceCache } from "../market/cache.js";
 
 export interface PositionRow {
   id: string; user_id: string; symbol: string; side: string;
@@ -58,6 +60,9 @@ const q = {
  * moves money, which must use tradeableMark() instead.
  */
 export const markPrice = async (symbol: string): Promise<bigint | null> => {
+  // The live cache first; the table only as what survived a restart.
+  const cached = priceCache.get(symbol);
+  if (cached) return cached.last;
   const row = (await q.markOf.get(symbol)) as { price_scaled: bigint } | undefined;
   return row ? asBig(row.price_scaled) : null;
 };
@@ -84,6 +89,16 @@ export const markPrice = async (symbol: string): Promise<bigint | null> => {
  * say which it is rather than surfacing a bare error.
  */
 export async function tradeableMark(symbol: string): Promise<bigint> {
+  const cached = priceCache.get(symbol);
+  if (cached) {
+    if (priceCache.stale(symbol)) {
+      throw conflict("STALE_PRICE",
+        "Котировка устарела — торговля по инструменту приостановлена до восстановления фида");
+    }
+    return cached.last;
+  }
+  // Nothing in the cache yet (a cold start, or an instrument no provider
+  // carries): fall back to the persisted snapshot, under the same rule.
   const row = (await q.markOf.get(symbol)) as { price_scaled: bigint; updated_at: string } | undefined;
   if (!row) throw conflict("NO_PRICE", "Нет котировки по инструменту");
   if (!quoteIsFresh(row.updated_at)) {
@@ -110,7 +125,7 @@ export async function placeOrder(req: OpenRequest) {
   if (!ins || !asBool(ins.active)) throw notFound("Инструмент недоступен");
   if (req.qtyScaled <= 0n) throw badRequest("INVALID_QTY", "Количество должно быть больше нуля");
 
-  const maxLev = asNum(ins.max_leverage);
+  const maxLev = leverageCap(ins);
   if (req.leverage < 1 || req.leverage > maxLev) {
     throw badRequest("INVALID_LEVERAGE", `Плечо для ${req.symbol} должно быть от 1x до ${maxLev}x`);
   }
@@ -131,6 +146,28 @@ export async function placeOrder(req: OpenRequest) {
   const mark = asBig(ins.price_scaled);
   const fillPrice = req.type === "MARKET" ? mark : req.priceScaled;
   if (fillPrice <= 0n) throw badRequest("INVALID_PRICE", "Некорректная цена");
+
+  // The venue's own trading rules, from its exchangeInfo filters. Checked
+  // here rather than only in the UI: an order off the tick or the lot step is
+  // one a real exchange would reject, and accepting it locally would mean the
+  // platform's book and the venue's disagree about what is tradeable. All in
+  // BigInt -- a remainder test is exactly the kind of arithmetic a float gets
+  // subtly wrong.
+  const stepSize = asBigOrNull(ins.step_size);
+  if (stepSize && stepSize > 0n && req.qtyScaled % stepSize !== 0n) {
+    throw badRequest("INVALID_STEP",
+      `Объём должен быть кратен шагу лота ${out(stepSize, 8)}`);
+  }
+  const minQty = asBigOrNull(ins.min_qty);
+  if (minQty && req.qtyScaled < minQty) {
+    throw badRequest("BELOW_MIN_QTY", `Минимальный объём — ${out(minQty, 8)}`);
+  }
+  // MARKET fills at the mark, which is the venue's own price and therefore
+  // already on the tick; only a price the client chose has to be checked.
+  const tickSize = asBigOrNull(ins.tick_size);
+  if (req.type !== "MARKET" && tickSize && tickSize > 0n && fillPrice % tickSize !== 0n) {
+    throw badRequest("INVALID_TICK", `Цена должна быть кратна шагу цены ${out(tickSize, 8)}`);
+  }
 
   const notionalScaled = notional(req.qtyScaled, fillPrice);
   const marginScaled = marginFor(notionalScaled, req.leverage);
@@ -287,7 +324,7 @@ export async function changeLeverage(userId: string, positionId: string, newLeve
     if (!position) throw notFound("Открытая позиция не найдена");
 
     const ins = (await q.instrument.get(position.symbol)) as any;
-    const maxLev = asNum(ins.max_leverage);
+    const maxLev = leverageCap(ins);
     if (newLeverage < 1 || newLeverage > maxLev) {
       throw badRequest("INVALID_LEVERAGE", `Плечо для ${position.symbol} должно быть от 1x до ${maxLev}x`);
     }

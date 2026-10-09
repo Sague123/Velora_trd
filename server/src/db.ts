@@ -209,16 +209,57 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 );
 CREATE INDEX IF NOT EXISTS idx_rt_user ON refresh_tokens(user_id);
 
+-- The tradeable catalogue.
+--
+-- symbol is Velora's own id and the primary key six other tables point at
+-- (orders, positions, trades, alerts, bots, price_snapshots), so it can never
+-- be rewritten for an instrument that already exists. provider_symbol is what
+-- the upstream calls the same thing, which is a different string often enough
+-- to matter: Binance names its BTC perpetual "BTCUSDT", exactly what it also
+-- calls the spot pair, so the two would collide on this key. Perps are
+-- therefore keyed "<BASE>-PERP" here -- the convention the four original
+-- perps already used -- and carry the provider name separately.
 CREATE TABLE IF NOT EXISTS instruments (
-  symbol         TEXT PRIMARY KEY,
-  name           TEXT NOT NULL,
-  category       TEXT NOT NULL,
-  max_leverage   INTEGER NOT NULL DEFAULT 1,
-  price_decimals INTEGER NOT NULL DEFAULT 2,
-  cg_id          TEXT,
-  fx_code        TEXT,
-  funding_rate   DOUBLE PRECISION NOT NULL DEFAULT 0,
-  active         INTEGER NOT NULL DEFAULT 1
+  symbol          TEXT PRIMARY KEY,
+  display_name    TEXT NOT NULL,
+  -- crypto | forex | metals | commodities | indices | stocks
+  category        TEXT NOT NULL,
+  -- spot | perp
+  market          TEXT NOT NULL DEFAULT 'spot',
+  -- Which upstream owns this row, and what it calls the instrument.
+  provider        TEXT NOT NULL DEFAULT 'BINANCE',
+  provider_symbol TEXT,
+  base            TEXT,
+  quote           TEXT,
+  -- Exchange trading rules, from the venue's own filters. Scaled 1e8 like
+  -- every other quantity here, so order validation never leaves BigInt.
+  tick_size       BIGINT,
+  step_size       BIGINT,
+  min_qty         BIGINT,
+  -- Null where leverage does not apply (spot), rather than 1 pretending to be
+  -- a limit somebody chose.
+  max_leverage    INTEGER,
+  price_decimals  INTEGER NOT NULL DEFAULT 2,
+  -- TRADING | BREAK | HALT | DELISTED. A delisted instrument keeps its row
+  -- forever: orders, positions and trades reference it, and deleting it would
+  -- take a client's history with it.
+  status          TEXT NOT NULL DEFAULT 'TRADING',
+  -- Null for a market that never closes (crypto). A session string for the
+  -- ones that do.
+  trading_hours   TEXT,
+  cg_id           TEXT,
+  fx_code         TEXT,
+  funding_rate    DOUBLE PRECISION NOT NULL DEFAULT 0,
+  updated_at      TEXT,
+  -- Derived from status, not stored beside it: every existing query says
+  -- "active = 1" and every existing reader calls asBool() on it, and one
+  -- source of truth beats updating two columns in step forever.
+  active          INTEGER GENERATED ALWAYS AS (CASE WHEN status = 'TRADING' THEN 1 ELSE 0 END) STORED,
+  CONSTRAINT instruments_category_check CHECK (category IN (
+    'crypto', 'forex', 'metals', 'commodities', 'indices', 'stocks'
+  )),
+  CONSTRAINT instruments_market_check CHECK (market IN ('spot', 'perp')),
+  CONSTRAINT instruments_status_check CHECK (status IN ('TRADING', 'BREAK', 'HALT', 'DELISTED'))
 );
 
 CREATE TABLE IF NOT EXISTS price_snapshots (
@@ -718,6 +759,99 @@ export async function migrate(): Promise<void> {
   // Every list query now carries "and not a test row", so the index the
   // board reads has to agree with it.
   await pool.query("CREATE INDEX IF NOT EXISTS idx_leads_real ON leads(created_at DESC) WHERE is_test = FALSE");
+
+  // --- instrument catalogue ------------------------------------------------
+  //
+  // Widened from "18 hand-seeded rows" to a catalogue a venue can fill. Every
+  // existing row is kept and its symbol never rewritten: orders, positions,
+  // trades, alerts, bots and price_snapshots all reference instruments(symbol)
+  // by foreign key, so a renamed symbol would orphan a client's open position.
+  await pool.query("ALTER TABLE instruments RENAME COLUMN name TO display_name")
+    .catch(() => { /* already renamed on a previous boot */ });
+  await addColumnIfMissing("instruments", "market", "market TEXT NOT NULL DEFAULT 'spot'");
+  await addColumnIfMissing("instruments", "provider", "provider TEXT NOT NULL DEFAULT 'BINANCE'");
+  await addColumnIfMissing("instruments", "provider_symbol", "provider_symbol TEXT");
+  await addColumnIfMissing("instruments", "base", "base TEXT");
+  await addColumnIfMissing("instruments", "quote", "quote TEXT");
+  await addColumnIfMissing("instruments", "tick_size", "tick_size BIGINT");
+  await addColumnIfMissing("instruments", "step_size", "step_size BIGINT");
+  await addColumnIfMissing("instruments", "min_qty", "min_qty BIGINT");
+  await addColumnIfMissing("instruments", "status", "status TEXT NOT NULL DEFAULT 'TRADING'");
+  await addColumnIfMissing("instruments", "trading_hours", "trading_hours TEXT");
+  await addColumnIfMissing("instruments", "updated_at", "updated_at TEXT");
+
+  // The old four-value category scale, mapped onto the new two axes. SPOT and
+  // PERP both meant crypto and differed only in market; COMMODITY was two
+  // gold-backed tokens, which are metals however they settle.
+  await pool.query("ALTER TABLE instruments DROP CONSTRAINT IF EXISTS instruments_category_check");
+  await pool.query(`
+    UPDATE instruments SET
+      market = CASE WHEN category = 'PERP' THEN 'perp' ELSE 'spot' END,
+      category = CASE category
+        WHEN 'SPOT'      THEN 'crypto'
+        WHEN 'PERP'      THEN 'crypto'
+        WHEN 'COMMODITY' THEN 'metals'
+        WHEN 'FOREX'     THEN 'forex'
+        ELSE category END
+    WHERE category IN ('SPOT', 'PERP', 'COMMODITY', 'FOREX')
+  `);
+  // Anything a stray value could be is parked in crypto rather than failing
+  // the constraint and taking the boot down with it.
+  await pool.query(`
+    UPDATE instruments SET category = 'crypto'
+    WHERE category NOT IN ('crypto', 'forex', 'metals', 'commodities', 'indices', 'stocks')
+  `);
+  await pool.query(`
+    ALTER TABLE instruments ADD CONSTRAINT instruments_category_check CHECK (category IN (
+      'crypto', 'forex', 'metals', 'commodities', 'indices', 'stocks'
+    ))
+  `);
+  for (const [name, check] of [
+    ["instruments_market_check", "market IN ('spot', 'perp')"],
+    ["instruments_status_check", "status IN ('TRADING', 'BREAK', 'HALT', 'DELISTED')"],
+  ] as const) {
+    await pool.query(`ALTER TABLE instruments DROP CONSTRAINT IF EXISTS ${name}`);
+    await pool.query(`ALTER TABLE instruments ADD CONSTRAINT ${name} CHECK (${check})`);
+  }
+
+  // What the upstream calls each existing row, so the sync below recognises
+  // them instead of inserting duplicates beside them. The perps were already
+  // keyed <BASE>-PERP, which is the convention the sync keeps.
+  await pool.query(`
+    UPDATE instruments SET
+      provider_symbol = COALESCE(provider_symbol,
+        CASE WHEN market = 'perp' THEN REPLACE(symbol, '-PERP', '') || 'USDT' ELSE symbol END),
+      base  = COALESCE(base,
+        CASE WHEN market = 'perp' THEN REPLACE(symbol, '-PERP', '')
+             WHEN symbol LIKE '%USDT' THEN LEFT(symbol, LENGTH(symbol) - 4) END),
+      quote = COALESCE(quote, 'USDT')
+    WHERE provider = 'BINANCE'
+  `);
+
+  // active was a stored column nobody kept in step with anything; it is now
+  // derived from status. Dropped and re-added rather than converted, because
+  // a plain column cannot be turned into a generated one in place -- and
+  // every value it held is recoverable from the status set just above.
+  const hasGenerated = await pool.query(`
+    SELECT is_generated FROM information_schema.columns
+    WHERE table_name = 'instruments' AND column_name = 'active'
+  `);
+  if (hasGenerated.rows[0]?.is_generated !== "ALWAYS") {
+    await pool.query("UPDATE instruments SET status = 'DELISTED' WHERE active = 0 AND status = 'TRADING'")
+      .catch(() => { /* fresh database: no legacy active column */ });
+    await pool.query("ALTER TABLE instruments DROP COLUMN IF EXISTS active");
+    await pool.query(`
+      ALTER TABLE instruments ADD COLUMN active INTEGER
+      GENERATED ALWAYS AS (CASE WHEN status = 'TRADING' THEN 1 ELSE 0 END) STORED
+    `);
+  }
+  // max_leverage was NOT NULL DEFAULT 1, which said "1x is this instrument's
+  // limit" about spot pairs that simply have no leverage. Null says that.
+  await pool.query("ALTER TABLE instruments ALTER COLUMN max_leverage DROP NOT NULL")
+    .catch(() => { /* already nullable */ });
+  await pool.query("UPDATE instruments SET max_leverage = NULL WHERE market = 'spot' AND max_leverage <= 1");
+  await pool.query("CREATE INDEX IF NOT EXISTS idx_instruments_browse ON instruments(category, market, symbol)");
+  await pool.query("CREATE INDEX IF NOT EXISTS idx_instruments_provider ON instruments(provider, provider_symbol)");
 
   // --- two wallets ---------------------------------------------------------
   await addColumnIfMissing("accounts", "bonus_scaled", "bonus_scaled BIGINT NOT NULL DEFAULT 0");

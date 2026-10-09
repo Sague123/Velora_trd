@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { db, newId, now, tx, asBig, asBigOrNull, asNum } from "../db.js";
 import { out, toScaled, pctOf } from "../lib/money.js";
-import { pnlFor, type Side } from "../engine/risk.js";
+import { pnlFor, leverageCap, type Side } from "../engine/risk.js";
 import { placeOrder, cancelOrder, closePositionById, changeLeverage, markPrice } from "../engine/execution.js";
 import { getCandles, feedStatus, quoteIsFresh } from "../engine/prices.js";
 import { postLedger, audit } from "../lib/ledger.js";
@@ -47,8 +47,8 @@ export default async function tradingRoutes(app: FastifyInstance) {
   app.get("/instruments", async () => ({
     feed: feedStatus(),
     instruments: ((await q.instruments.all()) as any[]).map((i) => ({
-      symbol: i.symbol, name: i.name, category: i.category,
-      maxLeverage: asNum(i.max_leverage), priceDecimals: asNum(i.price_decimals),
+      symbol: i.symbol, name: i.display_name, category: i.category,
+      maxLeverage: leverageCap(i), priceDecimals: asNum(i.price_decimals),
       fundingRate: i.funding_rate,
       price: out(asBigOrNull(i.price_scaled), asNum(i.price_decimals)),
       change24h: i.change_24h ?? 0,

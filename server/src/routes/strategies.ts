@@ -4,7 +4,7 @@ import { db, newId, now, asNum, asBool } from "../db.js";
 import { out } from "../lib/money.js";
 import { audit } from "../lib/ledger.js";
 import { badRequest, conflict, notFound } from "../lib/errors.js";
-import { maxSafeLeverage } from "../engine/risk.js";
+import { maxSafeLeverage, leverageCap } from "../engine/risk.js";
 import {
   botLog, botLogs, stopBot, emptyState, estimatedCapital,
   type BotRow, type BotType,
@@ -100,7 +100,7 @@ export default async function strategyRoutes(app: FastifyInstance) {
     const ins = (await q.instrument.get(symbol)) as any;
     if (!ins || !asBool(ins.active)) throw notFound("Инструмент недоступен");
 
-    const maxLev = asNum(ins.max_leverage);
+    const maxLev = leverageCap(ins);
     const safeLev = maxSafeLeverage();
     if (body.config.leverage > maxLev) {
       throw badRequest("INVALID_LEVERAGE", `Плечо для ${symbol} должно быть от 1x до ${maxLev}x`);

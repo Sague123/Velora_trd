@@ -2,6 +2,8 @@ import { buildApp } from "./app.js";
 import { config } from "./config.js";
 import { closeDb } from "./db.js";
 import { startPriceFeed } from "./engine/prices.js";
+import { startMarketData } from "./market/index.js";
+import { reloadBroadcastRoutes } from "./market/broadcast.js";
 import { startEngine } from "./engine/matching.js";
 import { startStrategyEngine } from "./engine/strategy.js";
 import { startSavingsEngine } from "./engine/savings.js";
@@ -56,7 +58,17 @@ const app = await buildApp().catch((err: NodeJS.ErrnoException & { code?: string
  */
 const stopEngines: Array<() => void> = [];
 if (config.runsEngines) {
-  stopEngines.push(startPriceFeed(), startEngine(), startStrategyEngine(), startSavingsEngine());
+  // Market data first: the matching engine reads the price cache, and warming
+  // it from the last snapshot before the first tick means a restart does not
+  // halt every symbol for two seconds.
+  stopEngines.push(await startMarketData());
+  await reloadBroadcastRoutes();
+  stopEngines.push(startEngine(), startStrategyEngine(), startSavingsEngine());
+  // The REST poll that predates the streams (CoinGecko, Frankfurter, the
+  // synthetic walk). Off with LEGACY_PRICE_POLL=off once the streams are
+  // trusted; still on by default because Frankfurter is the only forex source
+  // there is until OANDA lands.
+  if (config.legacyPollEnabled) stopEngines.push(startPriceFeed());
 } else {
   app.log.info({ role: config.role }, "engines not started — this process does not run them");
 }

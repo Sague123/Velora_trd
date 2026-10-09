@@ -37,15 +37,22 @@ const INSTRUMENTS = [
 // against either. Rather than sell a chart that can never be real, every
 // remaining instrument is a Binance-backed crypto pair.
 const RETIRED_SYMBOLS = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCHF", "XAUUSD", "XAGUSD", "US500", "US100", "WTIUSD"];
-const deactivateRetired = db.prepare("UPDATE instruments SET active = 0 WHERE symbol = ?");
+// active is derived from status now, so retiring an instrument sets the
+// status the derivation reads.
+const deactivateRetired = db.prepare("UPDATE instruments SET status = 'DELISTED' WHERE symbol = ?");
 
 const upsertInstrument = db.prepare(`
-  INSERT INTO instruments (symbol, name, category, max_leverage, price_decimals, cg_id, fx_code, funding_rate, active)
-  VALUES (@symbol, @name, @category, @maxLeverage, @dp, @cgId, @fx, @funding, 1)
+  INSERT INTO instruments (symbol, display_name, category, market, provider, provider_symbol,
+                           base, quote, max_leverage, price_decimals, cg_id, fx_code,
+                           funding_rate, status, updated_at)
+  VALUES (@symbol, @name, @category, @market, 'BINANCE', @providerSymbol,
+          @base, 'USDT', @maxLeverage, @dp, @cgId, @fx, @funding, 'TRADING', @ts)
   ON CONFLICT(symbol) DO UPDATE SET
-    name=excluded.name, category=excluded.category, max_leverage=excluded.max_leverage,
+    display_name=excluded.display_name, category=excluded.category, market=excluded.market,
+    provider_symbol=excluded.provider_symbol, base=excluded.base, quote=excluded.quote,
+    max_leverage=excluded.max_leverage,
     price_decimals=excluded.price_decimals, cg_id=excluded.cg_id, fx_code=excluded.fx_code,
-    funding_rate=excluded.funding_rate
+    funding_rate=excluded.funding_rate, status='TRADING', updated_at=excluded.updated_at
 `);
 const seedPrice = db.prepare(`
   INSERT INTO price_snapshots (symbol, price_scaled, source, updated_at)
@@ -62,7 +69,21 @@ async function main() {
   await migrate();
 
   for (const i of INSTRUMENTS) {
-    await upsertInstrument.run(i);
+    // The seed list still speaks the old four-value category scale, because it
+    // is a fixture for local development rather than the catalogue itself --
+    // that now comes from the venue (market/catalog.ts). Translated here so
+    // one list does not have to be kept in step with the schema by hand.
+    const market = i.category === "PERP" ? "perp" : "spot";
+    const base = market === "perp" ? i.symbol.replace(/-PERP$/, "") : i.symbol.replace(/USDT$/, "");
+    await upsertInstrument.run({
+      ...i,
+      market,
+      base,
+      providerSymbol: market === "perp" ? `${base}USDT` : i.symbol,
+      category: i.category === "COMMODITY" ? "metals" : "crypto",
+      maxLeverage: market === "perp" ? i.maxLeverage : null,
+      ts: now(),
+    });
     await seedPrice.run(i.symbol, toScaled(i.seed), now());
   }
   console.log(`✓ ${INSTRUMENTS.length} instruments`);

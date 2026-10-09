@@ -37,7 +37,7 @@ export type SpotLedgerType =
 
 const q = {
   instruments: db.prepare(`
-    SELECT i.symbol, i.name, i.category, i.price_decimals, p.price_scaled
+    SELECT i.symbol, i.display_name AS name, i.category, i.price_decimals, p.price_scaled
     FROM instruments i LEFT JOIN price_snapshots p ON p.symbol = i.symbol
     WHERE i.active = 1 AND i.category = ANY(?)
     ORDER BY i.symbol

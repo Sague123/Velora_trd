@@ -86,3 +86,17 @@ export function exitReason(
 }
 
 export { SCALE, mul, div, abs };
+
+/**
+ * The leverage cap for an instrument row.
+ *
+ * max_leverage became nullable when the catalogue started carrying thousands
+ * of instruments the venue publishes no leverage tier for. Null means
+ * "leverage does not apply", which is 1x -- and not the 0x that asNum(null)
+ * would produce, which would reject every order on every spot pair.
+ */
+export const leverageCap = (row: { max_leverage: unknown }): number => {
+  if (row.max_leverage === null || row.max_leverage === undefined) return 1;
+  const value = Number(row.max_leverage);
+  return Number.isFinite(value) && value >= 1 ? Math.floor(value) : 1;
+};

@@ -21,7 +21,9 @@ import savingsRoutes from "./routes/savings.js";
 import spotRoutes from "./routes/spot.js";
 import crmRoutes from "./routes/crm.js";
 import crmViewRoutes from "./routes/crmView.js";
-import { onPriceUpdate, allPrices, feedStatus } from "./engine/prices.js";
+import { feedStatus } from "./engine/prices.js";
+import { attachPriceSocket, parseSubscribe } from "./market/broadcast.js";
+import marketRoutes from "./routes/market.js";
 
 export async function buildApp() {
   // Before anything else that can fail: a migration that throws on boot is
@@ -154,6 +156,10 @@ export async function buildApp() {
   // authenticated-user surface, and the internal process is not reachable
   // from the internet anyway.
   await app.register(tradingRoutes, { prefix: "/api" });
+  // Catalogue browsing and quote snapshots. Registered alongside trading
+  // rather than behind servesPublic, because the CRM's chart picker needs to
+  // find instruments too (same reason tradingRoutes is unconditional).
+  await app.register(marketRoutes, { prefix: "/api" });
 
   if (config.servesPublic) {
     await app.register(strategyRoutes, { prefix: "/api/strategies" });
@@ -178,26 +184,19 @@ export async function buildApp() {
   if (config.servesPublic) {
     app.register(async (scope) => {
       scope.get("/ws/prices", { websocket: true }, (socket) => {
-        const send = () => {
-          if (socket.readyState !== socket.OPEN) return;
-          allPrices()
-            .then((rows) => {
-              if (socket.readyState !== socket.OPEN) return;
-              const payload = rows.map((s: any) => ({
-                symbol: s.symbol,
-                price: out(asBig(s.price_scaled), 8),
-                change24h: s.change_24h ?? 0,
-                high24h: out(asBigOrNull(s.high_24h), 8),
-                low24h: out(asBigOrNull(s.low_24h), 8),
-                source: s.source,
-              }));
-              socket.send(JSON.stringify({ type: "prices", data: payload }));
-            })
-            .catch((e) => app.log.error({ err: e }, "price broadcast failed"));
-        };
-        send();
-        const unsubscribe = onPriceUpdate(send);
-        socket.on("close", () => unsubscribe());
+        const feed = attachPriceSocket(socket, (e: unknown) => app.log.error({ err: e }, "price broadcast failed"));
+
+        socket.on("message", (raw: Buffer | string) => {
+          try {
+            const subscription = parseSubscribe(JSON.parse(raw.toString()));
+            if (subscription) feed.setSubscription(subscription);
+          } catch {
+            // A client that sends nonsense keeps its existing subscription;
+            // closing the socket over one bad frame is worse for everyone.
+          }
+        });
+
+        socket.on("close", () => feed.stop());
       });
     });
   }

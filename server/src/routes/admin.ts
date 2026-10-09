@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db, now, tx, asBig, asBigOrNull, asNum } from "../db.js";
 import { config } from "../config.js";
 import { out, toScaled, pctOf } from "../lib/money.js";
-import { pnlFor, type Side } from "../engine/risk.js";
+import { pnlFor, leverageCap, type Side } from "../engine/risk.js";
 import { postLedger, audit } from "../lib/ledger.js";
 import { closePositionById, cancelOrder, markPrice } from "../engine/execution.js";
 import { revokeAllForUser, hashPassword } from "../lib/auth.js";
@@ -67,7 +67,10 @@ const q = {
     SELECT COUNT(*) AS n FROM audit_logs a
     WHERE (@action::text IS NULL OR a.action = @action) AND (@target::text IS NULL OR a.target_user_id = @target)
   `),
-  updInstrument: db.prepare("UPDATE instruments SET active = ?, max_leverage = ? WHERE symbol = ?"),
+  // active is derived from status, so switching an instrument off writes
+  // the status it derives from. HALT rather than DELISTED: an admin toggling
+  // an instrument is suspending it, not saying the venue dropped it.
+  updInstrument: db.prepare("UPDATE instruments SET status = ?, max_leverage = ? WHERE symbol = ?"),
   instrument: db.prepare("SELECT * FROM instruments WHERE symbol = ?"),
   kycList: db.prepare(`
     SELECT k.*, u.email, u.name AS user_name
@@ -437,8 +440,12 @@ export default async function adminRoutes(app: FastifyInstance) {
     const ins = (await q.instrument.get(symbol.toUpperCase())) as any;
     if (!ins) throw notFound("Инструмент не найден");
     const active = body.active === undefined ? asNum(ins.active) : body.active ? 1 : 0;
-    const maxLev = body.maxLeverage ?? asNum(ins.max_leverage);
-    await q.updInstrument.run(active, maxLev, ins.symbol);
+    const maxLev = body.maxLeverage ?? leverageCap(ins);
+    // Only move the status when the admin actually asked to: an instrument the
+    // venue has delisted must not be quietly promoted back to HALT by someone
+    // editing its leverage.
+    const status = body.active === undefined ? ins.status : active === 1 ? "TRADING" : "HALT";
+    await q.updInstrument.run(status, maxLev, ins.symbol);
     await audit({ actorId: req.user.sub, action: "INSTRUMENT_UPDATED", meta: { symbol, ...body }, ip: req.ip });
     return { instrument: { symbol: ins.symbol, active: active === 1, maxLeverage: maxLev } };
   });

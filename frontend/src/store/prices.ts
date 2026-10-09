@@ -23,6 +23,25 @@ interface PriceState {
    * price and keeps whatever high/low/change the 1s ticker last supplied —
    * otherwise the header stats would blank out between ticker frames. */
   applyPriceOnly: (symbol: string, price: string) => void;
+  /**
+   * Narrows what the server sends.
+   *
+   * The catalogue is now thousands of instruments; a socket carrying all of
+   * them several times a second is megabytes nobody reads. The server frames
+   * at most four times a second and sends only what moved, but it still has
+   * to be told which symbols this tab is actually looking at.
+   */
+  subscribe: (next: { categories?: string[]; symbols?: string[] }) => void;
+}
+
+/** What the socket last asked for, replayed on every reconnect — a
+ * subscription the server forgot when the connection dropped would leave a
+ * silent watchlist that looks exactly like a dead market. */
+let subscription: { categories?: string[]; symbols?: string[] } = {};
+
+function sendSubscription(): void {
+  if (!socket || socket.readyState !== WebSocket.OPEN) return;
+  socket.send(JSON.stringify({ type: "subscribe", ...subscription }));
 }
 
 let socket: WebSocket | null = null;
@@ -45,6 +64,11 @@ export const usePriceStore = create<PriceState>((set, get) => ({
   status: "connecting",
 
   applyTick: (tick) => set((s) => ({ ticks: mergeTick(s.ticks, tick, Date.now()) })),
+
+  subscribe: (next) => {
+    subscription = next;
+    sendSubscription();
+  },
 
   applyPriceOnly: (symbol, price) =>
     set((s) => {
@@ -78,6 +102,7 @@ export const usePriceStore = create<PriceState>((set, get) => ({
       socket.onopen = () => {
         attempt = 0;
         set({ status: "open" });
+        sendSubscription();
       };
 
       socket.onmessage = (ev) => {

@@ -737,6 +737,56 @@ async function main() {
   const paged = await api("/api/crm/leads?test=show&page=1&pageSize=1", { token: managerToken });
   check("pagination caps the page", (paged.body?.leads ?? []).length === 1 && paged.body?.total >= 2, paged.body?.total);
 
+  /* --------------------------- instrument catalogue ----------------------- */
+  console.log("\nmarket — catalogue browsing and quotes");
+
+  const page1 = await api("/api/instruments/browse?limit=5&page=1", { token });
+  check("the catalogue pages", (page1.body?.instruments ?? []).length <= 5
+    && typeof page1.body?.total === "number", { got: page1.body?.instruments?.length, total: page1.body?.total });
+  check("a page reports the whole total, not the page size",
+    page1.body?.total >= (page1.body?.instruments ?? []).length, page1.body?.total);
+
+  const page2 = await api("/api/instruments/browse?limit=5&page=2", { token });
+  const ids1 = new Set((page1.body?.instruments ?? []).map((i: any) => i.symbol));
+  const overlap = (page2.body?.instruments ?? []).filter((i: any) => ids1.has(i.symbol));
+  check("the second page does not repeat the first", overlap.length === 0, overlap.map((i: any) => i.symbol));
+
+  const beyond = await api("/api/instruments/browse?limit=5&page=9999", { token });
+  check("a page past the end is empty, not an error",
+    beyond.status === 200 && (beyond.body?.instruments ?? []).length === 0, beyond.status);
+
+  const byCategory = await api("/api/instruments/browse?category=metals&limit=50", { token });
+  check("filtering by category returns only that category",
+    (byCategory.body?.instruments ?? []).length > 0
+      && (byCategory.body?.instruments ?? []).every((i: any) => i.category === "metals"),
+    (byCategory.body?.instruments ?? []).map((i: any) => i.category));
+
+  const byMarket = await api("/api/instruments/browse?market=perp&limit=50", { token });
+  check("filtering by market returns only that market",
+    (byMarket.body?.instruments ?? []).every((i: any) => i.market === "perp"),
+    (byMarket.body?.instruments ?? []).map((i: any) => i.market));
+
+  const searched = await api("/api/instruments/browse?q=btc&limit=50", { token });
+  check("search matches the symbol case-insensitively",
+    (searched.body?.instruments ?? []).some((i: any) => i.symbol === "BTCUSDT"),
+    (searched.body?.instruments ?? []).map((i: any) => i.symbol));
+
+  const badCategory = await api("/api/instruments/browse?category=nonsense", { token });
+  check("an unknown category is a 400, not a silent empty page", badCategory.status === 400, badCategory.status);
+
+  const counts = await api("/api/instruments/counts", { token });
+  check("category counts cover every category",
+    counts.body?.byCategory && Object.keys(counts.body.byCategory).length === 6, counts.body?.byCategory);
+
+  const quoteSnap = await api("/api/quotes?symbols=BTCUSDT,BTC-PERP,NOT-A-SYMBOL", { token });
+  check("a quote snapshot answers for every symbol asked for",
+    (quoteSnap.body?.quotes ?? []).length === 3, quoteSnap.body?.quotes?.length);
+  check("a symbol with no quote is reported stale rather than omitted",
+    (quoteSnap.body?.quotes ?? []).find((q: any) => q.symbol === "NOT-A-SYMBOL")?.stale === true,
+    quoteSnap.body?.quotes);
+  check("the snapshot carries provider health",
+    Array.isArray(quoteSnap.body?.feed?.providers), quoteSnap.body?.feed);
+
   const missing = await api("/api/crm/leads/does-not-exist", { token: managerToken });
   check("an unknown lead is a 404", missing.status === 404, missing.status);
 

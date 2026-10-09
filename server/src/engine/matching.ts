@@ -2,7 +2,7 @@ import { db, tx, now, asBig, asBigOrNull } from "../db.js";
 import { config } from "../config.js";
 import { fillRestingOrder, closePositionRow, type OrderRow, type PositionRow } from "./execution.js";
 import { shouldFill, exitReason, isLiquidated, type Side } from "./risk.js";
-import { quoteIsFresh } from "./prices.js";
+import { priceCache } from "../market/cache.js";
 import { captureError } from "../lib/monitoring.js";
 import { notifyByEmail } from "../lib/notify.js";
 import { orderFilledEmail, positionClosedEmail } from "../lib/mailer.js";
@@ -38,11 +38,14 @@ export async function tick() {
     // is simply absent, so every loop below skips it: no fills, no TP/SL, and
     // above all no liquidations against a price the market left behind. See
     // tradeableMark() in execution.ts for why that halt is the policy.
-    const prices = new Map<string, bigint>(
-      ((await q.prices.all()) as any[])
-        .filter((r) => quoteIsFresh(r.updated_at))
-        .map((r) => [r.symbol, asBig(r.price_scaled)])
-    );
+    // Read from the in-memory cache rather than price_snapshots. The table is
+    // written on a timer now (market/index.ts) and lags the stream by seconds,
+    // which on a 2s tick is the difference between liquidating at the price
+    // the market is at and the price it was at. The cache applies the same
+    // staleness rule, so a symbol whose feed has gone quiet is simply absent
+    // and every loop below skips it: no fills, no TP/SL, and above all no
+    // liquidations against a price the market left behind.
+    const prices = priceCache.tradeableMarks();
     if (!prices.size) return result;
 
     // 1. Resting orders
