@@ -173,11 +173,28 @@ CREATE TABLE IF NOT EXISTS users (
   last_login_at TEXT
 );
 
+-- Two wallets, one row.
+--
+-- cash_scaled is the REAL wallet: money the client actually put in. It is
+-- what margin is taken from, what PnL settles against, and the only thing
+-- that can be withdrawn. The column keeps its original name because every
+-- engine query, the matching loop and the ledger already read it, and
+-- renaming it would touch far more code than this distinction is worth --
+-- bonus_scaled beside it is what says which one it is.
+--
+-- bonus_scaled is money the desk granted. It backs nothing: not equity, not
+-- margin, not savings, not a withdrawal. Its only use is paying fees, and it
+-- is spent before real money is (see chargeFee in lib/ledger.ts). That makes
+-- it a liability the platform chose to carry, never an asset the client owns.
 CREATE TABLE IF NOT EXISTS accounts (
-  user_id     TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  cash_scaled BIGINT NOT NULL DEFAULT 0,
-  currency    TEXT NOT NULL DEFAULT 'USD',
-  updated_at  TEXT NOT NULL
+  user_id      TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  cash_scaled  BIGINT NOT NULL DEFAULT 0,
+  bonus_scaled BIGINT NOT NULL DEFAULT 0,
+  currency     TEXT NOT NULL DEFAULT 'USD',
+  updated_at   TEXT NOT NULL,
+  -- A bonus balance is granted, spent on fees and revoked. None of those can
+  -- take it below zero, so a negative value is a bug that must not be stored.
+  CONSTRAINT accounts_bonus_non_negative CHECK (bonus_scaled >= 0)
 );
 
 CREATE TABLE IF NOT EXISTS refresh_tokens (
@@ -278,6 +295,12 @@ CREATE INDEX IF NOT EXISTS idx_trades_user ON trades(user_id, closed_at);
 CREATE TABLE IF NOT EXISTS ledger_entries (
   id                   TEXT PRIMARY KEY,
   user_id              TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  -- Which wallet this row moved. Every row moves exactly one, so a wallet's
+  -- balance is the sum of its own rows and nothing else — the invariant the
+  -- money tests check. A fee paid partly from each writes two rows sharing a
+  -- ref, which is also what a refund reads to return each part where it came
+  -- from (see lib/ledger.ts).
+  wallet               TEXT NOT NULL DEFAULT 'real',
   type                 TEXT NOT NULL,
   amount_scaled        BIGINT NOT NULL,
   balance_after_scaled BIGINT NOT NULL,
@@ -285,7 +308,12 @@ CREATE TABLE IF NOT EXISTS ledger_entries (
   ref_id               TEXT,
   note                 TEXT,
   actor_user_id        TEXT,
-  created_at           TEXT NOT NULL
+  -- Caller-supplied de-duplication key. A retried request carrying the one it
+  -- used before is answered with the row it already wrote rather than a
+  -- second withdrawal (see postLedger).
+  idem_key             TEXT,
+  created_at           TEXT NOT NULL,
+  CONSTRAINT ledger_wallet_check CHECK (wallet IN ('real', 'bonus'))
 );
 CREATE INDEX IF NOT EXISTS idx_ledger_user ON ledger_entries(user_id, created_at);
 
@@ -690,6 +718,46 @@ export async function migrate(): Promise<void> {
   // Every list query now carries "and not a test row", so the index the
   // board reads has to agree with it.
   await pool.query("CREATE INDEX IF NOT EXISTS idx_leads_real ON leads(created_at DESC) WHERE is_test = FALSE");
+
+  // --- two wallets ---------------------------------------------------------
+  await addColumnIfMissing("accounts", "bonus_scaled", "bonus_scaled BIGINT NOT NULL DEFAULT 0");
+  await pool.query(`
+    ALTER TABLE accounts DROP CONSTRAINT IF EXISTS accounts_bonus_non_negative
+  `);
+  await pool.query(`
+    ALTER TABLE accounts ADD CONSTRAINT accounts_bonus_non_negative CHECK (bonus_scaled >= 0)
+  `);
+  await addColumnIfMissing("ledger_entries", "wallet", "wallet TEXT NOT NULL DEFAULT 'real'");
+  await addColumnIfMissing("ledger_entries", "idem_key", "idem_key TEXT");
+  await pool.query("ALTER TABLE ledger_entries DROP CONSTRAINT IF EXISTS ledger_wallet_check");
+  await pool.query(`
+    ALTER TABLE ledger_entries ADD CONSTRAINT ledger_wallet_check CHECK (wallet IN ('real', 'bonus'))
+  `);
+  await pool.query(
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_ledger_idem ON ledger_entries(idem_key) WHERE idem_key IS NOT NULL"
+  );
+
+  // The $10 000 every account used to be opened with.
+  //
+  // It was booked as a DEPOSIT, which made it indistinguishable from money a
+  // client actually sent — so "Вложено" counted it, and so would anything
+  // asking what is withdrawable. Retyping it as LEGACY_DEMO keeps the row (the
+  // balance it produced is real and the journal still has to add up to it) and
+  // takes it out of both figures, which is the whole point: the history stays
+  // intact and stops claiming a deposit that never happened.
+  //
+  // Matched on the notes the two places that wrote it used -- registration
+  // wrote "Стартовый баланс", CRM conversion "Стартовый баланс (регистрация
+  // из CRM)" -- and only on an account's first row, so a later real deposit
+  // of the same size is never caught by it.
+  await pool.query(`
+    UPDATE ledger_entries SET type = 'LEGACY_DEMO'
+    WHERE type = 'DEPOSIT' AND note LIKE 'Стартовый баланс%'
+      AND id IN (
+        SELECT DISTINCT ON (user_id) id FROM ledger_entries
+        ORDER BY user_id, created_at, id
+      )
+  `);
 
   // --- user settings ---------------------------------------------------------
   // Self-reported contact/profile detail, like date_of_birth above: shown back

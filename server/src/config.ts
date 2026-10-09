@@ -66,7 +66,15 @@ export const config = {
   refreshTtlDays: 30,
   takerFeeBps: 4,              // 0.04% taker fee
   maintenanceMarginRatio: 0.005, // 0.5% of notional, in line with real venues
-  startingBalance: "10000",
+  // A new account starts empty. It used to be opened with $10 000, which made
+  // every signup look like a funded client, put "Вложено" on money nobody
+  // sent, and meant the trading engine's first ledger row was a fiction. The
+  // rows that were already written keep existing, retyped LEGACY_DEMO by the
+  // migration in db.ts so they count as neither a deposit nor withdrawable.
+  //
+  // Kept as a setting rather than deleted so a demo deployment can still open
+  // accounts with something in them, deliberately and on purpose.
+  startingBalance: process.env.STARTING_BALANCE ?? "0",
   engineTickMs: 2000,
   // How often the server re-pulls upstream (Binance) prices — this is the
   // price everything server-side (margin, PnL, TP/SL, liquidation) actually

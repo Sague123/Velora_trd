@@ -55,17 +55,29 @@ const q = {
    * exact amount the order row says was charged, on the right account, at or
    * before the moment the order was created. Matching the amount is what
    * keeps this from touching an unrelated row: a hit means the row holds
-   * precisely the figure being replaced. */
+   * precisely the figure being replaced.
+   *
+   * Orders placed since the two-wallet change carry their own id in ref_id,
+   * so they are matched exactly; the amount match is the fallback for rows
+   * written before that, which left ref_id null. Both branches are needed as
+   * long as any pre-change order is still rewritable. */
   ledgerEntrySide: db.prepare(`
     SELECT * FROM ledger_entries
-    WHERE user_id = @userId AND type = @type AND ref_type = 'ORDER' AND ref_id IS NULL
-      AND amount_scaled = @amount AND created_at <= @before
+    WHERE user_id = @userId AND type = @type AND ref_type = 'ORDER'
+      AND (ref_id = @orderId OR (ref_id IS NULL AND amount_scaled = @amount))
+      AND created_at <= @before
     ORDER BY created_at DESC LIMIT 1
   `),
   updLedgerAmount: db.prepare("UPDATE ledger_entries SET amount_scaled = ? WHERE id = ?"),
   updLedgerTime: db.prepare("UPDATE ledger_entries SET created_at = ? WHERE id = ?"),
 
-  chain: db.prepare("SELECT id, amount_scaled FROM ledger_entries WHERE user_id = ? ORDER BY created_at, id"),
+  // Real-wallet rows only. A bonus fee is journalled too, and replaying it
+  // into cash_scaled would credit the real balance with money the bonus
+  // wallet spent -- each wallet's balance is the sum of its own rows and
+  // nothing else.
+  chain: db.prepare(
+    "SELECT id, amount_scaled FROM ledger_entries WHERE user_id = ? AND wallet = 'real' ORDER BY created_at, id"
+  ),
   updBalanceAfter: db.prepare("UPDATE ledger_entries SET balance_after_scaled = ? WHERE id = ?"),
   updCash: db.prepare("UPDATE accounts SET cash_scaled = ?, updated_at = ? WHERE user_id = ?"),
 };
@@ -100,6 +112,8 @@ export interface FieldChange {
  * journal, with no accumulated drift from earlier edits.
  */
 async function recomputeBalances(userId: string): Promise<bigint> {
+  // Only the real wallet is replayed: see q.chain. The bonus wallet is never
+  // touched by a trade rewrite, so it needs no recomputation.
   const rows = (await q.chain.all(userId)) as { id: string; amount_scaled: bigint }[];
   let running = 0n;
   for (const row of rows) {
@@ -238,14 +252,16 @@ export async function rewriteClosedTrade(
     // original value, and the balance still reconciles because the chain is
     // recomputed from whatever the journal actually holds.
     const hold = (await q.ledgerEntrySide.get({
-      userId: expectUserId, type: "MARGIN_HOLD", amount: -oldMargin, before: order.created_at,
+      userId: expectUserId, type: "MARGIN_HOLD", amount: -oldMargin,
+      orderId: order.id, before: order.created_at,
     })) as any;
     if (hold) {
       await q.updLedgerAmount.run(-newMargin, hold.id);
       await q.updLedgerTime.run(openedAt, hold.id);
     }
     const entryFeeRow = (await q.ledgerEntrySide.get({
-      userId: expectUserId, type: "FEE", amount: -oldEntryFee, before: order.created_at,
+      userId: expectUserId, type: "FEE", amount: -oldEntryFee,
+      orderId: order.id, before: order.created_at,
     })) as any;
     if (entryFeeRow) {
       await q.updLedgerAmount.run(-newEntryFee, entryFeeRow.id);
@@ -321,14 +337,16 @@ export async function rewriteOpenPosition(
     });
 
     const hold = (await q.ledgerEntrySide.get({
-      userId: expectUserId, type: "MARGIN_HOLD", amount: -oldMargin, before: order.created_at,
+      userId: expectUserId, type: "MARGIN_HOLD", amount: -oldMargin,
+      orderId: order.id, before: order.created_at,
     })) as any;
     if (hold) {
       await q.updLedgerAmount.run(-newMargin, hold.id);
       await q.updLedgerTime.run(openedAt, hold.id);
     }
     const entryFeeRow = (await q.ledgerEntrySide.get({
-      userId: expectUserId, type: "FEE", amount: -oldEntryFee, before: order.created_at,
+      userId: expectUserId, type: "FEE", amount: -oldEntryFee,
+      orderId: order.id, before: order.created_at,
     })) as any;
     if (entryFeeRow) {
       await q.updLedgerAmount.run(-newEntryFee, entryFeeRow.id);

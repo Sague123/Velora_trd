@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { db, newId, now, tx, asNum, newAccountNumber } from "../db.js";
+import { db, newId, now, tx, asBig, asNum, newAccountNumber } from "../db.js";
 import { config } from "../config.js";
 import { postLedger, audit } from "../lib/ledger.js";
 import { badRequest, notFound, conflict, forbidden } from "../lib/errors.js";
@@ -13,7 +13,7 @@ import { issueViewToken } from "../lib/crmViewTokens.js";
 import { accountSnapshot } from "../lib/accountSummary.js";
 import { generateTempPassword } from "../lib/tempPassword.js";
 import { rewriteClosedTrade, rewriteOpenPosition } from "../lib/tradeRewrite.js";
-import { sLead, sLeadDetail, sLeadComment, sLeadHistory, sOrder, sTrade } from "./serialize.js";
+import { sLead, sLeadDetail, sLeadComment, sLeadHistory, sLedger, sOrder, sTrade } from "./serialize.js";
 
 /**
  * CRM for the sales desk: the affiliate lead pipeline, one card per lead, and
@@ -49,6 +49,11 @@ export const LEAD_STATUSES_TERMINAL = [
 ] as const;
 
 export const LEAD_STATUSES = [...LEAD_STATUSES_WORKING, ...LEAD_STATUSES_TERMINAL] as const;
+
+/** How much a manager has to write before a bonus is recorded. Long enough
+ * that "ok" and "бонус" do not pass, short enough that a real sentence
+ * ("компенсация за сбой 12.03, согласовано с Ильёй") always does. */
+export const BONUS_REASON_MIN = 12;
 
 /**
  * A client's three fields, each on its own axis, because they answer three
@@ -91,7 +96,53 @@ const q = {
            u.account_number AS platform_account_number,
            u.created_at   AS platform_registered_at,
            u.last_login_at AS platform_last_login_at,
-           a.cash_scaled  AS platform_cash_scaled,
+           COALESCE(a.cash_scaled, 0)  AS platform_cash_scaled,
+           COALESCE(a.bonus_scaled, 0) AS platform_bonus_scaled,
+           -- The four figures the desk sorts the board by. Computed here
+           -- rather than per row in TypeScript: a page is 25 leads, and
+           -- asking the engine for each one's equity would be 25 round trips
+           -- for a column that is read at a glance.
+           -- "Вложено": the client's own money in, minus their own money out.
+           --
+           -- Read from spot_ledger, not ledger_entries. Money enters and
+           -- leaves the platform through the SPOT wallet (see
+           -- routes/trading.ts's /account/deposit and /account/withdraw);
+           -- what reaches the futures journal is a transfer between the
+           -- client's own two wallets, which moves nothing in or out. Summing
+           -- the futures journal would have reported zero deposited for
+           -- everyone, and counted an internal transfer as an investment.
+           --
+           -- USD legs only: a BUY of BTC is not a deposit, and its qty is a
+           -- quantity of coin rather than dollars.
+           (SELECT COALESCE(SUM(sl.qty_scaled), 0) FROM spot_ledger sl
+             WHERE sl.user_id = l.platform_user_id AND sl.asset = 'USD'
+               AND sl.type IN ('DEPOSIT', 'WITHDRAWAL')) AS platform_deposited_scaled,
+           -- The spot wallet's USD leg. "Вложено" counts money that came in
+           -- through spot, so equity has to see it too, or a client who
+           -- deposited and has not moved it to futures yet reads as having
+           -- lost all of it. Non-USD spot holdings are deliberately left out
+           -- here: valuing them needs the asset catalogue, which is a per-row
+           -- lookup this board-level figure is not worth. The card
+           -- (lib/accountSummary.ts) values them in full.
+           (SELECT COALESCE(SUM(sb.qty_scaled), 0) FROM spot_balances sb
+             WHERE sb.user_id = l.platform_user_id AND sb.asset = 'USD') AS platform_spot_scaled,
+           (SELECT COALESCE(SUM(po.margin_scaled), 0) FROM positions po
+             WHERE po.user_id = l.platform_user_id AND po.status = 'OPEN') AS platform_used_margin_scaled,
+           (SELECT COALESCE(SUM(o.margin_scaled), 0) FROM orders o
+             WHERE o.user_id = l.platform_user_id AND o.status = 'NEW')    AS platform_locked_margin_scaled,
+           (SELECT COALESCE(SUM(sa.balance_scaled), 0) FROM savings_accounts sa
+             WHERE sa.user_id = l.platform_user_id AND sa.status = 'ACTIVE') AS platform_savings_scaled,
+           -- Unrealised PnL against the latest mark, the same arithmetic
+           -- engine/risk.ts's pnlFor does: a long gains what the price rose,
+           -- a short gains what it fell, scaled back down by SCALE because
+           -- both operands carry it.
+           (SELECT COALESCE(SUM(
+                     CASE WHEN po.side = 'BUY'
+                          THEN po.qty_scaled * (ps.price_scaled - po.entry_scaled)
+                          ELSE po.qty_scaled * (po.entry_scaled - ps.price_scaled)
+                     END / 100000000), 0)
+              FROM positions po JOIN price_snapshots ps ON ps.symbol = po.symbol
+             WHERE po.user_id = l.platform_user_id AND po.status = 'OPEN') AS platform_unrealised_scaled,
            (SELECT MAX(created_at) FROM audit_logs al WHERE al.actor_id = u.id) AS platform_last_action_at,
            k.id             AS kyc_submission_id,
            k.document_type  AS kyc_document_type,
@@ -245,11 +296,13 @@ const q = {
     VALUES (@id, @email, @hash, @name, 'USER', 'ACTIVE', @accountNumber, TRUE, @ts, @ts)
   `),
   insAccount: db.prepare("INSERT INTO accounts (user_id, cash_scaled, updated_at) VALUES (?, ?, ?)"),
-  insLedgerDeposit: db.prepare(`
-    INSERT INTO ledger_entries (id, user_id, type, amount_scaled, balance_after_scaled, note, created_at)
-    VALUES (@id, @userId, 'DEPOSIT', @amt, @amt, 'Стартовый баланс (регистрация из CRM)', @ts)
-  `),
   linkLead: db.prepare("UPDATE leads SET platform_user_id = ?, updated_at = ? WHERE id = ?"),
+  walletsFor: db.prepare("SELECT cash_scaled, bonus_scaled FROM accounts WHERE user_id = ?"),
+  bonusHistory: db.prepare(`
+    SELECT * FROM ledger_entries
+    WHERE user_id = ? AND wallet = 'bonus'
+    ORDER BY created_at DESC LIMIT 100
+  `),
 };
 
 /** Pipeline order, not alphabetical — sorting the status column should walk
@@ -269,7 +322,39 @@ const KYC_ORDER_SQL = `CASE COALESCE(u.kyc_status, 'NONE')
  * Whitelisted rather than taking the column name from the request directly —
  * an identifier can't be a bind parameter, so this is what stands between a
  * sort request and building a query out of arbitrary client text. */
+/* The money expressions, written once and used by both the SELECT list and
+ * ORDER BY. Repeating them inline in two places is how the figure a column
+ * shows and the figure it sorts by drift apart. */
+const DEPOSITED_SQL = `(SELECT COALESCE(SUM(sl.qty_scaled), 0) FROM spot_ledger sl
+   WHERE sl.user_id = l.platform_user_id AND sl.asset = 'USD'
+     AND sl.type IN ('DEPOSIT', 'WITHDRAWAL'))`;
+const EQUITY_SQL = `(COALESCE(a.cash_scaled, 0)
+   + (SELECT COALESCE(SUM(sb.qty_scaled), 0) FROM spot_balances sb
+       WHERE sb.user_id = l.platform_user_id AND sb.asset = 'USD')
+   + (SELECT COALESCE(SUM(po.margin_scaled), 0) FROM positions po
+       WHERE po.user_id = l.platform_user_id AND po.status = 'OPEN')
+   + (SELECT COALESCE(SUM(o.margin_scaled), 0) FROM orders o
+       WHERE o.user_id = l.platform_user_id AND o.status = 'NEW')
+   + (SELECT COALESCE(SUM(sa.balance_scaled), 0) FROM savings_accounts sa
+       WHERE sa.user_id = l.platform_user_id AND sa.status = 'ACTIVE')
+   + (SELECT COALESCE(SUM(
+              CASE WHEN po.side = 'BUY'
+                   THEN po.qty_scaled * (ps.price_scaled - po.entry_scaled)
+                   ELSE po.qty_scaled * (po.entry_scaled - ps.price_scaled)
+              END / 100000000), 0)
+       FROM positions po JOIN price_snapshots ps ON ps.symbol = po.symbol
+      WHERE po.user_id = l.platform_user_id AND po.status = 'OPEN'))`;
+/* Null, not zero, when nothing was ever deposited: NULLS LAST then parks
+ * those rows at the end instead of ranking them against real percentages. */
+const PNL_PCT_SQL = `(CASE WHEN ${DEPOSITED_SQL} > 0
+   THEN (${EQUITY_SQL} - ${DEPOSITED_SQL}) * 10000 / ${DEPOSITED_SQL} END)`;
+
 const SORT_COLUMNS: Record<string, string> = {
+  deposited: DEPOSITED_SQL,
+  real: "a.cash_scaled",
+  bonus: "a.bonus_scaled",
+  equity: EQUITY_SQL,
+  pnlPct: PNL_PCT_SQL,
   accountNumber: "u.account_number",
   fullName: "l.full_name",
   phone: "l.phone",
@@ -454,6 +539,7 @@ function buildLeadsQuery(p: LeadsQueryInput): { sql: { list: string; count: stri
     FROM leads l
     LEFT JOIN users m ON m.id = l.assigned_manager_id
     LEFT JOIN users u ON u.id = l.platform_user_id
+    LEFT JOIN accounts a ON a.user_id = l.platform_user_id
   `;
 
   return {
@@ -461,7 +547,54 @@ function buildLeadsQuery(p: LeadsQueryInput): { sql: { list: string; count: stri
       list: `SELECT l.*, m.name AS manager_name, m.email AS manager_email,
                     u.email AS platform_email, u.kyc_status AS platform_kyc_status,
                     u.status AS platform_status,
-                    u.account_number AS platform_account_number
+                    u.account_number AS platform_account_number,
+           COALESCE(a.cash_scaled, 0)  AS platform_cash_scaled,
+           COALESCE(a.bonus_scaled, 0) AS platform_bonus_scaled,
+           -- The four figures the desk sorts the board by. Computed here
+           -- rather than per row in TypeScript: a page is 25 leads, and
+           -- asking the engine for each one's equity would be 25 round trips
+           -- for a column that is read at a glance.
+           -- "Вложено": the client's own money in, minus their own money out.
+           --
+           -- Read from spot_ledger, not ledger_entries. Money enters and
+           -- leaves the platform through the SPOT wallet (see
+           -- routes/trading.ts's /account/deposit and /account/withdraw);
+           -- what reaches the futures journal is a transfer between the
+           -- client's own two wallets, which moves nothing in or out. Summing
+           -- the futures journal would have reported zero deposited for
+           -- everyone, and counted an internal transfer as an investment.
+           --
+           -- USD legs only: a BUY of BTC is not a deposit, and its qty is a
+           -- quantity of coin rather than dollars.
+           (SELECT COALESCE(SUM(sl.qty_scaled), 0) FROM spot_ledger sl
+             WHERE sl.user_id = l.platform_user_id AND sl.asset = 'USD'
+               AND sl.type IN ('DEPOSIT', 'WITHDRAWAL')) AS platform_deposited_scaled,
+           -- The spot wallet's USD leg. "Вложено" counts money that came in
+           -- through spot, so equity has to see it too, or a client who
+           -- deposited and has not moved it to futures yet reads as having
+           -- lost all of it. Non-USD spot holdings are deliberately left out
+           -- here: valuing them needs the asset catalogue, which is a per-row
+           -- lookup this board-level figure is not worth. The card
+           -- (lib/accountSummary.ts) values them in full.
+           (SELECT COALESCE(SUM(sb.qty_scaled), 0) FROM spot_balances sb
+             WHERE sb.user_id = l.platform_user_id AND sb.asset = 'USD') AS platform_spot_scaled,
+           (SELECT COALESCE(SUM(po.margin_scaled), 0) FROM positions po
+             WHERE po.user_id = l.platform_user_id AND po.status = 'OPEN') AS platform_used_margin_scaled,
+           (SELECT COALESCE(SUM(o.margin_scaled), 0) FROM orders o
+             WHERE o.user_id = l.platform_user_id AND o.status = 'NEW')    AS platform_locked_margin_scaled,
+           (SELECT COALESCE(SUM(sa.balance_scaled), 0) FROM savings_accounts sa
+             WHERE sa.user_id = l.platform_user_id AND sa.status = 'ACTIVE') AS platform_savings_scaled,
+           -- Unrealised PnL against the latest mark, the same arithmetic
+           -- engine/risk.ts's pnlFor does: a long gains what the price rose,
+           -- a short gains what it fell, scaled back down by SCALE because
+           -- both operands carry it.
+           (SELECT COALESCE(SUM(
+                     CASE WHEN po.side = 'BUY'
+                          THEN po.qty_scaled * (ps.price_scaled - po.entry_scaled)
+                          ELSE po.qty_scaled * (po.entry_scaled - ps.price_scaled)
+                     END / 100000000), 0)
+              FROM positions po JOIN price_snapshots ps ON ps.symbol = po.symbol
+             WHERE po.user_id = l.platform_user_id AND po.status = 'OPEN') AS platform_unrealised_scaled
              ${fromJoin} ${where} ${orderBy} LIMIT @limit OFFSET @offset`,
       count: `SELECT COUNT(*) AS n ${fromJoin} ${where}`,
     },
@@ -571,6 +704,7 @@ export default async function crmRoutes(app: FastifyInstance) {
         "accountNumber", "fullName", "phone", "email", "status",
         "activityStatus", "kycStatus", "vip", "country", "manager", "createdAt",
         "updatedAt", "nextActionAt", "lastContactAt",
+        "deposited", "real", "bonus", "equity", "pnlPct",
       ]).default("createdAt"),
       sortDir: z.enum(["asc", "desc"]).default("desc"),
       page: z.coerce.number().int().min(1).default(1),
@@ -1082,17 +1216,108 @@ export default async function crmRoutes(app: FastifyInstance) {
     const amount = toScaled(body.amount); // signed: "500" credits, "-500" debits
     if (amount === 0n) throw badRequest("ZERO_AMOUNT", "Сумма не может быть нулевой");
 
-    const balanceAfter = await tx(async () => {
+    const result = await tx(async () => {
+      const before = (await q.walletsFor.get(userId)) as { cash_scaled: bigint };
+      const balanceBefore = asBig(before.cash_scaled);
+      // The real wallet, explicitly: a correction is about money the client
+      // actually has. Bonus moves through its own endpoint below, with its
+      // own permission and a mandatory reason.
       const b = await postLedger({
-        userId, type: "ADMIN_ADJUSTMENT", amountScaled: amount,
+        userId, wallet: "real", type: "ADMIN_ADJUSTMENT", amountScaled: amount,
         note: body.note ?? "Корректировка баланса из CRM", actorUserId: req.user.sub,
       });
       await audit({ actorId: req.user.sub, targetUserId: userId, action: "CRM_BALANCE_ADJUSTED",
-        meta: { leadId: id, amount: body.amount, note: body.note }, ip: req.ip });
-      return b;
+        // Before and after alongside the delta, so the row can be checked
+        // against the balance it claims to have produced.
+        meta: { leadId: id, amount: body.amount, note: body.note,
+                balanceBefore: out(balanceBefore, 2), balanceAfter: out(b, 2) },
+        ip: req.ip });
+      return { balanceBefore, balanceAfter: b };
     });
 
-    return { balance: out(balanceAfter, 2) };
+    return { balance: out(result.balanceAfter, 2), balanceBefore: out(result.balanceBefore, 2) };
+  });
+
+  /**
+   * Grants bonus funds, or revokes them.
+   *
+   * Bonus is not a balance correction, so it is not the balance endpoint with
+   * a flag: it needs its own permission on top of MANAGE_BALANCE, a written
+   * reason that is not optional, and a record of who promised what. It never
+   * expires and nothing consumes it but fees; the only way it leaves an
+   * account other than being spent is a manager revoking it here.
+   *
+   * Both directions are idempotent on the client's key, so a retried request
+   * over a flaky connection grants once.
+   */
+  app.post("/leads/:id/account/bonus", async (req, reply) => {
+    const { id } = z.object({ id: z.string() }).parse(req.params);
+    // Both: whoever moves bonus must already be trusted with real money.
+    await requireCrmPermission(req.user.sub, "MANAGE_BALANCE");
+    await requireCrmPermission(req.user.sub, "BONUS_GRANT");
+    const userId = await requirePlatformUser(id);
+
+    const body = z.object({
+      direction: z.enum(["GRANT", "REVOKE"]),
+      // Unsigned: the direction says which way it goes, so a "-500" grant is
+      // not a thing anyone can type by accident.
+      amount: z.string().regex(/^\d+(\.\d{1,8})?$/, "Ожидается положительное число"),
+      // The agreement this bonus came out of. Mandatory and long enough to be
+      // a sentence: "бонус" tells a later reader nothing about what was
+      // promised, and this is the only record of it.
+      reason: z.string().trim().min(BONUS_REASON_MIN).max(500),
+      idemKey: z.string().min(8).max(100).optional(),
+    }).parse(req.body);
+
+    const amount = toScaled(body.amount);
+    if (amount <= 0n) throw badRequest("ZERO_AMOUNT", "Сумма должна быть больше нуля");
+
+    const result = await tx(async () => {
+      const before = (await q.walletsFor.get(userId)) as { bonus_scaled: bigint };
+      const bonusBefore = asBig(before.bonus_scaled);
+
+      if (body.direction === "REVOKE" && amount > bonusBefore) {
+        // Refused rather than clamped: a manager who meant to take back $200
+        // and finds only $50 there has to see that, not silently remove what
+        // happens to be left.
+        throw badRequest("BONUS_TOO_SMALL",
+          `На счёте только ${out(bonusBefore, 2)} бонусных средств — отозвать больше нельзя`);
+      }
+
+      const after = await postLedger({
+        userId, wallet: "bonus",
+        type: body.direction === "GRANT" ? "BONUS_GRANT" : "BONUS_REVOKE",
+        amountScaled: body.direction === "GRANT" ? amount : -amount,
+        note: body.reason, actorUserId: req.user.sub, idemKey: body.idemKey,
+      });
+      await audit({
+        actorId: req.user.sub, targetUserId: userId,
+        action: body.direction === "GRANT" ? "CRM_BONUS_GRANTED" : "CRM_BONUS_REVOKED",
+        // Before and after, not just the delta: an audit row that cannot be
+        // checked against the balance it claims to have produced is worth
+        // much less when someone is actually reading it later.
+        meta: {
+          leadId: id, amount: body.amount, reason: body.reason,
+          bonusBefore: out(bonusBefore, 2), bonusAfter: out(after, 2),
+        },
+        ip: req.ip,
+      });
+      return { bonusBefore, bonusAfter: after };
+    });
+
+    return reply.code(201).send({
+      bonus: out(result.bonusAfter, 2),
+      bonusBefore: out(result.bonusBefore, 2),
+    });
+  });
+
+  /** The bonus wallet's whole story: what is left, what was granted or taken
+   * back and by whom, and how much of it has gone on fees. */
+  app.get("/leads/:id/account/bonus", async (req) => {
+    const { id } = z.object({ id: z.string() }).parse(req.params);
+    const userId = await requirePlatformUser(id);
+    const rows = (await q.bonusHistory.all(userId)) as any[];
+    return { entries: rows.map(sLedger) };
   });
 
   app.patch("/leads/:id/account/status", async (req) => {
@@ -1279,7 +1504,13 @@ export default async function crmRoutes(app: FastifyInstance) {
     await tx(async () => {
       await q.insUser.run({ id: userId, email: lead.email, hash, name: lead.full_name, accountNumber, ts });
       await q.insAccount.run(userId, starting, ts);
-      await q.insLedgerDeposit.run({ id: newId(), userId, amt: starting, ts });
+      // Same as self-registration: zero by default, and when a deployment does
+      // open accounts with something in them it is LEGACY_DEMO, not a deposit
+      // the client never made. See routes/auth.ts.
+      if (starting > 0n) {
+        await postLedger({ userId, type: "LEGACY_DEMO", amountScaled: starting,
+          note: "Стартовый баланс", actorUserId: req.user.sub });
+      }
       await q.linkLead.run(userId, ts, id);
       await audit({ actorId: req.user.sub, targetUserId: userId, action: "CRM_LEAD_CONVERTED",
         meta: { leadId: id }, ip: req.ip });

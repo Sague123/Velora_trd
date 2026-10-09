@@ -1,5 +1,5 @@
 import { db, newId, now, tx, asBig, asBigOrNull, asNum, asBool } from "../db.js";
-import { postLedger } from "../lib/ledger.js";
+import { postLedger, chargeFee, refundFee } from "../lib/ledger.js";
 import { badRequest, conflict, notFound } from "../lib/errors.js";
 import { notional, marginFor, feeFor, pnlFor, liquidationPrice, maxSafeLeverage, type Side } from "./risk.js";
 import { quoteIsFresh } from "./prices.js";
@@ -19,6 +19,7 @@ export interface OrderRow {
 }
 
 const q = {
+  realBalance: db.prepare("SELECT cash_scaled FROM accounts WHERE user_id = ?"),
   instrument: db.prepare(`
     SELECT i.*, p.price_scaled, p.updated_at AS price_updated_at FROM instruments i
     LEFT JOIN price_snapshots p ON p.symbol = i.symbol WHERE i.symbol = ?
@@ -137,13 +138,29 @@ export async function placeOrder(req: OpenRequest) {
   if (marginScaled <= 0n) throw badRequest("TOO_SMALL", "Слишком маленький объём");
 
   return tx(async () => {
-    await postLedger({ userId: req.userId, type: "MARGIN_HOLD", amountScaled: -marginScaled,
-      refType: "ORDER", note: `${req.side} ${req.symbol} ${req.type}` });
-    await postLedger({ userId: req.userId, type: "FEE", amountScaled: -feeScaled,
-      refType: "ORDER", note: `Комиссия ${req.symbol}` });
+    // Real money is what backs a position: bonus is not collateral, so an
+    // account holding nothing but bonus cannot open one however large that
+    // bonus is. Checked here rather than only in the UI, and inside the
+    // transaction, so it cannot be raced past by two orders at once.
+    const acc = (await q.realBalance.get(req.userId)) as { cash_scaled: bigint } | undefined;
+    if (!acc) throw notFound("Счёт не найден");
+    if (asBig(acc.cash_scaled) <= 0n) {
+      throw conflict("NO_REAL_FUNDS",
+        "Для открытия позиции нужен реальный баланс — бонусные средства не обеспечивают маржу");
+    }
 
     const ts = now();
     const orderId = newId();
+
+    await postLedger({ userId: req.userId, type: "MARGIN_HOLD", amountScaled: -marginScaled,
+      refType: "ORDER", refId: orderId, note: `${req.side} ${req.symbol} ${req.type}` });
+    // Bonus first, the rest from real. No allowNegative: an opening order the
+    // client cannot pay for is refused, and because the margin hold above is
+    // in this same transaction, the refusal takes it back with it — a rejected
+    // order leaves nothing behind at all.
+    await chargeFee({ userId: req.userId, amountScaled: feeScaled,
+      refType: "ORDER", refId: orderId, note: `Комиссия ${req.symbol}` });
+
     let positionId: string | null = null;
 
     if (req.type === "MARKET") {
@@ -194,11 +211,20 @@ export async function cancelOrder(userId: string, orderId: string, actorUserId?:
     if (!order) throw notFound("Ордер не найден");
     if (order.status !== "NEW") throw conflict("ORDER_NOT_ACTIVE", "Ордер уже не активен");
 
-    // Release the held margin. The placement fee stays taken.
+    // Release the held margin, and give the placement fee back to the wallets
+    // that paid it, in the proportions they paid (refundFee reads the original
+    // rows rather than recomputing the split, so a bonus balance that changed
+    // in between cannot turn a bonus-paid fee into a real-money refund).
+    //
+    // The fee used to stay taken. Charging for an order that never filled and
+    // keeping it when the client withdraws the order is a fee for nothing;
+    // the exit fee on a position that did open is untouched by this.
     await postLedger({
       userId, type: "MARGIN_RELEASE", amountScaled: asBig(order.margin_scaled),
       refType: "ORDER", refId: order.id, note: "Отмена ордера", actorUserId,
     });
+    await refundFee({ userId, refType: "ORDER", refId: order.id,
+      note: "Возврат комиссии за отменённый ордер", actorUserId });
     await q.cancelOrderStmt.run(now(), order.id);
     return (await q.getOrder.get(order.id)) as OrderRow;
   });
@@ -228,7 +254,12 @@ export async function closePositionRow(
   await postLedger({ userId: position.user_id, type: "PNL", amountScaled: settled,
     refType: "POSITION", refId: position.id, note: `${reason} ${position.symbol}`,
     actorUserId, allowNegative: true });
-  await postLedger({ userId: position.user_id, type: "FEE", amountScaled: -fee,
+  // allowNegative: a close is never refused over its fee. The position
+  // already exists and the margin released just above is right there; blocking
+  // the exit would trap the client in the trade, which is a far worse outcome
+  // than a balance that dips below zero and is settled against the next
+  // deposit. Bonus still pays first.
+  await chargeFee({ userId: position.user_id, amountScaled: fee,
     refType: "POSITION", refId: position.id, note: `Комиссия закрытия ${position.symbol}`,
     actorUserId, allowNegative: true });
 

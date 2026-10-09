@@ -10,7 +10,8 @@ import type {
 export type LeadSortColumn =
   | "accountNumber" | "fullName" | "phone" | "email" | "status"
   | "activityStatus" | "kycStatus" | "vip" | "country" | "manager" | "createdAt"
-  | "updatedAt" | "nextActionAt" | "lastContactAt";
+  | "updatedAt" | "nextActionAt" | "lastContactAt"
+  | "deposited" | "real" | "bonus" | "equity" | "pnlPct";
 
 export type KycFilterValue = "NONE" | "PENDING" | "APPROVED" | "REJECTED";
 

@@ -11,18 +11,27 @@ import { forbidden } from "./errors.js";
  *
  *  IMPERSONATE     mint a one-time, read-only view of the lead's account
  *  MANAGE_ACCOUNT  suspend / reactivate the linked platform account
- *  MANAGE_BALANCE  credit or debit the linked account's cash balance
+ *  MANAGE_BALANCE  credit or debit the linked account's real balance
  *  MANAGE_TRADES   close a position or cancel an order on the linked account
+ *  BONUS_GRANT     grant or revoke bonus funds
+ *
+ * BONUS_GRANT is separate from MANAGE_BALANCE rather than folded into it
+ * because the two are different promises. A balance correction says the
+ * ledger was wrong; a bonus is the desk giving money away under a
+ * negotiated agreement, and it is the one a desk hands out casually if it
+ * comes free with the other. Granting requires both: whoever moves bonus
+ * can already move real money, and has been trusted with this on top.
  *
  * ADMIN bypasses this file entirely — every route that calls
  * requireCrmPermission() runs behind requireManager() first, and an admin
  * already holds every power a permission here could grant, so gating them on
  * top would just be a second copy of the same check with more ways to drift.
  */
-export type CrmPermission = "IMPERSONATE" | "MANAGE_ACCOUNT" | "MANAGE_BALANCE" | "MANAGE_TRADES";
+export type CrmPermission =
+  | "IMPERSONATE" | "MANAGE_ACCOUNT" | "MANAGE_BALANCE" | "MANAGE_TRADES" | "BONUS_GRANT";
 
 export const CRM_PERMISSIONS: CrmPermission[] = [
-  "IMPERSONATE", "MANAGE_ACCOUNT", "MANAGE_BALANCE", "MANAGE_TRADES",
+  "IMPERSONATE", "MANAGE_ACCOUNT", "MANAGE_BALANCE", "MANAGE_TRADES", "BONUS_GRANT",
 ];
 
 const q = {

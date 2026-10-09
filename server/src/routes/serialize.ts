@@ -41,6 +41,10 @@ export const sTrade = (t: any) => ({
 
 export const sLedger = (e: any) => ({
   id: e.id, type: e.type,
+  /** Which wallet moved. A fee split across both shows as two rows sharing a
+   * ref, which is how the card tells "bonus covered $3 of it" from "the whole
+   * fee came out of real money". */
+  wallet: e.wallet ?? "real",
   amount: out(asBig(e.amount_scaled), 2),
   balanceAfter: out(asBig(e.balance_after_scaled), 2),
   note: e.note, actorUserId: e.actor_user_id, createdAt: e.created_at,
@@ -75,6 +79,38 @@ export function leadKycStatus(l: any): LeadKycStatus | null {
   }
 }
 
+/**
+ * Equity and PnL from the figures the lead query already computed.
+ *
+ * Margin is added back to cash because holding it debits the real wallet (a
+ * MARGIN_HOLD row), so it is posted, not spent. Bonus is deliberately absent:
+ * it backs nothing and cannot be withdrawn, so including it would overstate
+ * the account by exactly what the desk gave away. The percentage is against
+ * what the client actually sent, and is null rather than infinite when that
+ * is zero.
+ */
+function leadMoney(l: any) {
+  const real = asBig(l.platform_cash_scaled);
+  const bonus = asBig(l.platform_bonus_scaled);
+  const deposited = asBig(l.platform_deposited_scaled);
+  const equity =
+    real +
+    asBig(l.platform_spot_scaled) +
+    asBig(l.platform_used_margin_scaled) +
+    asBig(l.platform_locked_margin_scaled) +
+    asBig(l.platform_savings_scaled) +
+    asBig(l.platform_unrealised_scaled);
+  const pnl = equity - deposited;
+  return {
+    deposited: out(deposited, 2),
+    real: out(real, 2),
+    bonus: out(bonus, 2),
+    equity: out(equity, 2),
+    pnl: out(pnl, 2),
+    pnlPct: deposited > 0n ? pctOf(pnl, deposited) : null,
+  };
+}
+
 export const sLead = (l: any) => ({
   id: l.id,
   fullName: l.full_name,
@@ -105,6 +141,13 @@ export const sLead = (l: any) => ({
   /** Read live from the platform, see leadKycStatus. Null before the lead
    * has an account to check. */
   kycStatus: leadKycStatus(l),
+  /**
+   * The money columns, for a board that is read at a glance.
+   *
+   * Null for a lead with no platform account: zero would read as "funded
+   * nothing", which is a different fact from "has nowhere to fund".
+   */
+  money: l.platform_user_id ? leadMoney(l) : null,
   /** The account exists but is suspended — a real, actionable fact that none
    * of the three status fields covers, so it rides as its own flag. */
   isBlocked: l.platform_status === "SUSPENDED",

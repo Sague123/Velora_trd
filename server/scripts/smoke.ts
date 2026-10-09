@@ -121,7 +121,35 @@ async function main() {
 
   const me = await api("/api/auth/me", { token });
   check("me returns the profile", me.body?.email === email, me.body);
-  check("starting balance credited", near(num(me.body?.balance), 10000), me.body?.balance);
+  // A new account is empty now. It used to be opened with $10 000, which made
+  // every signup look funded and put "Вложено" on money nobody sent.
+  check("a new account starts empty", num(me.body?.balance) === 0, me.body?.balance);
+
+  // The real wallet is what backs a position, and this account has nothing in
+  // it yet -- which is the cheapest moment to prove an empty account can open
+  // nothing, whatever the UI would let someone click. Done here rather than
+  // with an account of its own because /register allows five calls per ten
+  // minutes and this suite already spends all five.
+  const brokeOrder = await api("/api/orders", {
+    token, method: "POST",
+    body: { symbol: "BTCUSDT", side: "BUY", type: "MARKET", qty: "0.001", leverage: 1 },
+  });
+  check("an empty account cannot open a position",
+    brokeOrder.status === 409 && brokeOrder.body?.error === "NO_REAL_FUNDS",
+    { status: brokeOrder.status, body: brokeOrder.body });
+
+  // Fund it the way a real client does: money enters through the SPOT wallet,
+  // then is walked across to futures. Everything below needs collateral, and
+  // this is now the only way to get any.
+  const fundSpot = await api("/api/account/deposit", { token, method: "POST", body: { amount: "10000" } });
+  check("self-deposit credits the spot wallet", fundSpot.status === 201, fundSpot.body);
+  const toFutures = await api("/api/spot/transfer", {
+    token, method: "POST", body: { direction: "TO_FUTURES", amount: "10000" },
+  });
+  check("transfer moves it to the futures wallet", toFutures.status === 200 || toFutures.status === 201, toFutures.body);
+  const funded = await api("/api/auth/me", { token });
+  check("futures balance reflects the transfer", near(num(funded.body?.balance), 10000), funded.body?.balance);
+
 
   /* ------------------------------- trading -------------------------------- */
   console.log("\ntrading — market order");
@@ -884,18 +912,87 @@ async function main() {
   const credit = await api(`/api/crm/leads/${cardLeadId}/account/balance`, {
     token: managerToken, method: "POST", body: { amount: "500", note: "smoke credit" },
   });
-  check("balance credited with MANAGE_BALANCE granted", credit.body?.balance === "10500.00", credit.body);
+  check("balance credited with MANAGE_BALANCE granted", credit.body?.balance === "500.00", credit.body);
+  check("the adjustment reports the balance it started from", credit.body?.balanceBefore === "0.00", credit.body);
   const cardDebit = await api(`/api/crm/leads/${cardLeadId}/account/balance`, {
     token: managerToken, method: "POST", body: { amount: "-200" },
   });
-  check("balance debited", cardDebit.body?.balance === "10300.00", debit.body);
+  check("balance debited", cardDebit.body?.balance === "300.00", cardDebit.body);
   const zeroAmount = await api(`/api/crm/leads/${cardLeadId}/account/balance`, {
     token: managerToken, method: "POST", body: { amount: "0" },
   });
   check("a zero-amount adjustment is refused", zeroAmount.status === 400, zeroAmount.body?.error);
 
+  /* ------------------------------- bonus ---------------------------------- */
+  // Bonus is not a balance correction with a flag on it: its own permission,
+  // a reason that cannot be left out, and money that never becomes the
+  // client's to withdraw.
+  const bonusNoPerm = await api(`/api/crm/leads/${cardLeadId}/account/bonus`, {
+    token: managerToken, method: "POST",
+    body: { direction: "GRANT", amount: "50", reason: "договорённость по телефону" },
+  });
+  check("a bonus needs BONUS_GRANT on top of MANAGE_BALANCE", bonusNoPerm.status === 403, bonusNoPerm.body?.error);
+
+  const grantBonusPerm = await api(`/api/admin/users/${managerId}/crm-permissions`, {
+    token: adminToken, method: "PATCH",
+    body: { permissions: ["MANAGE_BALANCE", "MANAGE_ACCOUNT", "MANAGE_TRADES", "IMPERSONATE", "BONUS_GRANT"] },
+  });
+  check("admin grants BONUS_GRANT", (grantBonusPerm.body?.crmPermissions ?? []).includes("BONUS_GRANT"),
+    grantBonusPerm.body);
+
+  const shortReason = await api(`/api/crm/leads/${cardLeadId}/account/bonus`, {
+    token: managerToken, method: "POST", body: { direction: "GRANT", amount: "50", reason: "ок" },
+  });
+  check("a bonus without a real reason is refused", shortReason.status === 400, shortReason.body?.error);
+
+  const bonusKey = `smoke-bonus-${Date.now()}`;
+  const granted = await api(`/api/crm/leads/${cardLeadId}/account/bonus`, {
+    token: managerToken, method: "POST",
+    body: { direction: "GRANT", amount: "50", reason: "компенсация за сбой, согласовано", idemKey: bonusKey },
+  });
+  check("bonus granted", granted.status === 201 && granted.body?.bonus === "50.00", granted.body);
+  check("the grant reports what the balance was before it", granted.body?.bonusBefore === "0.00", granted.body);
+
+  const grantedAgain = await api(`/api/crm/leads/${cardLeadId}/account/bonus`, {
+    token: managerToken, method: "POST",
+    body: { direction: "GRANT", amount: "50", reason: "компенсация за сбой, согласовано", idemKey: bonusKey },
+  });
+  check("a retried grant with the same key does not pay twice",
+    grantedAgain.body?.bonus === "50.00", grantedAgain.body);
+
+  const afterBonus = await api(`/api/crm/leads/${cardLeadId}/account`, { token: managerToken });
+  check("bonus shows on the account, apart from the real balance",
+    afterBonus.body?.summary?.bonus === "50.00" && afterBonus.body?.summary?.real === "300.00",
+    afterBonus.body?.summary);
+  check("bonus is not counted in equity",
+    afterBonus.body?.summary?.equity === "300.00", afterBonus.body?.summary);
+  check("bonus is not withdrawable",
+    afterBonus.body?.summary?.withdrawable === "300.00", afterBonus.body?.summary);
+
+  const overRevoke = await api(`/api/crm/leads/${cardLeadId}/account/bonus`, {
+    token: managerToken, method: "POST",
+    body: { direction: "REVOKE", amount: "80", reason: "отзыв сверх остатка, проверка" },
+  });
+  check("revoking more bonus than there is, is refused rather than clamped",
+    overRevoke.status === 400, overRevoke.body?.error);
+
+  const revoked = await api(`/api/crm/leads/${cardLeadId}/account/bonus`, {
+    token: managerToken, method: "POST",
+    body: { direction: "REVOKE", amount: "20", reason: "частичный отзыв, согласовано" },
+  });
+  check("bonus revoked", revoked.body?.bonus === "30.00", revoked.body);
+
+  const bonusLog = await api(`/api/crm/leads/${cardLeadId}/account/bonus`, { token: managerToken });
+  check("the bonus wallet has its own history",
+    (bonusLog.body?.entries ?? []).length === 2
+      && (bonusLog.body?.entries ?? []).every((e: any) => e.wallet === "bonus"),
+    bonusLog.body?.entries);
+  check("the history keeps the reason the bonus was given for",
+    (bonusLog.body?.entries ?? []).some((e: any) => String(e.note).includes("компенсация за сбой")),
+    bonusLog.body?.entries);
+
   const accountSnap = await api(`/api/crm/leads/${cardLeadId}/account`, { token: managerToken });
-  check("account snapshot reflects the adjustments", accountSnap.body?.summary?.cash === "10300.00", accountSnap.body?.summary);
+  check("account snapshot reflects the adjustments", accountSnap.body?.summary?.cash === "300.00", accountSnap.body?.summary);
   check("account snapshot carries positions/orders/trades/ledger arrays",
     Array.isArray(accountSnap.body?.positions) && Array.isArray(accountSnap.body?.openOrders) &&
     Array.isArray(accountSnap.body?.trades) && Array.isArray(accountSnap.body?.ledger), accountSnap.body);
@@ -924,7 +1021,7 @@ async function main() {
   check("view token issued with IMPERSONATE granted", typeof viewToken.body?.token === "string", viewToken.body);
   const snapshot = await api("/api/crm-view", { method: "POST", body: { token: viewToken.body.token } });
   check("view token opens a read-only account snapshot with no auth header",
-    snapshot.status === 200 && snapshot.body?.account?.summary?.cash === "10300.00", snapshot.body);
+    snapshot.status === 200 && snapshot.body?.account?.summary?.cash === "300.00", snapshot.body);
   const replay = await api("/api/crm-view", { method: "POST", body: { token: viewToken.body.token } });
   check("a view token cannot be reused", replay.status === 400, replay.body?.error);
   const viewTokenAsAccess = await api("/api/auth/me", { token: viewToken.body.token });

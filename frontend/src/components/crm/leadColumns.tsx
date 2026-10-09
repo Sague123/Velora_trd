@@ -8,14 +8,26 @@ import {
   KYC_STATUS_HINT, KYC_STATUS_LABEL, KYC_STATUS_TONE,
   VIP_HINT, VIP_LABEL, VIP_TONE,
 } from "./leadLabels";
-import { classNames, fmtDateTimeNumeric } from "../../lib/format";
+import { classNames, fmtDateTimeNumeric, fmtPct, fmtUsd } from "../../lib/format";
 import type { Lead } from "../../lib/types";
 import type { LeadSortColumn } from "../../hooks/useCrm";
+
+/** A dollar figure in the board's money columns, right-aligned so the digits
+ * line up down the column and a dash where there is no account at all. */
+function Money({ value, muted }: { value: string | undefined; muted?: boolean }) {
+  if (value === undefined) return <span className="block text-right text-txt-3">—</span>;
+  return (
+    <span className={classNames("tabular block text-right", muted ? "text-txt-3" : "text-txt-1")}>
+      {fmtUsd(value)}
+    </span>
+  );
+}
 
 export type LeadColumnId =
   | "accountNumber" | "fullName" | "status" | "kyc" | "activity" | "vip" | "blocked"
   | "nextAction" | "lastContact"
-  | "phone" | "email" | "manager" | "country" | "source" | "age" | "createdAt" | "tags";
+  | "phone" | "email" | "manager" | "country" | "source" | "age" | "createdAt" | "tags"
+  | "deposited" | "real" | "bonus" | "pnlPct";
 
 /** Which per-column search box, if any, belongs under this header. */
 export type ColumnFilterKey = "accountNumber" | "fullName" | "phone" | "email" | "country";
@@ -102,6 +114,40 @@ export const LEAD_COLUMNS: LeadColumn[] = [
       ? <StatusChip tone={VIP_TONE} hint={VIP_HINT}>{VIP_LABEL}</StatusChip>
       : <span className="text-txt-3">—</span>),
   },
+  /* The money columns. A lead with no platform account shows a dash rather
+     than $0.00: "has not funded" and "has nowhere to fund" are different
+     facts, and a column of zeros for every prospect would bury the clients
+     who really are sitting at nothing. */
+  {
+    id: "deposited", label: "Вложено", sort: "deposited", width: 110,
+    cell: (l) => <Money value={l.money?.deposited} />,
+  },
+  {
+    id: "real", label: "Реальный баланс", sort: "real", width: 140,
+    cell: (l) => <Money value={l.money?.real} />,
+  },
+  {
+    id: "bonus", label: "Бонус", sort: "bonus", width: 100,
+    // Zero bonus is the normal case, so it recedes; any bonus at all is worth
+    // seeing, because it is money the desk gave away.
+    cell: (l) => (l.money && Number(l.money.bonus) > 0
+      ? <span className="tabular block text-right text-cat-violet">{fmtUsd(l.money.bonus)}</span>
+      : <Money value={l.money ? "0" : undefined} muted />),
+  },
+  {
+    id: "pnlPct", label: "PnL %", sort: "pnlPct", width: 100,
+    cell: (l) => {
+      if (!l.money || l.money.pnlPct === null) return <span className="block text-right text-txt-3">—</span>;
+      // buy/sell are this platform's up/down tokens; a PnL figure is exactly
+      // the direction they mean.
+      return (
+        <span className={classNames("tabular block text-right font-medium",
+          l.money.pnlPct >= 0 ? "text-buy" : "text-sell")}>
+          {fmtPct(l.money.pnlPct)}
+        </span>
+      );
+    },
+  },
   {
     id: "manager", label: "Ответственный", sort: "manager", width: 140,
     cell: (l) => <span className="text-txt-2">{l.assignedManager?.name ?? "—"}</span>,
@@ -166,6 +212,12 @@ export const COLUMN_BY_ID = new Map(LEAD_COLUMNS.map((c) => [c.id, c]));
  * number and the verification status — back-office fields that answer a
  * question nobody on the phone is asking — and pushed the callback date off
  * the visible width entirely.
+ */
+/*
+ * The money columns are available but off by default, like the rest of the
+ * optional set: this list is the phone-call view, and a prospect who has
+ * never funded anything shows a dash in all four of them. A desk working
+ * deposited clients turns them on from the column manager.
  */
 export const DEFAULT_COLUMNS: LeadColumnId[] = [
   "fullName", "status", "nextAction", "phone", "email", "kyc", "activity", "vip", "manager", "age",

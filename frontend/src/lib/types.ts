@@ -559,6 +559,21 @@ export interface CrmManager {
   role?: Role;
 }
 
+export interface LeadMoney {
+  /** The client's own money in, minus out. Granted bonus and the old demo
+   * starting balance are deliberately not in it. */
+  deposited: string;
+  /** The withdrawable wallet. */
+  real: string;
+  /** Granted funds. Pays fees and nothing else; never withdrawable. */
+  bonus: string;
+  /** What the real money is currently worth, bonus excluded. */
+  equity: string;
+  pnl: string;
+  /** Null when nothing was deposited — a percentage of zero has no meaning. */
+  pnlPct: number | null;
+}
+
 export interface Lead {
   id: string;
   fullName: string;
@@ -574,6 +589,10 @@ export interface Lead {
   /** Created by the smoke suite rather than by the desk. Hidden from the
    * board unless the test filter asks for it. */
   isTest: boolean;
+  /** The money columns, computed server-side. Null for a lead with no
+   * platform account — zero would read as "funded nothing", which is a
+   * different fact from "has nowhere to fund". */
+  money: LeadMoney | null;
   assignedManager: CrmManager | null;
   /** Non-null once this lead registered on the platform. */
   platformUserId: string | null;

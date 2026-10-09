@@ -6,7 +6,7 @@ import {
   hashPassword, verifyPassword, issueTokens, rotateRefreshToken,
   revokeRefreshToken, revokeAllForUser, sha256, type UserRow,
 } from "../lib/auth.js";
-import { audit } from "../lib/ledger.js";
+import { audit, postLedger } from "../lib/ledger.js";
 import { toScaled, out } from "../lib/money.js";
 import { conflict, unauthorized, badRequest, forbidden } from "../lib/errors.js";
 import { encryptSecret, decryptSecret } from "../lib/crypto.js";
@@ -44,8 +44,6 @@ const q = {
   insUser: db.prepare(`INSERT INTO users (id, email, password_hash, name, role, status, account_number, created_at, updated_at)
                        VALUES (@id, @email, @hash, @name, @role, 'ACTIVE', @accountNumber, @ts, @ts)`),
   insAccount: db.prepare("INSERT INTO accounts (user_id, cash_scaled, updated_at) VALUES (?, ?, ?)"),
-  insLedger: db.prepare(`INSERT INTO ledger_entries (id, user_id, type, amount_scaled, balance_after_scaled, note, created_at)
-                         VALUES (@id, @userId, 'DEPOSIT', @amt, @amt, @note, @ts)`),
   account: db.prepare("SELECT cash_scaled FROM accounts WHERE user_id = ?"),
   touchLogin: db.prepare("UPDATE users SET last_login_at = ? WHERE id = ?"),
   setPassword: db.prepare("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?"),
@@ -132,7 +130,15 @@ export default async function authRoutes(app: FastifyInstance) {
     await tx(async () => {
       await q.insUser.run({ id, email, hash, name, role: "USER", accountNumber, ts });
       await q.insAccount.run(id, starting, ts);
-      await q.insLedger.run({ id: newId(), userId: id, amt: starting, note: "Стартовый баланс", ts });
+      // Only when a deployment deliberately opens accounts with something in
+      // them (config.startingBalance, "0" by default). The row goes through
+      // the journal like any other money so the balance stays the sum of it,
+      // and it is typed LEGACY_DEMO rather than DEPOSIT because nobody sent
+      // it: "Вложено" must not count it and it must not be withdrawable.
+      if (starting > 0n) {
+        await postLedger({ userId: id, type: "LEGACY_DEMO", amountScaled: starting,
+          note: "Стартовый баланс" });
+      }
       // Every customer belongs in the CRM from the moment they exist, not
       // only once a manager happens to import them — see lib/leadIntake.ts.
       await createLeadForUser({ userId: id, email, fullName: name, ts });
