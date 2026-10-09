@@ -688,6 +688,29 @@ async function main() {
   const missing = await api("/api/crm/leads/does-not-exist", { token: managerToken });
   check("an unknown lead is a 404", missing.status === 404, missing.status);
 
+  // Logging a call writes four things in one transaction — contact stamp,
+  // implied stage, next action, comment — so a single bad implied stage takes
+  // the whole call with it. That is exactly how INTERESTED broke: it implied a
+  // stage the funnel rebuild had removed, the check constraint rejected it, and
+  // the manager's call vanished. Every outcome gets walked here, on a lead of
+  // its own so the filters above keep their own fixtures.
+  const callLead = await api("/api/crm/leads/import", {
+    token: managerToken, method: "POST",
+    body: { fullName: "Call Outcomes", phone: `+7902${Date.now() % 10_000_000}` },
+  });
+  const callLeadId = callLead.body?.lead?.id as string;
+  for (const result of ["NO_ANSWER", "BUSY", "CALL_BACK", "INTERESTED", "NOT_INTERESTED"]) {
+    const logged = await api(`/api/crm/leads/${callLeadId}/calls`, {
+      token: managerToken, method: "POST", body: { result, note: `smoke ${result}` },
+    });
+    check(`a call with outcome ${result} is logged`, logged.status === 201, logged.body);
+    check(`outcome ${result} leaves the lead in a real funnel stage`,
+      (meta.body?.statuses ?? []).includes(logged.body?.lead?.status), logged.body?.lead?.status);
+  }
+  const callComments = await api(`/api/crm/leads/${callLeadId}/comments`, { token: managerToken });
+  check("every logged call left its note on the card", (callComments.body?.comments ?? []).length === 5,
+    callComments.body?.comments?.length);
+
   /* ------------------- CRM v2: edit, permissions, conversion ---------------- */
   console.log("\nCRM v2 — card editing, permissions, account actions, conversion");
 

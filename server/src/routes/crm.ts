@@ -717,9 +717,17 @@ export default async function crmRoutes(app: FastifyInstance) {
 
     // The outcome implies a stage for the obvious cases only; anything
     // ambiguous leaves the stage where the manager put it.
+    //
+    // "Interested" is one of the ambiguous ones. It used to imply QUALIFIED,
+    // a stage the funnel rebuild removed — so logging an interested call
+    // raised a check-constraint violation and rolled the whole transaction
+    // back: no call logged, no comment, no contact timestamp. There is no
+    // "interested" stage in the current funnel to put it in either, and the
+    // stages that follow interest (CALLBACK, DEPOSITED) are the manager's
+    // call, not a conclusion to draw from one answered phone.
     const implied: Record<string, string | null> = {
       NO_ANSWER: "NO_ANSWER", BUSY: null, CALL_BACK: "CALLBACK",
-      INTERESTED: "QUALIFIED", NOT_INTERESTED: "NOT_INTERESTED",
+      INTERESTED: null, NOT_INTERESTED: "NOT_INTERESTED",
     };
     const nextStatus = implied[body.result];
 
