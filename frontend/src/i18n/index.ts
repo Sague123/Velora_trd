@@ -62,8 +62,26 @@ i18next.use(initReactI18next).init({
   interpolation: { escapeValue: false },
 });
 
+/**
+ * Keeps <html lang> on the language actually being shown.
+ *
+ * index.html hardcodes lang="ru", which stopped being true the moment the
+ * picker got nine entries. It is not decoration: it is what a screen reader
+ * picks a voice from, what `:lang()` and hyphenation rules key off, and what
+ * a browser offers to translate against. The native date inputs in the CRM
+ * filter bar follow the *browser's* UI locale rather than this, so they are
+ * not what this fixes — but everything that does read the document's language
+ * was reading "Russian" for a German user.
+ */
+function syncDocumentLanguage(code: string): void {
+  if (typeof document !== "undefined") document.documentElement.lang = code;
+}
+
+syncDocumentLanguage(i18next.language);
+
 export function setLanguage(code: string) {
   i18next.changeLanguage(code);
+  syncDocumentLanguage(code);
   try {
     localStorage.setItem(STORAGE_KEY, code);
   } catch { /* localStorage unavailable */ }

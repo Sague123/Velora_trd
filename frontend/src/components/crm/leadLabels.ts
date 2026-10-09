@@ -69,20 +69,30 @@ export function pipelineStep(status: LeadStatus): number {
   return PIPELINE_STAGES.indexOf(status) + 1;
 }
 
+/**
+ * The chips a manager reads all day. In Russian, like every other word on
+ * this screen: these were the last English strings left in the CRM, and a
+ * board that says "Hang up" above a hint reading "Сбрасывает звонок" makes
+ * the desk translate its own funnel on every glance.
+ *
+ * Kept short enough for the column they live in — "Не интересно" rather than
+ * "Не заинтересован", which is the call *outcome* (CALL_RESULT_LABEL) and a
+ * different thing from the stage the lead ends up in.
+ */
 export const LEAD_STATUS_LABEL: Record<LeadStatus, string> = {
-  NEW: "New",
-  WELCOME_CALL: "Welcome call",
-  CALLBACK: "Call back",
-  DEPOSITED: "Deposited",
-  LOW_POTENTIAL: "Low potential",
-  NOT_INTERESTED: "Not interested",
-  WRONG_INFO: "Wrong info",
-  UNDER_18: "Under 18",
-  HANG_UP: "Hang up",
-  NO_ANSWER: "No answer",
-  DENY_REG: "Deny reg",
-  TRASH: "Trash",
-  LOST: "Lost",
+  NEW: "Новый",
+  WELCOME_CALL: "Первый звонок",
+  CALLBACK: "Перезвонить",
+  DEPOSITED: "Депозит",
+  LOW_POTENTIAL: "Слабый интерес",
+  NOT_INTERESTED: "Не интересно",
+  WRONG_INFO: "Неверные данные",
+  UNDER_18: "До 18 лет",
+  HANG_UP: "Сбрасывает",
+  NO_ANSWER: "Не отвечает",
+  DENY_REG: "Отказ от регистрации",
+  TRASH: "Мусор",
+  LOST: "Потерян",
 };
 
 export const LEAD_STATUS_TONE: Record<LeadStatus, Tone> = {
@@ -130,10 +140,10 @@ export const LEAD_STATUS_HINT: Record<LeadStatus, string> = {
  * KYC-verified and Churned at the same time, and a VIP can be any of them. */
 
 export const KYC_STATUS_LABEL: Record<LeadKycStatus, string> = {
-  NO_KYC: "No KYC",
-  WAITING: "Waiting KYC",
-  VERIFIED: "Verified",
-  REJECTED: "Rejected",
+  NO_KYC: "Нет KYC",
+  WAITING: "Ждёт проверки",
+  VERIFIED: "Подтверждён",
+  REJECTED: "Отклонён",
 };
 
 export const KYC_STATUS_TONE: Record<LeadKycStatus, Tone> = {
@@ -152,10 +162,10 @@ export const KYC_STATUS_HINT: Record<LeadKycStatus, string> = {
 };
 
 export const ACTIVITY_STATUS_LABEL: Record<LeadActivityStatus, string> = {
-  ACTIVE_TRADER: "Active trader",
-  LOW_TRADER: "Low trader",
-  INACTIVE: "Inactive",
-  CHURNED: "Churned",
+  ACTIVE_TRADER: "Активный",
+  LOW_TRADER: "Редкие сделки",
+  INACTIVE: "Неактивен",
+  CHURNED: "Ушёл",
 };
 
 export const ACTIVITY_STATUS_TONE: Record<LeadActivityStatus, Tone> = {
@@ -180,7 +190,7 @@ export const VIP_HINT = "Крупный клиент. Флаг независи�
 
 export const NEXT_ACTION_LABEL: Record<NextActionType, string> = {
   CALL: "Звонок",
-  FOLLOW_UP: "Follow-up",
+  FOLLOW_UP: "Напоминание",
   KYC: "KYC",
   OTHER: "Другое",
 };

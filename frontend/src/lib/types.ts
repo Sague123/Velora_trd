@@ -571,6 +571,9 @@ export interface Lead {
   activityStatus: LeadActivityStatus | null;
   /** Orthogonal flag — a VIP can carry any activity status. */
   isVip: boolean;
+  /** Created by the smoke suite rather than by the desk. Hidden from the
+   * board unless the test filter asks for it. */
+  isTest: boolean;
   assignedManager: CrmManager | null;
   /** Non-null once this lead registered on the platform. */
   platformUserId: string | null;

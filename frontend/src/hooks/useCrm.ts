@@ -44,6 +44,9 @@ export interface LeadFilters {
   account: "" | "NO_ACCOUNT" | "HAS_ACCOUNT" | "BLOCKED";
   /** Orthogonal to the activity scale, so it filters on its own axis. */
   vip: "" | "true" | "false";
+  /** Rows the smoke suite created. "" is the board's default and leaves them
+   * out entirely — of the list and of the counters above it. */
+  test: "" | "show" | "only";
   /** The follow-up queue: what is due today, what is already late, and what
    * has nothing scheduled at all. */
   nextAction: "" | "TODAY" | "OVERDUE" | "NONE";
@@ -91,6 +94,7 @@ export function useLeads(filters: LeadFilters, enabled = true) {
   if (filters.accountNumber.trim()) qs.set("accountNumber", filters.accountNumber.trim());
   if (filters.account) qs.set("account", filters.account);
   if (filters.vip) qs.set("vip", filters.vip);
+  if (filters.test) qs.set("test", filters.test);
   if (filters.nextAction) qs.set("nextAction", filters.nextAction);
 
   return useQuery({

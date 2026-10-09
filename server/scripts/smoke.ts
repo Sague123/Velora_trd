@@ -12,8 +12,32 @@ import { generate } from "otplib";
 
 const BASE = process.env.BASE ?? "http://localhost:4000";
 
+/**
+ * This suite writes: it registers accounts, imports leads, converts them,
+ * credits and debits balances. Everything it creates is marked as test data
+ * (see server/src/lib/testData.ts) so the CRM board does not count it as
+ * pipeline — but marked rows still sit in the table, and the money it moves
+ * is real rows in a real ledger. Against the production database that is not
+ * a test, it is a write.
+ *
+ * So pointing it anywhere but a local host has to be deliberate. The check is
+ * on the hostname rather than on NODE_ENV, because the thing that decides
+ * whether this is safe is which database is on the other end of BASE.
+ */
+const host = (() => { try { return new URL(BASE).hostname; } catch { return ""; } })();
+const isLocal = ["localhost", "127.0.0.1", "::1", "[::1]"].includes(host);
+if (!isLocal && process.env.ALLOW_REMOTE_SMOKE !== "1") {
+  console.error(
+    `Refusing to run against ${BASE}: this suite creates accounts, leads and ledger entries.\n` +
+    `If that is really what you want, re-run with ALLOW_REMOTE_SMOKE=1.`
+  );
+  process.exit(1);
+}
+
 let passed = 0;
 let failed = 0;
+
+const asCount = (v: unknown): number => (typeof v === "number" ? v : Number.NaN);
 
 function check(name: string, cond: boolean, detail?: unknown) {
   if (cond) {
@@ -577,7 +601,7 @@ async function main() {
     (meta.body?.activityStatuses ?? []).length === 4, meta.body?.activityStatuses);
 
   const noContact = await api("/api/crm/leads/import", {
-    token: managerToken, method: "POST", body: { fullName: "No Contact" },
+    token: managerToken, method: "POST", body: { fullName: "No Contact", isTest: true },
   });
   check("a lead with no phone and no email is refused", noContact.status === 400, noContact.body?.error);
 
@@ -585,7 +609,7 @@ async function main() {
   const leadEmail = `smoke-lead-${Date.now()}@velora.test`;
   const imported = await api("/api/crm/leads/import", {
     token: managerToken, method: "POST",
-    body: { fullName: "Ivan Petrov", phone, email: leadEmail, country: "RU", source: "smoke-affiliate" },
+    body: { fullName: "Ivan Petrov", phone, email: leadEmail, country: "RU", source: "smoke-affiliate", isTest: true },
   });
   check("lead imported", imported.status === 201, imported.body);
   check("a new lead starts at NEW, with no client fields set",
@@ -596,7 +620,7 @@ async function main() {
   const leadId = imported.body.lead.id as string;
 
   const duplicate = await api("/api/crm/leads/import", {
-    token: managerToken, method: "POST", body: { fullName: "Ivan P", phone },
+    token: managerToken, method: "POST", body: { fullName: "Ivan P", phone, isTest: true },
   });
   check("the same phone cannot create a second card", duplicate.status === 400, duplicate.body?.error);
 
@@ -604,7 +628,7 @@ async function main() {
   // exists (see lib/leadIntake.ts) — that account was registered at the very
   // top of this script, so by now the desk should already see it, already
   // linked to the real platform account, real balance and all.
-  const autoLead = await api(`/api/crm/leads?search=${encodeURIComponent(email)}`, { token: managerToken });
+  const autoLead = await api(`/api/crm/leads?test=show&search=${encodeURIComponent(email)}`, { token: managerToken });
   const autoLeadRow = autoLead.body?.leads?.[0];
   check("self-registration files its own CRM lead", autoLeadRow?.platformUserId != null, autoLeadRow);
   const autoLeadDetail = autoLeadRow ? await api(`/api/crm/leads/${autoLeadRow.id}`, { token: managerToken }) : null;
@@ -671,22 +695,49 @@ async function main() {
     transitions.includes("ACTIVITY:null>LOW_TRADER") && transitions.includes("VIP:—>VIP"), transitions);
   check("the lead's creation is the first transition", transitions.includes("STATUS:null>NEW"), transitions);
 
-  const byStatus = await api("/api/crm/leads?status=CALLBACK", { token: managerToken });
+  const byStatus = await api("/api/crm/leads?test=show&status=CALLBACK", { token: managerToken });
   check("filter by status", (byStatus.body?.leads ?? []).some((l: any) => l.id === leadId), byStatus.body?.total);
-  const byManager = await api(`/api/crm/leads?managerId=${managerId}`, { token: managerToken });
+  const byManager = await api(`/api/crm/leads?test=show&managerId=${managerId}`, { token: managerToken });
   check("filter by assigned manager", (byManager.body?.leads ?? []).some((l: any) => l.id === leadId), byManager.body?.total);
-  const byPhone = await api(`/api/crm/leads?search=${encodeURIComponent(phone.slice(-6))}`, { token: managerToken });
+  const byPhone = await api(`/api/crm/leads?test=show&search=${encodeURIComponent(phone.slice(-6))}`, { token: managerToken });
   check("search by phone fragment", (byPhone.body?.leads ?? []).some((l: any) => l.id === leadId), byPhone.body?.total);
-  const byName = await api("/api/crm/leads?search=IVAN%20PETROV", { token: managerToken });
+  const byName = await api("/api/crm/leads?test=show&search=IVAN%20PETROV", { token: managerToken });
   check("search by name is case-insensitive", (byName.body?.leads ?? []).some((l: any) => l.id === leadId), byName.body?.total);
   const noMatch = await api("/api/crm/leads?search=zzz-nothing-matches-zzz", { token: managerToken });
   check("a search with no matches returns an empty page", noMatch.body?.total === 0, noMatch.body?.total);
 
-  const paged = await api("/api/crm/leads?page=1&pageSize=1", { token: managerToken });
+  const paged = await api("/api/crm/leads?test=show&page=1&pageSize=1", { token: managerToken });
   check("pagination caps the page", (paged.body?.leads ?? []).length === 1 && paged.body?.total >= 2, paged.body?.total);
 
   const missing = await api("/api/crm/leads/does-not-exist", { token: managerToken });
   check("an unknown lead is a 404", missing.status === 404, missing.status);
+
+  // The whole point of the flag: everything above was created by this suite,
+  // so none of it may appear on the board a manager opens, and none of it may
+  // be counted in the figure above the table.
+  const board = await api("/api/crm/leads?pageSize=100", { token: managerToken });
+  const boardIds = new Set((board.body?.leads ?? []).map((l: any) => l.id));
+  check("the board hides this suite's leads", !boardIds.has(leadId), [...boardIds].length);
+  check("the board hides the account this suite registered",
+    !(board.body?.leads ?? []).some((l: any) => l.email === email), email);
+  const shown = await api("/api/crm/leads?test=show&pageSize=100", { token: managerToken });
+  check("they are still reachable through the test filter",
+    (shown.body?.leads ?? []).some((l: any) => l.id === leadId), shown.body?.total);
+  check("the board's total excludes them", board.body?.total < shown.body?.total,
+    { board: board.body?.total, shown: shown.body?.total });
+  const onlyTest = await api("/api/crm/leads?test=only&pageSize=100", { token: managerToken });
+  check("the test filter on its own returns test rows and nothing else",
+    (onlyTest.body?.leads ?? []).length > 0 && (onlyTest.body?.leads ?? []).every((l: any) => l.isTest === true),
+    onlyTest.body?.total);
+  check("a test lead says so on its face",
+    (onlyTest.body?.leads ?? []).find((l: any) => l.id === leadId)?.isTest === true, leadId);
+
+  const summaryNow = await api("/api/crm/leads/summary", { token: managerToken });
+  const unassignedShown = (shown.body?.leads ?? []).filter((l: any) => !l.assignedManager).length;
+  check("the summary counters exclude test rows",
+    asCount(summaryNow.body?.unassigned) < unassignedShown
+      || unassignedShown === 0,
+    { counter: summaryNow.body?.unassigned, shown: unassignedShown });
 
   // Logging a call writes four things in one transaction — contact stamp,
   // implied stage, next action, comment — so a single bad implied stage takes
@@ -696,7 +747,7 @@ async function main() {
   // its own so the filters above keep their own fixtures.
   const callLead = await api("/api/crm/leads/import", {
     token: managerToken, method: "POST",
-    body: { fullName: "Call Outcomes", phone: `+7902${Date.now() % 10_000_000}` },
+    body: { fullName: "Call Outcomes", phone: `+7902${Date.now() % 10_000_000}`, isTest: true },
   });
   const callLeadId = callLead.body?.lead?.id as string;
   for (const result of ["NO_ANSWER", "BUSY", "CALL_BACK", "INTERESTED", "NOT_INTERESTED"]) {
@@ -722,7 +773,7 @@ async function main() {
   const cardEmail = `smoke-card-${Date.now()}@velora.test`;
   const cardPhone = `+7901${Date.now() % 10_000_000}`;
   const cardLead = await api("/api/crm/leads/import", {
-    token: managerToken, method: "POST", body: { fullName: "Edit Me", phone: cardPhone },
+    token: managerToken, method: "POST", body: { fullName: "Edit Me", phone: cardPhone, isTest: true },
   });
   const cardLeadId = cardLead.body.lead.id as string;
 

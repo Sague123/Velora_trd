@@ -25,6 +25,7 @@ import { Page } from "../components/layout/Page";
 import { classNames } from "../lib/format";
 import { toast } from "../store/toast";
 import { ApiError } from "../lib/api";
+import { Select } from "../components/common/Select";
 import { MultiSelect } from "../components/crm/MultiSelect";
 import type { CrmMeta, KycStatus, Lead, LeadStatus } from "../lib/types";
 import { IconChevron, IconClipboard, IconClose, IconSliders } from "../components/icons/Icon";
@@ -53,7 +54,7 @@ const DEFAULT_FILTERS: LeadFilters = {
   status: [], managerId: [], kycStatus: [], activityStatus: [], source: [],
   search: "", converted: "", createdFrom: "", createdTo: "",
   fullName: "", phone: "", email: "", country: "", accountNumber: "",
-  account: "", vip: "", nextAction: "", tag: [],
+  account: "", vip: "", nextAction: "", tag: [], test: "",
   sortBy: "createdAt", sortDir: "desc", page: 1, pageSize: 25,
 };
 
@@ -365,27 +366,29 @@ export function CrmPage() {
             options={(meta.data?.statuses ?? []).map((s) => ({ value: s, label: LEAD_STATUS_LABEL[s] ?? s }))}
           />
 
-          <select
+          <Select
+            className="w-[150px]"
+            active={!!filters.account}
             value={filters.account}
             onChange={(e) => patch({ account: e.target.value as LeadFilters["account"] })}
-            className={fieldCls("md", "w-[150px]")}
           >
             <option value="">Аккаунт: все</option>
             {(Object.keys(ACCOUNT_FILTER_LABEL) as (keyof typeof ACCOUNT_FILTER_LABEL)[]).map((k) => (
               <option key={k} value={k}>{ACCOUNT_FILTER_LABEL[k]}</option>
             ))}
-          </select>
+          </Select>
 
-          <select
+          <Select
+            className="w-[150px]"
+            active={!!filters.nextAction}
             value={filters.nextAction}
             onChange={(e) => patch({ nextAction: e.target.value as LeadFilters["nextAction"] })}
-            className={fieldCls("md", "w-[150px]")}
           >
             <option value="">Шаг: все</option>
             {(Object.keys(NEXT_ACTION_FILTER_LABEL) as (keyof typeof NEXT_ACTION_FILTER_LABEL)[]).map((k) => (
               <option key={k} value={k}>{NEXT_ACTION_FILTER_LABEL[k]}</option>
             ))}
-          </select>
+          </Select>
 
           <MultiSelect
             label="Ответственный"
@@ -460,15 +463,28 @@ export function CrmPage() {
 
             <label className="min-w-[130px]">
               <span className="mb-1 block text-2xs font-medium text-txt-2">Клиент</span>
-              <select
+              <Select
+                active={!!filters.converted}
                 value={filters.converted}
                 onChange={(e) => patch({ converted: e.target.value as LeadFilters["converted"] })}
-                className={inputCls}
               >
                 <option value="">Все</option>
                 <option value="true">Уже клиент</option>
                 <option value="false">Ещё лид</option>
-              </select>
+              </Select>
+            </label>
+
+            <label className="min-w-[130px]">
+              <span className="mb-1 block text-2xs font-medium text-txt-2">Тестовые</span>
+              <Select
+                active={!!filters.test}
+                value={filters.test}
+                onChange={(e) => patch({ test: e.target.value as LeadFilters["test"] })}
+              >
+                <option value="">Скрыты</option>
+                <option value="show">Показать</option>
+                <option value="only">Только тестовые</option>
+              </Select>
             </label>
 
             <label className="min-w-[130px]">
@@ -624,12 +640,19 @@ export function CrmPage() {
   );
 }
 
+/**
+ * Placeholders show the *shape* of the search, never a country's. The desk
+ * works Czech, Polish and Slovak numbers far more than Russian ones, and
+ * "+7900…" in the phone box read as an instruction about which prefix to
+ * type. These say "a fragment is enough" instead, which is what the filter
+ * actually does (a contains-match, see buildLeadsQuery).
+ */
 const COLUMN_FILTER_PLACEHOLDER: Record<NonNullable<LeadColumn["filter"]>, string> = {
-  accountNumber: "напр. 42081930",
-  fullName: "Иванов",
-  phone: "+7900…",
-  email: "name@mail",
-  country: "RU, KZ…",
+  accountNumber: "номер счёта",
+  fullName: "фамилия или имя",
+  phone: "часть номера",
+  email: "часть адреса",
+  country: "код страны",
 };
 
 /**
@@ -772,6 +795,7 @@ function FilterChips({
   addOne("Аккаунт", filters.account, filters.account ? ACCOUNT_FILTER_LABEL[filters.account] : "", { account: "" });
   addOne("Шаг", filters.nextAction, filters.nextAction ? NEXT_ACTION_FILTER_LABEL[filters.nextAction] : "", { nextAction: "" });
   addOne("Клиент", filters.converted, filters.converted === "true" ? "уже клиент" : "ещё лид", { converted: "" });
+  addOne("Тестовые", filters.test, filters.test === "only" ? "только они" : "показаны", { test: "" });
   addOne("Создан с", filters.createdFrom, filters.createdFrom, { createdFrom: "" });
   addOne("Создан по", filters.createdTo, filters.createdTo, { createdTo: "" });
 

@@ -3,12 +3,13 @@ import {
   useAssignLead, useCrmMeta, useEditLead, useLead, useSetLeadActivity, useSetLeadConsent, useSetLeadStatus, useSetLeadVip,
 } from "../../hooks/useCrm";
 import { useAuthStore } from "../../store/auth";
-import { classNames, fmtDateTime, fmtUsd } from "../../lib/format";
+import { classNames, fmtDateTimeNumeric, fmtUsd } from "../../lib/format";
 import { toast } from "../../store/toast";
 import { ApiError } from "../../lib/api";
 import { LoadingRow } from "../common/States";
 import { StatusChip } from "./StatusChip";
 import { CommentsPanel } from "./CommentsPanel";
+import { Select } from "../common/Select";
 import { AccountPanel } from "./AccountPanel";
 import { KycPanel } from "./KycPanel";
 import { AuditPanel } from "./AuditPanel";
@@ -30,8 +31,7 @@ import type { LeadActivityStatus, LeadDetail, LeadStatus } from "../../lib/types
 import { IconClose, IconMail, IconPencil, IconPhone } from "../icons/Icon";
 import { buttonCls, fieldCls } from "../../lib/ui";
 
-const selectCls = fieldCls("md", "w-full");
-const inputCls = selectCls;
+const inputCls = fieldCls("md", "w-full");
 
 type Tab = "main" | "account" | "kyc";
 
@@ -96,7 +96,7 @@ function ConsentRow({ lead }: { lead: LeadDetail }) {
               "Сначала назначьте ответственного — согласие даётся на конкретного менеджера"
             ) : consent?.valid ? (
               <>
-                Отмечено {fmtDateTime(consent.at)}
+                Отмечено {fmtDateTimeNumeric(consent.at)}
                 {consent.byName ? <> · записал {consent.byName}</> : null} · для {assignedName}
               </>
             ) : consent ? (
@@ -339,7 +339,12 @@ export function LeadCard({ leadId, onClose }: { leadId: string; onClose: () => v
         )}
 
         <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-          <div className="flex min-h-0 flex-1 flex-col lg:border-r lg:border-line">
+          {/* min-w-0: without it this column's min-width is its content's
+              min-content width -- the account tab's five-column journal table
+              -- so the table pushed the whole row wider than the card and the
+              comments panel beside it was clipped off the right edge ("Добави…"
+              instead of "Добавить"). flex-1 alone does not shrink below that. */}
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:border-r lg:border-line">
             <div className="flex shrink-0 gap-0.5 border-b border-line px-3 pt-2">
               {(
                 [
@@ -424,7 +429,7 @@ export function LeadCard({ leadId, onClose }: { leadId: string; onClose: () => v
                       <Field label="Email" value={lead.email} />
                       <Field label="Страна" value={lead.country} />
                       <Field label="Источник" value={lead.source} />
-                      <Field label="Создан" value={fmtDateTime(lead.createdAt)} />
+                      <Field label="Создан" value={fmtDateTimeNumeric(lead.createdAt)} />
                     </div>
                   )}
 
@@ -442,7 +447,7 @@ export function LeadCard({ leadId, onClose }: { leadId: string; onClose: () => v
                     <div>
                       <div className="text-2xs text-txt-2">Последний контакт</div>
                       <div className="tabular text-xs text-txt-0">
-                        {lead.lastContactAt ? fmtDateTime(lead.lastContactAt) : "не было"}
+                        {lead.lastContactAt ? fmtDateTimeNumeric(lead.lastContactAt) : "не было"}
                       </div>
                     </div>
                     <div className="min-w-0">
@@ -457,16 +462,15 @@ export function LeadCard({ leadId, onClose }: { leadId: string; onClose: () => v
                   <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <label className="block">
                       <span className="mb-1 block text-2xs font-medium text-txt-2">Этап воронки</span>
-                      <select
+                      <Select
                         value={lead.status}
                         disabled={setStatus.isPending}
                         onChange={(e) => changeStatus(e.target.value as LeadStatus)}
-                        className={selectCls}
                       >
                         {(meta.data?.statuses ?? [lead.status]).map((s) => (
                           <option key={s} value={s}>{LEAD_STATUS_LABEL[s] ?? s}</option>
                         ))}
-                      </select>
+                      </Select>
                     </label>
 
                     {/* Client-only. KYC is not editable here at all: it is
@@ -475,17 +479,16 @@ export function LeadCard({ leadId, onClose }: { leadId: string; onClose: () => v
                         problem this rebuild removed. */}
                     <label className="block">
                       <span className="mb-1 block text-2xs font-medium text-txt-2">Активность</span>
-                      <select
+                      <Select
                         value={lead.activityStatus ?? ""}
                         disabled={setActivity.isPending}
                         onChange={(e) => changeActivity(e.target.value === "" ? null : e.target.value as LeadActivityStatus)}
-                        className={selectCls}
                       >
                         <option value="">— не задана</option>
                         {(meta.data?.activityStatuses ?? []).map((s) => (
                           <option key={s} value={s}>{ACTIVITY_STATUS_LABEL[s] ?? s}</option>
                         ))}
-                      </select>
+                      </Select>
                     </label>
 
                     <label className="flex items-center gap-2 pt-5">
@@ -495,17 +498,16 @@ export function LeadCard({ leadId, onClose }: { leadId: string; onClose: () => v
 
                     <label className="block">
                       <span className="mb-1 block text-2xs font-medium text-txt-2">Ответственный</span>
-                      <select
+                      <Select
                         value={lead.assignedManager?.id ?? ""}
                         disabled={assign.isPending}
                         onChange={(e) => changeManager(e.target.value)}
-                        className={selectCls}
                       >
                         <option value="">Не назначен</option>
                         {(meta.data?.managers ?? []).map((m) => (
                           <option key={m.id} value={m.id}>{m.name}</option>
                         ))}
-                      </select>
+                      </Select>
                     </label>
                   </div>
 
@@ -564,7 +566,7 @@ export function LeadCard({ leadId, onClose }: { leadId: string; onClose: () => v
                               )}
                             </div>
                             <div className="mt-0.5 text-3xs text-txt-3">
-                              <span className="tabular">{fmtDateTime(h.createdAt)}</span>
+                              <span className="tabular">{fmtDateTimeNumeric(h.createdAt)}</span>
                               {h.manager && <> · {h.manager.name}</>}
                             </div>
                           </div>
@@ -592,8 +594,8 @@ export function LeadCard({ leadId, onClose }: { leadId: string; onClose: () => v
                       <Field label="Баланс" value={fmtUsd(lead.platform.balance)} />
                       <Field label="KYC" value={lead.platform.kycStatus} />
                       <Field label="Статус" value={lead.platform.status} />
-                      <Field label="Регистрация" value={lead.platform.registeredAt ? fmtDateTime(lead.platform.registeredAt) : null} />
-                      <Field label="Последний вход" value={lead.platform.lastLoginAt ? fmtDateTime(lead.platform.lastLoginAt) : null} />
+                      <Field label="Регистрация" value={lead.platform.registeredAt ? fmtDateTimeNumeric(lead.platform.registeredAt) : null} />
+                      <Field label="Последний вход" value={lead.platform.lastLoginAt ? fmtDateTimeNumeric(lead.platform.lastLoginAt) : null} />
                     </div>
 
                     {myPermissions.includes("IMPERSONATE") && (

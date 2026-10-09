@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useChartBars } from "../../hooks/useMarket";
-import { classNames, fmtDateTime, fmtPrice } from "../../lib/format";
+import { classNames, fmtDateTimeNumeric, fmtPrice } from "../../lib/format";
 import { IconClose } from "../icons/Icon";
 import type { Category } from "../../lib/types";
 
@@ -152,7 +152,7 @@ export function ChartPointPicker({
         {hover ? (
           <>
             <span className="text-2xs text-txt-2">
-              Время: <strong className="tabular text-txt-0">{fmtDateTime(new Date(hover.time * 1000).toISOString())}</strong>
+              Время: <strong className="tabular text-txt-0">{fmtDateTimeNumeric(new Date(hover.time * 1000).toISOString())}</strong>
             </span>
             <span className="text-2xs text-txt-2">
               Цена: <strong className="tabular text-txt-0">{fmtPrice(hover.price, priceDecimals)}</strong>

@@ -87,6 +87,10 @@ export const sLead = (l: any) => ({
    * deposited — the field has no meaning before that. */
   activityStatus: l.activity_status ?? null,
   isVip: l.is_vip ?? false,
+  /** Created by the smoke suite, not the desk (lib/testData.ts). Carried to
+   * the client so a row that only appears under the "test" filter says so on
+   * its face, rather than looking like pipeline that went missing. */
+  isTest: l.is_test ?? false,
   assignedManager: l.assigned_manager_id
     ? { id: l.assigned_manager_id, name: l.manager_name, email: l.manager_email }
     : null,

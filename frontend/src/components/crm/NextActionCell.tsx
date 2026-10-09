@@ -2,11 +2,13 @@ import { Popover } from "../common/Popover";
 import { FollowUpPanel } from "./FollowUpPanel";
 import { NEXT_ACTION_LABEL } from "./leadLabels";
 import { useSetNextAction } from "../../hooks/useCrm";
-import { classNames } from "../../lib/format";
+import { classNames, fmtDateNumeric, fmtDateTimeNumeric } from "../../lib/format";
 import { toast } from "../../store/toast";
 import { ApiError } from "../../lib/api";
 import { IconCalendar } from "../icons/Icon";
 import type { NextActionType } from "../../lib/types";
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
 
 /** Relative where relative is what the manager needs ("через 2 ч", "вчера"),
  * absolute once it is far enough away that a weekday means more than a count
@@ -26,7 +28,9 @@ function whenLabel(at: Date): { text: string; state: "overdue" | "today" | "soon
   if (sameDay) return { text: `сегодня ${at.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}`, state: "today" };
   if (ms < 48 * 3600_000) return { text: `завтра ${at.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}`, state: "soon" };
   return {
-    text: at.toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }),
+    // Numeric, like every other date in the CRM — and with the year, since
+    // a follow-up list spans into next year the moment someone schedules one.
+    text: `${fmtDateNumeric(at.toISOString())} ${pad2(at.getHours())}:${pad2(at.getMinutes())}`,
     state: "later",
   };
 }
@@ -77,7 +81,7 @@ export function NextActionCell({
             onClick={toggle}
             aria-expanded={open}
             disabled={setNextAction.isPending}
-            title={shown ? `${date!.toLocaleString("ru-RU")} · ${NEXT_ACTION_LABEL[type ?? "CALL"]}` : "Поставить напоминание"}
+            title={shown ? `${fmtDateTimeNumeric(at)} · ${NEXT_ACTION_LABEL[type ?? "CALL"]}` : "Поставить напоминание"}
             className={classNames(
               "btn-fx flex items-center gap-1 rounded px-1 py-0.5 hover:bg-bg-3 disabled:opacity-50",
               shown ? STATE_CLASS[shown.state] : "text-txt-3"

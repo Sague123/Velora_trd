@@ -93,6 +93,39 @@ export function fmtDateTime(iso: string | null | undefined): string {
   });
 }
 
+/**
+ * A date the desk reads, in the numeric order the desk writes: dd.MM.yyyy.
+ *
+ * Distinct from fmtDateTime above, which renders "09 Oct, 11:43:32" — an
+ * English abbreviated month with no year at all. That is fine beside a price
+ * ticker, where everything on screen is minutes old; it is not fine in a CRM,
+ * where "когда создан лид" spans years and the month name is the one word on
+ * a Russian screen that isn't Russian.
+ *
+ * Built from parts rather than toLocaleString("ru-RU") because that locale
+ * renders "09.10.2026, 11:43:32" in some engines and "09.10.2026 г., 11:43"
+ * in others; a column that changes width by browser is not a format.
+ */
+function parts(iso: string | null | undefined): Date | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
+export function fmtDateNumeric(iso: string | null | undefined): string {
+  const d = parts(iso);
+  if (!d) return "—";
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
+}
+
+export function fmtDateTimeNumeric(iso: string | null | undefined): string {
+  const d = parts(iso);
+  if (!d) return "—";
+  return `${fmtDateNumeric(iso)}, ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
 export function classNames(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(" ");
 }

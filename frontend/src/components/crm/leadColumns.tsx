@@ -8,7 +8,7 @@ import {
   KYC_STATUS_HINT, KYC_STATUS_LABEL, KYC_STATUS_TONE,
   VIP_HINT, VIP_LABEL, VIP_TONE,
 } from "./leadLabels";
-import { classNames, fmtDateTime } from "../../lib/format";
+import { classNames, fmtDateTimeNumeric } from "../../lib/format";
 import type { Lead } from "../../lib/types";
 import type { LeadSortColumn } from "../../hooks/useCrm";
 
@@ -49,7 +49,17 @@ export const LEAD_COLUMNS: LeadColumn[] = [
     // column, so colouring the name the same hue said the same thing twice
     // and left a list of names in six different colours to scan through.
     id: "fullName", label: "ФИО", sort: "fullName", filter: "fullName", width: 200,
-    cell: (l) => <span className="font-medium text-txt-0">{l.fullName}</span>,
+    // The badge only ever appears while the test filter is on, since nothing
+    // else puts these rows on the board — but when it does, it has to be
+    // unmistakable: a test lead sitting among real ones is worse than hidden.
+    cell: (l) => (
+      <span className="flex min-w-0 items-center gap-1.5">
+        <span className="truncate font-medium text-txt-0">{l.fullName}</span>
+        {l.isTest && (
+          <span className="shrink-0 rounded border border-line px-1 text-3xs uppercase text-txt-3">тест</span>
+        )}
+      </span>
+    ),
   },
   {
     id: "status", label: "Этап", sort: "status", width: 190,
@@ -106,7 +116,7 @@ export const LEAD_COLUMNS: LeadColumn[] = [
   {
     id: "lastContact", label: "Последний контакт", sort: "lastContactAt", width: 150,
     cell: (l) => (
-      <span className="tabular text-txt-3">{l.lastContactAt ? fmtDateTime(l.lastContactAt) : "не было"}</span>
+      <span className="tabular text-txt-3">{l.lastContactAt ? fmtDateTimeNumeric(l.lastContactAt) : "не было"}</span>
     ),
   },
   {
@@ -144,7 +154,7 @@ export const LEAD_COLUMNS: LeadColumn[] = [
   },
   {
     id: "createdAt", label: "Создан", sort: "createdAt", width: 150,
-    cell: (l) => <span className="tabular text-txt-3">{fmtDateTime(l.createdAt)}</span>,
+    cell: (l) => <span className="tabular text-txt-3">{fmtDateTimeNumeric(l.createdAt)}</span>,
   },
 ];
 

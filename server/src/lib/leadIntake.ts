@@ -1,4 +1,5 @@
 import { db, newId, now } from "../db.js";
+import { looksLikeTestContact } from "./testData.js";
 
 /**
  * Every USER-role account gets a CRM lead row the moment it exists — whether
@@ -19,9 +20,9 @@ import { db, newId, now } from "../db.js";
 const insLead = db.prepare(`
   INSERT INTO leads (id, full_name, phone, email, country, source, status,
                      assigned_manager_id, platform_user_id,
-                     created_at, updated_at)
+                     created_at, updated_at, is_test)
   VALUES (@id, @fullName, NULL, @email, NULL, @source, 'NEW',
-          NULL, @platformUserId, @ts, @ts)
+          NULL, @platformUserId, @ts, @ts, @isTest)
 `);
 
 export async function createLeadForUser(input: {
@@ -34,5 +35,8 @@ export async function createLeadForUser(input: {
     platformUserId: input.userId,
     source: input.source ?? "Самостоятельная регистрация",
     ts: input.ts ?? now(),
+    // Nobody is here to pass a flag on self-registration, so the address
+    // decides — see looksLikeTestContact().
+    isTest: looksLikeTestContact(input.email),
   });
 }

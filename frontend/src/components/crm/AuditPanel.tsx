@@ -1,5 +1,5 @@
 import { useAdminAudit } from "../../hooks/useAdmin";
-import { fmtDateTime } from "../../lib/format";
+import { fmtDateTimeNumeric } from "../../lib/format";
 import { SkeletonBar } from "../common/States";
 
 /**
@@ -35,7 +35,7 @@ export function AuditPanel({ userId }: { userId: string }) {
     <div className="space-y-1 rounded-lg border border-line-soft bg-bg-2/30 p-2">
       {data.entries.map((e) => (
         <div key={e.id} className="flex flex-wrap items-center gap-1.5 text-2xs text-txt-2">
-          <span className="tabular text-txt-3">{fmtDateTime(e.createdAt)}</span>
+          <span className="tabular text-txt-3">{fmtDateTimeNumeric(e.createdAt)}</span>
           <span className="text-txt-0">{e.action}</span>
           {e.actor && <span className="text-txt-3">· {e.actor}</span>}
         </div>

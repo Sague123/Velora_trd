@@ -2,6 +2,7 @@ import pg from "pg";
 import crypto from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { config } from "./config.js";
+import { TEST_CONTACT_SQL, looksLikeTestContact } from "./lib/testData.js";
 
 /**
  * Postgres via `pg`, behind a thin adapter that keeps the exact call-site
@@ -358,6 +359,9 @@ CREATE TABLE IF NOT EXISTS leads (
   -- Orthogonal to everything else on purpose: a VIP can sit on any activity
   -- status, so it is a flag and not another value in that scale.
   is_vip              BOOLEAN NOT NULL DEFAULT FALSE,
+  -- Created by the smoke suite rather than by the desk (lib/testData.ts).
+  -- Excluded from the board and its counters unless asked for.
+  is_test             BOOLEAN NOT NULL DEFAULT FALSE,
   assigned_manager_id TEXT REFERENCES users(id) ON DELETE SET NULL,
   platform_user_id    TEXT REFERENCES users(id) ON DELETE SET NULL,
   -- Free-form labels the desk puts on a lead ("VIP", "испанский", "не звонить
@@ -563,14 +567,18 @@ CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_audit_target ON audit_logs(target_user_id);
 `;
 
-async function addColumnIfMissing(table: string, column: string, ddl: string): Promise<void> {
+/** Adds the column if it isn't there yet. Returns whether it actually added
+ * it, so a caller can run a one-time backfill *only* on the boot that
+ * introduced the column — a backfill left unguarded re-runs on every start
+ * and silently undoes anything a user changed by hand since. */
+async function addColumnIfMissing(table: string, column: string, ddl: string): Promise<boolean> {
   const res = await pool.query(
     "SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2",
     [table, column]
   );
-  if (res.rowCount === 0) {
-    await pool.query(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
-  }
+  if (res.rowCount !== 0) return false;
+  await pool.query(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+  return true;
 }
 
 function generateAccountNumber(): string {
@@ -663,6 +671,25 @@ export async function migrate(): Promise<void> {
 
   await addColumnIfMissing("leads", "activity_status", "activity_status TEXT");
   await addColumnIfMissing("leads", "is_vip", "is_vip BOOLEAN NOT NULL DEFAULT FALSE");
+  // Rows the smoke suite created working through the real API (see
+  // lib/testData.ts). Hidden from the board by default so they stop being
+  // counted as pipeline; a filter brings them back.
+  const isTestColumnIsNew = await addColumnIfMissing("leads", "is_test", "is_test BOOLEAN NOT NULL DEFAULT FALSE");
+  // Backfill for the rows that predate the column, on that boot only. Scoped
+  // to the same unroutable domains the predicate uses — never to a name or a
+  // source, which a real client could plausibly carry.
+  //
+  // Guarded on "the column was just added" rather than on "is_test = FALSE",
+  // which reads like the same thing and is not: unguarded, this re-ran on
+  // every start and marked a row a manager had deliberately unmarked right
+  // back as test, which is exactly the one-way-at-creation promise
+  // lib/testData.ts makes.
+  if (isTestColumnIsNew) {
+    await pool.query(`UPDATE leads SET is_test = TRUE WHERE ${TEST_CONTACT_SQL}`);
+  }
+  // Every list query now carries "and not a test row", so the index the
+  // board reads has to agree with it.
+  await pool.query("CREATE INDEX IF NOT EXISTS idx_leads_real ON leads(created_at DESC) WHERE is_test = FALSE");
 
   // --- user settings ---------------------------------------------------------
   // Self-reported contact/profile detail, like date_of_birth above: shown back
@@ -756,10 +783,10 @@ async function backfillLeadsForUsers(): Promise<void> {
     await pool.query(`
       INSERT INTO leads (id, full_name, phone, email, country, source, status,
                          assigned_manager_id, platform_user_id,
-                         created_at, updated_at)
+                         created_at, updated_at, is_test)
       VALUES ($1, $2, NULL, $3, NULL, 'Регистрация до внедрения CRM', 'NEW',
-              NULL, $4, $5, $5)
-    `, [newId(), u.name, u.email, u.id, u.created_at]);
+              NULL, $4, $5, $5, $6)
+    `, [newId(), u.name, u.email, u.id, u.created_at, looksLikeTestContact(u.email)]);
   }
 }
 

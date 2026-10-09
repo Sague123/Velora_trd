@@ -7,6 +7,7 @@ import { badRequest, notFound, conflict, forbidden } from "../lib/errors.js";
 import { toScaled, out } from "../lib/money.js";
 import { hashPassword, revokeAllForUser } from "../lib/auth.js";
 import { closePositionById, cancelOrder } from "../engine/execution.js";
+import { looksLikeTestContact } from "../lib/testData.js";
 import { requireCrmPermission, getCrmPermissions, CRM_PERMISSIONS } from "../lib/crmPermissions.js";
 import { issueViewToken } from "../lib/crmViewTokens.js";
 import { accountSnapshot } from "../lib/accountSummary.js";
@@ -116,9 +117,9 @@ const q = {
   insert: db.prepare(`
     INSERT INTO leads (id, full_name, phone, email, country, source, status,
                        assigned_manager_id, platform_user_id,
-                       created_at, updated_at)
+                       created_at, updated_at, is_test)
     VALUES (@id, @fullName, @phone, @email, @country, @source, @status,
-            @managerId, @platformUserId, @ts, @ts)
+            @managerId, @platformUserId, @ts, @ts, @isTest)
   `),
   // Conditional on the current value, so two managers clicking different
   // statuses at the same moment cannot both write a history row claiming they
@@ -304,6 +305,10 @@ interface LeadsQueryInput {
   /** Orthogonal flag, so it filters on its own rather than as a value inside
    * the activity scale. */
   vip?: "true" | "false";
+  /** Rows the smoke suite left behind (lib/testData.ts). "hide" is the
+   * default and what the board shows; the other two exist so the suite's own
+   * data can still be found when something needs checking. */
+  test?: "hide" | "show" | "only";
   /** The Velora account behind the lead, which is a different axis from the
    * sales stage: a lead can be NOT_INTERESTED and still have a funded,
    * active account. Derived from the account relation, never a second column. */
@@ -348,6 +353,12 @@ function csv<T extends z.ZodTypeAny>(item: T) {
 function buildLeadsQuery(p: LeadsQueryInput): { sql: { list: string; count: string }; args: Record<string, unknown> } {
   const clauses: string[] = [];
   const args: Record<string, unknown> = {};
+
+  // The board is the desk's real pipeline, so test rows are out of it unless
+  // asked for — including out of COUNT(*), which is where they did the most
+  // damage: "Всего: 11" counting four of the suite's own leads.
+  if (p.test === "only") clauses.push("l.is_test = TRUE");
+  else if (p.test !== "show") clauses.push("l.is_test = FALSE");
 
   /**
    * One multi-valued filter: `col IN (@key0, @key1, …)`, with every value
@@ -553,6 +564,7 @@ export default async function crmRoutes(app: FastifyInstance) {
       accountNumber: z.string().max(20).optional(),
       account: z.enum(["NO_ACCOUNT", "HAS_ACCOUNT", "BLOCKED"]).optional(),
       vip: z.enum(["true", "false"]).optional(),
+      test: z.enum(["hide", "show", "only"]).optional(),
       nextAction: z.enum(["TODAY", "OVERDUE", "NONE"]).optional(),
       tag: csv(z.string().min(1).max(40)),
       sortBy: z.enum([
@@ -867,6 +879,9 @@ export default async function crmRoutes(app: FastifyInstance) {
         -- the filtered list disagree for any suspended client.
         COUNT(*) FILTER (WHERE l.platform_user_id IS NOT NULL)                      AS active_accounts
       FROM leads l LEFT JOIN users u ON u.id = l.platform_user_id
+      -- Same baseline as the list below it: a counter that includes rows the
+      -- table does not show is a counter nobody can reconcile.
+      WHERE l.is_test = FALSE
     `).get({
       todayFrom: `${today}T00:00:00.000Z`,
       todayTo: `${today}T23:59:59.999Z`,
@@ -1295,6 +1310,9 @@ export default async function crmRoutes(app: FastifyInstance) {
       source: z.string().trim().max(120).optional(),
       status: leadStatus.default("NEW"),
       assignedManagerId: z.string().optional(),
+      /** Set by the smoke suite for the leads it creates by hand — the ones
+       * with a phone and no address for looksLikeTestContact() to judge. */
+      isTest: z.boolean().default(false),
     }).refine((b) => !!b.phone || !!b.email, {
       message: "Нужен телефон или email — иначе с лидом нельзя работать",
     }).parse(req.body);
@@ -1320,6 +1338,7 @@ export default async function crmRoutes(app: FastifyInstance) {
         status: body.status,
         managerId: body.assignedManagerId ?? null,
         platformUserId: existingUser?.id ?? null, ts,
+        isTest: body.isTest || looksLikeTestContact(email),
       });
       // A lead's first status is a transition too — from nothing. Without this
       // row the timeline starts blank for every lead that was never touched.

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAdminKycDetail, useReviewKyc } from "../../hooks/useAdmin";
 import { useKycDocuments } from "../../hooks/useKycDocuments";
-import { classNames, fmtDateTime } from "../../lib/format";
+import { classNames, fmtDateTimeNumeric } from "../../lib/format";
 import { SkeletonBar } from "../common/States";
 import { toast } from "../../store/toast";
 import { ApiError } from "../../lib/api";
@@ -87,7 +87,7 @@ export function KycPanel({ platform, isAdmin }: { platform: LeadPlatformInfo | n
         </div>
         <div>
           <span className="text-txt-2">Подана</span>
-          <div className="tabular text-txt-0">{platform.kycSubmittedAt ? fmtDateTime(platform.kycSubmittedAt) : "—"}</div>
+          <div className="tabular text-txt-0">{platform.kycSubmittedAt ? fmtDateTimeNumeric(platform.kycSubmittedAt) : "—"}</div>
         </div>
         <div>
           <span className="text-txt-2">Статус</span>
@@ -95,7 +95,7 @@ export function KycPanel({ platform, isAdmin }: { platform: LeadPlatformInfo | n
         </div>
         <div>
           <span className="text-txt-2">Решение</span>
-          <div className="tabular text-txt-0">{platform.kycReviewedAt ? fmtDateTime(platform.kycReviewedAt) : "—"}</div>
+          <div className="tabular text-txt-0">{platform.kycReviewedAt ? fmtDateTimeNumeric(platform.kycReviewedAt) : "—"}</div>
         </div>
         {platform.kycRejectionReason && (
           <div className="col-span-2 sm:col-span-4">
@@ -200,7 +200,7 @@ export function KycPanel({ platform, isAdmin }: { platform: LeadPlatformInfo | n
                 </div>
               ) : (
                 <div className="rounded-lg border border-line-soft bg-bg-2/40 px-3 py-2 text-2xs text-txt-2">
-                  Решение уже принято{s.reviewedAt ? ` ${fmtDateTime(s.reviewedAt)}` : ""}
+                  Решение уже принято{s.reviewedAt ? ` ${fmtDateTimeNumeric(s.reviewedAt)}` : ""}
                   {s.rejectionReason ? ` — ${s.rejectionReason}` : ""}.
                 </div>
               )}

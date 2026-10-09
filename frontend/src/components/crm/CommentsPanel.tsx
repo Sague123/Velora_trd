@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { useAddLeadComment, useLeadComments } from "../../hooks/useCrm";
-import { fmtDateTime } from "../../lib/format";
+import { fmtDateTimeNumeric } from "../../lib/format";
 import { toast } from "../../store/toast";
 import { ApiError } from "../../lib/api";
 import { SkeletonLines } from "../common/States";
@@ -80,7 +80,7 @@ export function CommentsPanel({ leadId, leadName }: { leadId: string; leadName: 
             <div key={c.id} className="rounded-lg border border-line-soft bg-bg-2/30 px-3 py-2">
               <div className="mb-1 flex items-baseline gap-2">
                 <span className="text-2xs font-medium text-txt-1">{c.manager.name}</span>
-                <span className="tabular text-2xs text-txt-3">{fmtDateTime(c.createdAt)}</span>
+                <span className="tabular text-2xs text-txt-3">{fmtDateTimeNumeric(c.createdAt)}</span>
               </div>
               <div className="whitespace-pre-wrap text-xs text-txt-1">{c.text}</div>
             </div>

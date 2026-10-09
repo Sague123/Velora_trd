@@ -2,7 +2,7 @@ import { FormEvent, useState } from "react";
 import {
   useAdjustLeadBalance, useCancelLeadOrder, useCloseLeadPosition, useLeadAccount, useSetLeadAccountStatus,
 } from "../../hooks/useCrm";
-import { classNames, fmtDateTime, fmtSigned, fmtUsd, n } from "../../lib/format";
+import { classNames, fmtDateTimeNumeric, fmtSigned, fmtUsd, n } from "../../lib/format";
 import { toast } from "../../store/toast";
 import { ApiError } from "../../lib/api";
 import { SkeletonLines } from "../common/States";
@@ -251,7 +251,7 @@ export function AccountPanel({
                 <tr key={t.id} className="border-b border-line-soft/60 tabular">
                   <td className="px-2 py-1 text-txt-0">{t.symbol}</td>
                   <td className={classNames("px-2 py-1 text-right font-medium", Number(t.pnl) >= 0 ? "text-buy" : "text-sell")}>{fmtSigned(t.pnl)}</td>
-                  <td className="px-2 py-1 text-right text-txt-3">{fmtDateTime(t.closedAt)}</td>
+                  <td className="px-2 py-1 text-right text-txt-3">{fmtDateTimeNumeric(t.closedAt)}</td>
                   {canTrades && (
                     <td className="px-2 py-1 text-right">
                       <button onClick={() => setEditing({ kind: "trade", trade: t })} className={buttonCls("secondary", "sm")}>
