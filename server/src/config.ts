@@ -1,5 +1,29 @@
 import "dotenv/config";
 
+/**
+ * Which half of the platform this process serves.
+ *
+ * `public` is the one exposed to the internet: trading, auth, KYC upload and
+ * the one-time support link — plus the engines. `internal` is the sales
+ * desk's CRM and the admin panel, reachable only over the tunnel; it must
+ * never run the engines, because a second matching tick means orders filled
+ * twice and positions liquidated twice (see server.ts).
+ *
+ * `all` is one process serving both. That is what local development and the
+ * smoke suite run, and what an unsplit deployment keeps doing — so adding
+ * the split cannot silently take CRM away from anyone who has not set the
+ * variable yet.
+ */
+export type VeloraRole = "all" | "public" | "internal";
+
+function readRole(): VeloraRole {
+  const raw = process.env.VELORA_ROLE ?? "all";
+  if (raw === "all" || raw === "public" || raw === "internal") return raw;
+  throw new Error(`VELORA_ROLE must be one of all|public|internal — got "${raw}"`);
+}
+
+const role = readRole();
+
 function secret(name: string, devFallback: string): string {
   const v = process.env[name] ?? devFallback;
   if (process.env.NODE_ENV === "production" && (v === devFallback || v.startsWith("change-me"))) {
@@ -9,6 +33,14 @@ function secret(name: string, devFallback: string): string {
 }
 
 export const config = {
+  role,
+  /** Trading, auth, KYC upload, the support link, the price socket. */
+  servesPublic: role !== "internal",
+  /** CRM and the admin panel. */
+  servesInternal: role !== "public",
+  /** Matching, strategies, savings, price feed. Exactly one process may. */
+  runsEngines: role !== "internal",
+
   // Postgres connection string, e.g. postgres://user:pass@host:5432/dbname.
   // No local-file fallback — a real database is required. For local dev,
   // point this at any Postgres instance (local, Docker, or a free Neon/

@@ -77,6 +77,39 @@ BASE="https://velora-api-xxxx.onrender.com" npm run smoke
 
 from `server/`, or just open the frontend URL and try logging in.
 
+## Process roles (`VELORA_ROLE`)
+
+The API can run as one process or as two, chosen by `VELORA_ROLE`:
+
+| Role | Serves | Runs the engines |
+|---|---|---|
+| `all` *(default)* | everything | yes |
+| `public` | auth, settings, trading, spot, strategies, savings, KYC upload, the one-time support link, the price socket | yes |
+| `internal` | auth, settings, the CRM, the admin panel, and the market data their chart picker reads | **no** |
+
+`all` is what local development, the smoke suite and an unsplit deployment
+run, so adding the split takes the CRM away from nobody who has not opted in.
+
+The point of `public` is that it does not *carry* the CRM or the admin panel:
+a valid manager token asking `/api/crm/meta` there gets 404, not 403, because
+the route is not in its table. That holds whatever a proxy in front of it is
+configured to do. Run `VELORA_ROLE=public npm run routes` to see what a role
+serves, straight from the built app.
+
+> **Exactly one engine-running process per database.** Matching, strategies
+> and savings all write money against shared rows: a second process ticking
+> them fills resting orders twice and liquidates positions twice, and the
+> ledger cannot tell the copies apart afterwards. `internal` starts none of
+> them, but two processes both set to `public` (or `all`) would still
+> double-tick — the role is a guard against a deployment mistake, not a
+> distributed lock. `test/role.test.ts` pins this.
+
+Both processes talk to the same database. That is deliberate: the CRM adjusts
+balances, closes positions and converts leads into users *inside the same
+transactions* as the trading engine, so splitting the data would mean a
+distributed transaction on a money ledger. What gets split is network reach,
+not state.
+
 ## Known limitations to know about
 
 - **Free web services sleep after 15 minutes idle** and take up to ~30-60s to wake on the next request — the first request after a quiet period will feel slow. This does *not* lose data (that's the database's job now, not the app server's), just a cold start.

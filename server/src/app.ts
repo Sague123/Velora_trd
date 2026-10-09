@@ -132,49 +132,75 @@ export async function buildApp() {
   app.get("/api/health", async () => {
     await db.prepare("SELECT 1").get();
     return {
-      status: "ok", env: config.env, feed: feedStatus(),
+      status: "ok", env: config.env, role: config.role, feed: feedStatus(),
       monitoring: monitoringEnabled(), time: new Date().toISOString(),
     };
   });
 
+  // Which routes exist at all is decided here, not by a proxy rule in front
+  // of the process. A public process does not carry the CRM or the admin
+  // panel in its route table, so no misconfigured nginx, forwarded port or
+  // stolen manager token can reach client money operations from the
+  // internet — they are not there to reach.
+  app.log.info({ role: config.role, engines: config.runsEngines }, "process role");
+
+  // Both sides: a manager signs in to the CRM the same way a trader signs in
+  // to the platform, and both apps read the same per-user preferences.
   await app.register(authRoutes, { prefix: "/api/auth" });
   await app.register(settingsRoutes, { prefix: "/api/settings" });
+  // Also both: the CRM's chart point picker and trade editor read
+  // /api/instruments and its candles, which live in tradingRoutes. This adds
+  // no exposure the public side doesn't already have — it is the same
+  // authenticated-user surface, and the internal process is not reachable
+  // from the internet anyway.
   await app.register(tradingRoutes, { prefix: "/api" });
-  await app.register(strategyRoutes, { prefix: "/api/strategies" });
-  await app.register(kycRoutes, { prefix: "/api/kyc" });
-  await app.register(savingsRoutes, { prefix: "/api/savings" });
-  await app.register(spotRoutes, { prefix: "/api/spot" });
-  await app.register(crmRoutes, { prefix: "/api/crm" });
-  // Public: consuming a one-time support link needs no manager session — see
-  // routes/crmView.ts for why this sits outside the /api/crm plugin.
-  await app.register(crmViewRoutes, { prefix: "/api/crm-view" });
-  await app.register(adminRoutes, { prefix: "/api/admin" });
 
-  // One server-side price feed fans out to every connected client.
-  app.register(async (scope) => {
-    scope.get("/ws/prices", { websocket: true }, (socket) => {
-      const send = () => {
-        if (socket.readyState !== socket.OPEN) return;
-        allPrices()
-          .then((rows) => {
-            if (socket.readyState !== socket.OPEN) return;
-            const payload = rows.map((s: any) => ({
-              symbol: s.symbol,
-              price: out(asBig(s.price_scaled), 8),
-              change24h: s.change_24h ?? 0,
-              high24h: out(asBigOrNull(s.high_24h), 8),
-              low24h: out(asBigOrNull(s.low_24h), 8),
-              source: s.source,
-            }));
-            socket.send(JSON.stringify({ type: "prices", data: payload }));
-          })
-          .catch((e) => app.log.error({ err: e }, "price broadcast failed"));
-      };
-      send();
-      const unsubscribe = onPriceUpdate(send);
-      socket.on("close", () => unsubscribe());
+  if (config.servesPublic) {
+    await app.register(strategyRoutes, { prefix: "/api/strategies" });
+    await app.register(kycRoutes, { prefix: "/api/kyc" });
+    await app.register(savingsRoutes, { prefix: "/api/savings" });
+    await app.register(spotRoutes, { prefix: "/api/spot" });
+    // Public on purpose: consuming a one-time support link needs no manager
+    // session — see routes/crmView.ts. The link is *minted* in crm.ts, which
+    // is internal-only, so only the desk can create one.
+    await app.register(crmViewRoutes, { prefix: "/api/crm-view" });
+  }
+
+  if (config.servesInternal) {
+    await app.register(crmRoutes, { prefix: "/api/crm" });
+    await app.register(adminRoutes, { prefix: "/api/admin" });
+  }
+
+  // One server-side price feed fans out to every connected client. Public
+  // only: the fan-out is driven by the feed's own in-process events, so an
+  // internal process — which runs no feed — would hold sockets open and
+  // never push an update. The CRM reads prices over REST instead.
+  if (config.servesPublic) {
+    app.register(async (scope) => {
+      scope.get("/ws/prices", { websocket: true }, (socket) => {
+        const send = () => {
+          if (socket.readyState !== socket.OPEN) return;
+          allPrices()
+            .then((rows) => {
+              if (socket.readyState !== socket.OPEN) return;
+              const payload = rows.map((s: any) => ({
+                symbol: s.symbol,
+                price: out(asBig(s.price_scaled), 8),
+                change24h: s.change_24h ?? 0,
+                high24h: out(asBigOrNull(s.high_24h), 8),
+                low24h: out(asBigOrNull(s.low_24h), 8),
+                source: s.source,
+              }));
+              socket.send(JSON.stringify({ type: "prices", data: payload }));
+            })
+            .catch((e) => app.log.error({ err: e }, "price broadcast failed"));
+        };
+        send();
+        const unsubscribe = onPriceUpdate(send);
+        socket.on("close", () => unsubscribe());
+      });
     });
-  });
+  }
 
   return app;
 }

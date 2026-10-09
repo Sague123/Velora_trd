@@ -40,17 +40,30 @@ const app = await buildApp().catch((err: NodeJS.ErrnoException & { code?: string
   captureError(err, { scope: "startup" });
   return flushMonitoring().finally(() => process.exit(1)) as never;
 });
-const stopFeed = startPriceFeed();
-const stopEngine = startEngine();
-const stopStrategies = startStrategyEngine();
-const stopSavings = startSavingsEngine();
+/**
+ * The engines, and only where they belong.
+ *
+ * Matching, strategies and savings all write money: a second process ticking
+ * the matching engine against the same rows fills resting orders twice and
+ * liquidates positions twice, and the ledger has no way to tell the copies
+ * apart afterwards. `internal` therefore starts none of them — it is the CRM
+ * and admin process, and it reads the same database the public one keeps
+ * moving.
+ *
+ * This is a guard against a deployment mistake, not a distributed lock: two
+ * processes both set to `public` or `all` would still double-tick. One
+ * engine-running process per database — see DEPLOY.md.
+ */
+const stopEngines: Array<() => void> = [];
+if (config.runsEngines) {
+  stopEngines.push(startPriceFeed(), startEngine(), startStrategyEngine(), startSavingsEngine());
+} else {
+  app.log.info({ role: config.role }, "engines not started — this process does not run them");
+}
 
 function shutdown(signal: string) {
   app.log.info(`${signal} received, shutting down`);
-  stopSavings();
-  stopStrategies();
-  stopEngine();
-  stopFeed();
+  for (const stop of stopEngines.reverse()) stop();
   app.close()
     .then(() => flushMonitoring())   // a report still buffered at exit never happened
     .then(() => closeDb())
