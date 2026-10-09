@@ -1,3 +1,4 @@
+import type { HTTPMethods } from "fastify";
 import { buildApp } from "../src/app.js";
 import { config } from "../src/config.js";
 import { closeDb } from "../src/db.js";
@@ -20,7 +21,7 @@ import { closeDb } from "../src/db.js";
  * Output is prefixed because Fastify's logger shares stdout. Nothing
  * listens: the app is built, asked, and dropped.
  */
-const SENTINELS: Record<string, { method: string; url: string }> = {
+const SENTINELS: Record<string, { method: HTTPMethods; url: string }> = {
   login: { method: "POST", url: "/api/auth/login" },
   settings: { method: "GET", url: "/api/settings/" },
   instruments: { method: "GET", url: "/api/instruments" },

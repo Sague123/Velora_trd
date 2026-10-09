@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAdminKycDetail, useReviewKyc } from "../../hooks/useAdmin";
+import { useKycDocuments } from "../../hooks/useKycDocuments";
 import { classNames, fmtDateTime } from "../../lib/format";
 import { SkeletonBar } from "../common/States";
 import { toast } from "../../store/toast";
@@ -75,6 +76,7 @@ export function KycPanel({ platform, isAdmin }: { platform: LeadPlatformInfo | n
 
   const s = isAdmin ? detail.data?.submission : undefined;
   const docs = isAdmin ? detail.data?.documents : undefined;
+  const docUrls = useKycDocuments(isAdmin ? platform.kycSubmissionId : null, docs);
 
   return (
     <div>
@@ -124,22 +126,27 @@ export function KycPanel({ platform, isAdmin }: { platform: LeadPlatformInfo | n
           {s && (
             <>
               <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                {([["Лицевая сторона", docs?.front], ["Обратная сторона", docs?.back], ["Селфи", docs?.selfie]] as const).map(([label, url]) => (
-                  <div key={label} className="rounded-lg border border-line bg-bg-2 p-1.5">
-                    <div className="mb-1 text-2xs text-txt-2">{label}</div>
-                    {url ? (
-                      <a href={url} target="_blank" rel="noreferrer">
-                        <img src={url} alt={label} className="max-h-44 w-full rounded object-contain" />
-                      </a>
-                    ) : (
-                      <div className="flex h-24 items-center justify-center rounded bg-bg-3 text-2xs text-txt-3">—</div>
-                    )}
-                  </div>
-                ))}
+                {([["Лицевая сторона", "front"], ["Обратная сторона", "back"], ["Селфи", "selfie"]] as const).map(([label, slot]) => {
+                  const url = docUrls[slot];
+                  return (
+                    <div key={label} className="rounded-lg border border-line bg-bg-2 p-1.5">
+                      <div className="mb-1 text-2xs text-txt-2">{label}</div>
+                      {url ? (
+                        <a href={url} target="_blank" rel="noreferrer">
+                          <img src={url} alt={label} className="max-h-44 w-full rounded object-contain" />
+                        </a>
+                      ) : (
+                        <div className="flex h-24 items-center justify-center rounded bg-bg-3 text-2xs text-txt-3">
+                          {docs?.[slot] ? <SkeletonBar height={60} /> : "—"}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
               <p className="mb-3 text-2xs text-txt-3">
-                Ссылки на документы подписаны и действуют {docs?.expiresInSec ?? 0} секунд. Каждый просмотр
-                записывается в аудит.
+                Документы загружаются по вашей сессии и не имеют собственной ссылки — вкладка закроется,
+                и они станут недоступны. Каждый просмотр записывается в аудит.
               </p>
 
               {s.status === "PENDING" ? (

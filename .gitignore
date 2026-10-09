@@ -12,3 +12,6 @@ dist/
 *.db-wal
 local-dev.log
 server-test*.log
+
+# Local KYC document storage (see server/.env.example). Never commit documents.
+.kyc-storage/

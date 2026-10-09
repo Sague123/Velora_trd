@@ -117,4 +117,35 @@ export const apiPost = <T>(path: string, body?: unknown) => api<T>(path, { metho
 export const apiPatch = <T>(path: string, body?: unknown) => api<T>(path, { method: "PATCH", body });
 export const apiDelete = <T>(path: string) => api<T>(path, { method: "DELETE" });
 
+/**
+ * Fetches a binary response as a Blob, carrying the same session the JSON
+ * calls do — including one refresh-and-retry on a 401.
+ *
+ * This exists because identity documents have no URL: an `<img src>` sends
+ * no Authorization header, so the bytes have to come through an authenticated
+ * request and be handed to the element as an object URL. The caller owns that
+ * URL and must revoke it (see components/crm/KycPanel.tsx).
+ */
+export async function apiBlob(path: string, allowRetry = true): Promise<Blob> {
+  const headers: Record<string, string> = {};
+  if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, { method: "GET", headers, credentials: "include" });
+  } catch {
+    throw new ApiError(0, "NETWORK_ERROR", "Нет соединения с сервером Velora");
+  }
+
+  if (res.status === 401 && allowRetry) {
+    const newToken = await refreshAccessToken();
+    if (newToken) return apiBlob(path, false);
+    unauthorizedHandler?.();
+  }
+  if (!res.ok) {
+    throw new ApiError(res.status, "ERROR", res.statusText);
+  }
+  return res.blob();
+}
+
 export { refreshAccessToken };

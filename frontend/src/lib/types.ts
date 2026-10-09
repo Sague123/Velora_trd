@@ -128,8 +128,10 @@ export interface AdminKycListResponse {
 
 export interface AdminKycDetail {
   submission: AdminKycRow & { address: string; documentNumber: string };
-  /** Signed links, valid for `expiresInSec`. Never stored, never reused. */
-  documents: { front: string | null; back: string | null; selfie: string | null; expiresInSec: number };
+  /** Which slots the submission has. The bytes come from
+   * /api/admin/kyc/:id/file/:slot, which needs the admin's session — a
+   * document has no address that works outside it. */
+  documents: { front: boolean; back: boolean; selfie: boolean };
 }
 
 export interface TotpSetup {

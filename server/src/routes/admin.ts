@@ -8,7 +8,7 @@ import { postLedger, audit } from "../lib/ledger.js";
 import { closePositionById, cancelOrder, markPrice } from "../engine/execution.js";
 import { revokeAllForUser, hashPassword } from "../lib/auth.js";
 import { badRequest, notFound, forbidden, conflict } from "../lib/errors.js";
-import { signedUrlFor, storageConfigured } from "../lib/storage.js";
+import { readPrivateImage, storageConfigured } from "../lib/storage.js";
 import { CRM_PERMISSIONS, type CrmPermission } from "../lib/crmPermissions.js";
 import { sOrder, sPosition, sTrade, sLedger } from "./serialize.js";
 
@@ -335,7 +335,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     };
   });
 
-  /** One submission, with freshly signed links valid for a few minutes. */
+  /** One submission. Documents are fetched separately — see /kyc/:id/file/:slot. */
   app.get("/kyc/:id", async (req) => {
     const { id } = z.object({ id: z.string() }).parse(req.params);
     const k = (await q.kycOne.get(id)) as any;
@@ -346,11 +346,6 @@ export default async function adminRoutes(app: FastifyInstance) {
     await audit({ actorId: req.user.sub, targetUserId: k.user_id, action: "KYC_DOCUMENTS_VIEWED",
       meta: { submissionId: id }, ip: req.ip });
 
-    const [front, back, selfie] = await Promise.all([
-      signedUrlFor(k.document_front_url),
-      signedUrlFor(k.document_back_url),
-      signedUrlFor(k.selfie_url),
-    ]);
 
     return {
       submission: {
@@ -360,9 +355,46 @@ export default async function adminRoutes(app: FastifyInstance) {
         status: k.status, rejectionReason: k.rejection_reason ?? null,
         reviewedAt: k.reviewed_at ?? null, createdAt: k.created_at,
       },
-      // Short-lived and single-purpose; they expire on their own within minutes.
-      documents: { front, back, selfie, expiresInSec: config.kycSignedUrlTtlSec },
+      // Which slots this submission actually has. The bytes come from
+      // /kyc/:id/file/:slot, so a document never has an address that works
+      // outside this authenticated session.
+      documents: {
+        front: !!k.document_front_url,
+        back: !!k.document_back_url,
+        selfie: !!k.selfie_url,
+      },
     };
+  });
+
+  /**
+   * The bytes of one document.
+   *
+   * Streamed through this authenticated route rather than handed out as a
+   * signed link: a link, however short-lived, is a credential that works
+   * once it leaves the reviewer's browser. This only answers a request that
+   * already carries an admin session, and never caches.
+   */
+  app.get("/kyc/:id/file/:slot", async (req, reply) => {
+    const { id, slot } = z.object({
+      id: z.string(),
+      slot: z.enum(["front", "back", "selfie"]),
+    }).parse(req.params);
+
+    const k = (await q.kycOne.get(id)) as any;
+    if (!k) throw notFound("Заявка не найдена");
+
+    const column = { front: "document_front_url", back: "document_back_url", selfie: "selfie_url" }[slot];
+    const file = await readPrivateImage(k[column]);
+    if (!file) throw notFound("Документ не найден");
+
+    return reply
+      .header("content-type", file.contentType)
+      .header("cache-control", "no-store")
+      // Rendered in an <img>, never run: a stored file must not be able to
+      // execute anything if one ever gets past the upload's type check.
+      .header("content-security-policy", "default-src 'none'; sandbox")
+      .header("x-content-type-options", "nosniff")
+      .send(file.bytes);
   });
 
   app.post("/kyc/:id/review", async (req) => {

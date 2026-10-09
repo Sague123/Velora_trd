@@ -43,10 +43,11 @@ services:
       # Optional. Empty = error reporting off, everything else works.
       - key: SENTRY_DSN
         sync: false
-      # Optional. Empty = KYC document upload is disabled and reports why.
-      - key: SUPABASE_URL
-        sync: false
-      - key: SUPABASE_SERVICE_ROLE_KEY
+      # Where identity documents are written (lib/storage.ts). On Render's
+      # ephemeral disk these do not survive a redeploy — fine for a trial,
+      # not for real submissions. Point it at a mounted disk, or run the
+      # platform on a server you control. See DEPLOY.md.
+      - key: KYC_DIR
         sync: false
       # Optional. Empty = verification/reset emails are logged, not sent.
       - key: RESEND_API_KEY
